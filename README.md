@@ -78,7 +78,7 @@ See [the extraction verification record](docs/verification.md) for the checks ac
 
 The GitHub Actions configuration runs these checks on Emacs 31.1. A checked-in workflow is not evidence of a completed hosted run. The checks include Checkdoc documentation checks. Compilation errors, ERT failures, package metadata issues and installation errors fail the checks. Run the checks on the exact revision you intend to publish; local success does not substitute for a hosted CI run or MELPA review.
 
-The candidate recipe is [`recipes/org-workflow`](recipes/org-workflow). It assumes the future repository is `Kidding0204/org-workflow`; update it if the published repository differs. Before submitting, test it against the actual published repository using MELPA's package-build tooling. Local tar construction does not verify the MELPA fetcher or release tagging.
+The candidate recipe is [`recipes/org-workflow`](recipes/org-workflow). It targets the public `Kidding0204/org-workflow` repository. Before submitting, test it against the actual published repository using MELPA's package-build tooling. Local tar construction does not verify the MELPA fetcher or release tagging.
 
 ## License and maintenance
 

@@ -90,7 +90,17 @@
              (error "Compilation failed: %s" source))))))
     ("test"
      (org-workflow-build--initialize)
-     (load (expand-file-name "test/run-tests.el") nil nil t))
+     ;; User Lisp bytecode may have been compiled against the user's newer Org.
+     ;; Test source copies against this process's declared dependency profile.
+     (let* ((stage (make-temp-file "org-workflow-test-source-" t))
+            (tests (expand-file-name "test" stage)))
+       (make-directory tests)
+       (dolist (source (org-workflow-build--sources))
+         (copy-file source (expand-file-name (file-name-nondirectory source) stage)))
+       (dolist (source (directory-files (expand-file-name "test" org-workflow-build-root) t "\\.el\\'"))
+         (copy-file source (expand-file-name (file-name-nondirectory source) tests)))
+       (add-hook 'kill-emacs-hook (lambda () (delete-directory stage t)))
+       (load (expand-file-name "run-tests.el" tests) nil nil t)))
     ("lint"
      (org-workflow-build--initialize)
      (require 'package-lint)

@@ -136,7 +136,7 @@
           (journal-modified (with-current-buffer buffer (buffer-modified-p))))
       (should (equal org-workflow-web-export-file
                      (org-workflow-web-export-history
-                      (encode-time 0 5 22 26 8 2026))))
+                      (encode-time 0 5 22 26 8 2026 "Asia/Shanghai"))))
       (let* ((payload
               (org-workflow-web-export-test--payload
                org-workflow-web-export-file))
@@ -191,7 +191,7 @@
           org-workflow-web-export-test--valid-journal t t)))
     (org-workflow-web-export-test-with-journal content
       (org-workflow-web-export-history
-       (encode-time 0 5 22 26 8 2026))
+       (encode-time 0 5 22 26 8 2026 "Asia/Shanghai"))
       (let* ((payload
               (org-workflow-web-export-test--payload
                org-workflow-web-export-file))
@@ -218,7 +218,7 @@
           org-workflow-web-export-test--valid-journal t t)))
     (org-workflow-web-export-test-with-journal content
       (org-workflow-web-export-history
-       (encode-time 0 5 22 26 8 2026))
+       (encode-time 0 5 22 26 8 2026 "Asia/Shanghai"))
       (let* ((payload
               (org-workflow-web-export-test--payload
                org-workflow-web-export-file))
@@ -233,7 +233,7 @@
   (org-workflow-web-export-test-with-journal
       org-workflow-web-export-test--valid-journal
     (org-workflow-web-export-history
-     (encode-time 0 59 21 26 8 2026))
+     (encode-time 0 59 21 26 8 2026 "Asia/Shanghai"))
     (let* ((payload
             (org-workflow-web-export-test--payload
              org-workflow-web-export-file))
@@ -254,7 +254,7 @@
       (let ((error-data
              (should-error
               (org-workflow-web-export-history
-               (encode-time 0 59 21 24 8 2026))
+               (encode-time 0 59 21 24 8 2026 "Asia/Shanghai"))
               :type 'error)))
         (should (string-match-p
                  "tracking started 2026-08-24 is after eligible through 2026-08-23"
@@ -278,7 +278,7 @@
                 org-workflow-web-export-file)))
           (should-error
            (org-workflow-web-export-history
-            (encode-time 0 5 22 26 8 2026)))
+            (encode-time 0 5 22 26 8 2026 "Asia/Shanghai")))
           (should (equal before
                          (org-workflow-web-export-test--file-bytes
                           org-workflow-web-export-file)))))))
@@ -295,7 +295,7 @@
                 org-workflow-web-export-file)))
           (should-error
            (org-workflow-web-export-history
-            (encode-time 0 5 22 26 8 2026)))
+            (encode-time 0 5 22 26 8 2026 "Asia/Shanghai")))
           (should (equal before
                          (org-workflow-web-export-test--file-bytes
                           org-workflow-web-export-file))))))))
@@ -314,7 +314,7 @@
               org-workflow-web-export-file)))
         (should-error
          (org-workflow-web-export-history
-          (encode-time 0 5 22 26 8 2026)))
+          (encode-time 0 5 22 26 8 2026 "Asia/Shanghai")))
         (should (equal before
                        (org-workflow-web-export-test--file-bytes
                         org-workflow-web-export-file)))))))
@@ -336,7 +336,7 @@
               org-workflow-web-export-file)))
         (should-error
          (org-workflow-web-export-history
-          (encode-time 0 5 22 26 8 2026)))
+          (encode-time 0 5 22 26 8 2026 "Asia/Shanghai")))
         (should (equal before
                        (org-workflow-web-export-test--file-bytes
                         org-workflow-web-export-file)))))))
@@ -353,7 +353,7 @@
                  (lambda (&rest _arguments) (error "write failed"))))
         (should-error
          (org-workflow-web-export-history
-          (encode-time 0 5 22 26 8 2026))))
+          (encode-time 0 5 22 26 8 2026 "Asia/Shanghai"))))
       (should (equal before
                      (org-workflow-web-export-test--file-bytes
                       org-workflow-web-export-file))))))
@@ -422,7 +422,7 @@
                   ((symbol-function 'org-workflow-journal-finalized-record)
                    (lambda (_date) (error "reader must not be called"))))
           (org-workflow-web-export-history
-           (encode-time 0 5 22 26 8 2026))
+           (encode-time 0 5 22 26 8 2026 "Asia/Shanghai"))
           (let ((bytes
                  (org-workflow-web-export-test--file-bytes
                   org-workflow-web-export-file))
