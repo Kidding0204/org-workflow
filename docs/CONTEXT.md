@@ -132,6 +132,7 @@ Focus Timer 通过标准 Org Clock 记录；自身停止时默认不足五分钟
 - 共享键停用时只恢复仍由包占用的值，保留用户后来改动。Evil 延迟加载也受模式状态保护。
 - 个人 intercept map 可以覆盖 Sprint 按键。实际优先级须查运行 buffer 的
   `key-binding`、`current-active-maps`，不能仅凭绑定定义断言某个键已生效。
+- 生命周期改变 Org TODO 规则时，应重建已开启的 Org Modern 字体规则；不能只刷新 Org 正则。
 - 颜色从宿主主题与包 face 继承；维护 UI 时检查实际中文字体、像素宽度与 Evil 状态。
 - [GNOME／桌面／截图配套](../extras/README.md) 独立安装，不随 Lisp tar 自动部署。
   当前计时接口使用 `org-workflow-focus-timer-*`，没有旧名称兼容别名。

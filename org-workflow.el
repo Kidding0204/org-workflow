@@ -66,6 +66,15 @@
           (append '((:startgroup . nil) ("@tiny" . ?t) ("@flow" . ?f)
                     ("@deep" . ?d) (:endgroup . nil) ("#Prone" . ?P) ("FLAGGED" . ?F))
                   (seq-remove (lambda (tag) (member (car-safe tag) owned)) org-tag-alist)))))
+(declare-function org-modern-mode "org-modern" (&optional arg))
+
+(defun org-workflow--refresh-org-buffer ()
+  "Refresh Org rules and rebuild an already enabled Org Modern renderer."
+  (let ((modern (bound-and-true-p org-modern-mode)))
+    (when modern (org-modern-mode -1))
+    (org-set-regexps-and-options)
+    (when modern (org-modern-mode 1))))
+
 (defun org-workflow--org-buffer-setup ()
   "Install the local save refresh in an enabled Org buffer."
   (when org-workflow-mode
@@ -125,7 +134,7 @@
           (dolist (buffer (buffer-list))
             (with-current-buffer buffer
               (when (derived-mode-p 'org-mode)
-                (org-set-regexps-and-options) (org-workflow--org-buffer-setup))))
+                (org-workflow--refresh-org-buffer) (org-workflow--org-buffer-setup))))
           (setq org-workflow--settings-installed (org-workflow--snapshot-settings)))
       (error
        (setq org-workflow--settings-installed (org-workflow--snapshot-settings))
@@ -140,7 +149,7 @@
   (when org-workflow--settings-before (org-workflow--restore-settings))
   (dolist (buffer (buffer-list))
     (with-current-buffer buffer
-      (when (derived-mode-p 'org-mode) (org-set-regexps-and-options)))))
+      (when (derived-mode-p 'org-mode) (org-workflow--refresh-org-buffer)))))
 ;;;###autoload
 (define-minor-mode org-workflow-mode
   "Enable the integrated Org Workflow with controlled global integration.
