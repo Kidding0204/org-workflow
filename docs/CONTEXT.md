@@ -55,7 +55,8 @@ rg --files -g 'org-workflow*.el' -g '*-test.el'
 计时项是多键序列 `f t / f f / f s / f r`，不是单个名为 ft 的键事件。
 
 Sprint 右侧项目循环用 `org-workflow-agenda-previous-project` / `org-workflow-agenda-next-project`
-（`C-c [` / `C-c ]`），独立于 tab-line 切换命令；tab-line 只呈现可点击的项目标签。
+（`H` / `L`），独立于 tab-line 切换命令；tab-line 只呈现可点击的项目标签。
+右栏局部重映射 Evil 的 buffer 前后切换命令，以兼容宿主 H/L intercept 绑定。
 
 图形历史工作台的 `q`（总览和日详情均可）及关闭按钮关闭整个所属 tab，恢复调用者窗口；
 单缓冲区历史跟踪仍只退出自身窗口。Evil 派生模式键位安装后须刷新活动键表。

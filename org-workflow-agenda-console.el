@@ -113,8 +113,8 @@
     ("C-c o i" "收集项归类" org-workflow-inbox-classify)
     ("G" "习惯文件" org-workflow-habits-open)
     ("a" "筛选与视图" org-workflow-agenda-view-menu)
-    ("C-c [" "上一个候选项目" org-workflow-agenda-previous-project)
-    ("C-c ]" "下一个候选项目" org-workflow-agenda-next-project)
+    ("H" "上一个候选项目" org-workflow-agenda-previous-project)
+    ("L" "下一个候选项目" org-workflow-agenda-next-project)
     ("?" "按键提示" org-workflow-agenda-console-help)))
 
 (defun org-workflow-agenda-console-help ()
@@ -130,7 +130,7 @@
                    ("选择与顺序" "SPC" "M" "K" "J")
                    ("习惯" "h" "b" "x" "n" "G")
                    ("录入" "I")
-                   ("视图与帮助" "C-c [" "C-c ]" "a" "?")))
+                   ("视图与帮助" "H" "L" "a" "?")))
          (rows (mapcar (lambda (entry)
                          (list (car entry) (cadr entry)
                                (eq (key-binding (kbd (car entry))) (nth 2 entry))))
@@ -170,6 +170,11 @@
             (define-key map (kbd (car entry)) (nth 2 entry))
             (when (fboundp 'evil-define-key*)
               (evil-define-key* 'normal map (kbd (car entry)) (nth 2 entry))))
+          ;; Host intercept maps may bind H/L to Evil buffer cycling.
+          ;; Remap those commands only in the candidate pane.
+          (when (eq org-workflow-agenda--pane-role 'candidates)
+            (define-key map [remap evil-prev-buffer] #'org-workflow-agenda-previous-project)
+            (define-key map [remap evil-next-buffer] #'org-workflow-agenda-next-project))
           (use-local-map map))
         (setq-local mode-line-misc-info
                     (append org-workflow-agenda-console--base-misc-info

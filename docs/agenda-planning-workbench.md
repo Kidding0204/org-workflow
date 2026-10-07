@@ -11,7 +11,7 @@ Sprint 用于挑选、安排和检查任务；Workflow 与 Focus Timer 管理当
   显示今天／明天安排、习惯、全部日期未处理收集项和完成回顾。
 - `M-x org-workflow-agenda-open-workbench`、Agenda commands 的 `s` 或菜单 `a c`：
   独立「Sprint 工作台」tab。左侧显示安排，右侧显示待安排任务；各自滚动，同步刷新。
-- 右侧项目标签可点击；`C-c [` / `C-c ]` 调用独立的上一个／下一个项目命令，循环包含“全部”。
+- 右侧项目标签可点击；`H` / `L` 调用独立的上一个／下一个项目命令，循环包含“全部”。
   命令为 `org-workflow-agenda-previous-project` / `org-workflow-agenda-next-project`，支持数字前缀，
   不依赖 tab-line 切换命令或其循环选项，保留源文件与标题顺序。
   同名分组仍按实际标题身份区分。`q` 或关闭工作台 tab 返回原编辑工作区。
