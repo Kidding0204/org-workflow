@@ -1,0 +1,7 @@
+{
+  "name": "Focus Timer",
+  "description": "Show Org Workflow progress and control Emacs Focus Timer from the top bar.",
+  "uuid": "focus-timer@meph1st0",
+  "shell-version": ["50", "51"],
+  "version": 20
+}

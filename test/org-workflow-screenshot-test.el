@@ -1,0 +1,81 @@
+;;; org-workflow-screenshot-test.el --- Screenshot capture integration -*- lexical-binding: t; -*-
+(require 'ert)
+(require 'cl-lib)
+(require 'org-workflow-screenshot)
+
+(defmacro screenshot-test-with-task (content &rest body)
+  `(let* ((directory (make-temp-file "screenshot-task-" t))
+          (file (expand-file-name "task.org" directory))
+          (org-capture-mode-hook nil) (org-capture-after-finalize-hook nil)
+          (org-mode-hook nil) marker)
+     (unwind-protect
+         (progn
+           (with-temp-file file (insert ,content))
+           (with-current-buffer (find-file-noselect file)
+             (goto-char (point-min)) (setq marker (point-marker)))
+           (cl-letf (((symbol-function 'org-workflow-target--require-current)
+                      (lambda () marker))) ,@body))
+       (when (bound-and-true-p org-capture-mode) (org-capture-kill))
+       (dolist (buffer (buffer-list))
+         (when (and (buffer-file-name buffer)
+                    (file-in-directory-p (buffer-file-name buffer) directory))
+           (with-current-buffer buffer (set-buffer-modified-p nil))
+           (kill-buffer buffer)))
+       (delete-directory directory t))))
+
+(ert-deftest screenshot-appends-to-body-before-children-and-saves ()
+  (screenshot-test-with-task "* Task\n:PROPERTIES:\n:ID: task\n:END:\nKeep body\n** Child\nKeep child\n* Sibling\nKeep sibling\n"
+   (cl-letf (((symbol-function 'org-workflow-screenshot--save-image)
+              (lambda (image _) (with-temp-file image (insert "PNG fixture")))))
+     (org-workflow-screenshot-capture)
+     (org-workflow-screenshot-capture)
+     (with-temp-buffer
+       (insert-file-contents file)
+       (should (string-match-p "Keep body\n\n\\[\\[file:doc/images/" (buffer-string)))
+       (goto-char (point-min))
+       (let ((count 0))
+         (while (re-search-forward "\\[\\[file:\\([^]]+\\)\\]\\]" nil t)
+           (cl-incf count)
+           (should (file-exists-p (expand-file-name (match-string 1) directory)))
+           (should (< (point) (save-excursion (re-search-forward "^\\*\\* Child") (point)))))
+         (should (= count 2)))
+       (should (string-match-p "\\*\\* Child\nKeep child\n\\* Sibling\nKeep sibling\n" (buffer-string)))))))
+
+(ert-deftest screenshot-appends-at-eof-without-trailing-newline ()
+  (screenshot-test-with-task "* Task\nBody"
+   (cl-letf (((symbol-function 'org-workflow-screenshot--save-image)
+              (lambda (image _) (with-temp-file image (insert "PNG fixture")))))
+     (org-workflow-screenshot-capture)
+     (with-temp-buffer
+       (insert-file-contents file)
+       (should (string-match-p "Body\n\n\\[\\[file:doc/images/" (buffer-string)))))))
+
+(ert-deftest screenshot-cancellation-preserves-source ()
+  (screenshot-test-with-task "* Task\nKeep\n"
+   (cl-letf (((symbol-function 'org-workflow-screenshot--save-image)
+              (lambda (&rest _) (user-error "Cancelled"))))
+     (should-error (org-workflow-screenshot-capture) :type 'user-error)
+     (with-temp-buffer (insert-file-contents file)
+       (should (equal (buffer-string) "* Task\nKeep\n"))))))
+
+(ert-deftest screenshot-no-task-does-not-start-screenshot ()
+  (cl-letf (((symbol-function 'org-workflow-target--require-current)
+             (lambda () (user-error "No task")))
+            ((symbol-function 'org-workflow-screenshot--save-image)
+             (lambda (&rest _) (ert-fail "Unexpected screenshot"))))
+    (should-error (org-workflow-screenshot-capture) :type 'user-error)))
+
+(ert-deftest screenshot-retains-original-task-and-passes-clipboard-option ()
+  (screenshot-test-with-task "* Task\nBody\n* Other\nOther body\n"
+   (let (clipboard-option)
+     (cl-letf (((symbol-function 'org-workflow-screenshot--save-image)
+                (lambda (image clipboard)
+                  (setq clipboard-option clipboard)
+                  (with-temp-file image (insert "PNG fixture"))
+                  (with-current-buffer (marker-buffer marker)
+                    (goto-char (point-max)) (org-back-to-heading t)
+                    (setq marker (point-marker))))))
+       (org-workflow-screenshot-capture t)
+       (should clipboard-option)
+       (with-temp-buffer (insert-file-contents file)
+         (should (string-match-p "\\]\\]\n\n\\* Other\nOther body" (buffer-string))))))))

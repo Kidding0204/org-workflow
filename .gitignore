@@ -1,0 +1,4 @@
+*.elc
+.ci/
+dist/
+node_modules/

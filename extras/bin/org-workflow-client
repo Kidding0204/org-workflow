@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+action=${1:-}
+script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+emacs_client="$script_dir/emacs-systemd-client"
+
+case "$action" in
+    select|start|toggle|step|prerequisite|defer|defer-group|complete|rest|continue|cancel|visit|agenda|week)
+        ;;
+    *)
+        printf 'Unknown Org Workflow action: %s\n' "$action" >&2
+        exit 64
+        ;;
+esac
+
+case "$action" in
+    select)
+        exec "$emacs_client" --eval '(org-workflow-select-in-new-frame)'
+        ;;
+    visit|step|prerequisite|agenda|week)
+        "$emacs_client" --no-wait --reuse-frame
+        exec "$emacs_client" --eval \
+            "(org-workflow-dispatch-in-frame (quote $action))"
+        ;;
+    *)
+        exec "$emacs_client" --eval \
+            "(org-workflow-dispatch (quote $action))"
+        ;;
+esac

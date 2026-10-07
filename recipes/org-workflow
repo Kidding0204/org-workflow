@@ -1,0 +1,2 @@
+(org-workflow :fetcher github :repo "Kidding0204/org-workflow"
+              :files ("org-workflow*.el"))

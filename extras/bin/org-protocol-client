@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+url=${1:-}
+case "$url" in
+    org-protocol:*)
+        ;;
+    *)
+        printf 'Expected one org-protocol URL\n' >&2
+        exit 64
+        ;;
+esac
+
+script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+exec "$script_dir/emacs-systemd-client" \
+    --no-wait \
+    --create-frame \
+    --frame-parameters '((name . "capture") (width . 80) (height . 34))' \
+    -- "$url"

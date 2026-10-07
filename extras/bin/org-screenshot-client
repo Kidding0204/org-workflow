@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+set -euo pipefail
+script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+# Keep the screen unobstructed: immediate capture needs no Emacs frame.
+if ! output=$("$script_dir/emacs-systemd-client" --eval \
+    '(let ((debug-on-error nil) (debug-on-quit nil)) (org-workflow-screenshot-capture))' 2>&1); then
+    notify-send '截图收集失败' "$output"
+    exit 1
+fi
+notify-send '截图已收集' '已追加到 Org Workflow 当前任务'

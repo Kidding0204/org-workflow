@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+systemctl --user start emacs.service
+exec emacsclient --alternate-editor=false "$@"

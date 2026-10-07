@@ -1,0 +1,30 @@
+;;; org-workflow-agenda-keymap-test.el --- Agenda keymap boundaries -*- lexical-binding: t; -*-
+(require 'ert)
+(setq evil-want-keybinding nil)
+(require 'evil)
+(require 'evil-collection)
+(evil-collection-require 'org-agenda)
+(require 'org-workflow-agenda)
+(evil-mode 1)
+(evil-collection-org-agenda-setup)
+
+(ert-deftest note-gtd-agenda-keys-consistent-across-group-boundaries ()
+  (with-temp-buffer
+    (org-agenda-mode)
+    (evil-normal-state)
+    (let ((inhibit-read-only t))
+      (insert "Task one\n")
+      (insert (propertize "Group\n" 'keymap org-super-agenda-header-map
+                          'local-map org-super-agenda-header-map))
+      (insert "Task two\nTask three\n"))
+    (goto-char (point-min))
+    (let* ((keys '("e" "g k" "g j" "j" "k" "a" "s" "<mouse-1>" "<mouse-2>" "<mouse-3>"))
+           (bindings (mapcar (lambda (key) (key-binding (kbd key))) keys)))
+      (should (eq (car bindings) 'org-agenda-set-effort))
+      (should (eq (cadr bindings) 'org-agenda-previous-item))
+      (while (not (eobp))
+        (dotimes (offset 2)
+          (save-excursion
+            (forward-char offset)
+            (should (equal bindings (mapcar (lambda (key) (key-binding (kbd key))) keys)))))
+        (forward-line 1)))))
