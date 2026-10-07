@@ -54,6 +54,8 @@
           (dolist (source (org-workflow-build--sources))
             (copy-file source (expand-file-name (file-name-nondirectory source)
                                                 directory)))
+          (copy-file (expand-file-name "LICENSE" org-workflow-build-root)
+                     (expand-file-name "COPYING" directory))
           (package-generate-description-file
            desc (expand-file-name "org-workflow-pkg.el" directory))
           (package-generate-autoloads 'org-workflow directory)

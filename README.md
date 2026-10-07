@@ -55,7 +55,7 @@ The native history panel reads the same persisted history as the optional web ex
 
 For screenshots, install `extras/bin/org-screenshot` and set `org-workflow-screenshot-helper` to its absolute path. The desktop clients use a user systemd Emacs service. For the optional web dashboard, set `org-workflow-web-export-file` to the companion site's `public/data/workflow-history.v1.json` and configure `org-workflow-web-open-function` to open your local site. See the [companion instructions](extras/README.md) for requirements and examples.
 
-Personal Org files, databases, backups, caches and personal Emacs configuration are excluded from package builds. A build includes only root-level `org-workflow*.el` libraries and generated package metadata and autoloads.
+Personal Org files, databases, backups, caches and personal Emacs configuration are excluded from package builds. A build includes only root-level `org-workflow*.el` libraries, the license, and generated package metadata and autoloads.
 
 ## Development and verification
 
