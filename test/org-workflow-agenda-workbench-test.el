@@ -422,7 +422,7 @@
   (should (eq (face-attribute 'org-workflow-agenda-group :weight nil t) 'regular))
   (should (= (face-attribute 'org-workflow-agenda-group :height nil t) 0.95)))
 
-(ert-deftest org-workflow-workbench-project-tabs-cycle-with-native-commands ()
+(ert-deftest org-workflow-workbench-projects-cycle-with-workflow-commands ()
   (org-workflow-workbench-test-with-files
       (list org-workflow-workbench-test-source
             "#+filetags: :project:\n#+CATEGORY: Other\n* DIVE Stage\n** TODO Other task\n")
@@ -430,26 +430,32 @@
     (pcase-let ((`(,primary ,candidate) (org-workflow-workbench-test-panes)))
       (let ((schedule (with-current-buffer primary (buffer-string))))
         (select-window (get-buffer-window candidate))
-        (tab-line-switch-to-next-tab)
+        (org-workflow-agenda-next-project)
         (should (equal '("First" "Second" "Third") (org-workflow-workbench-test-titles)))
-        (tab-line-switch-to-next-tab)
+        (org-workflow-agenda-next-project)
         (should (equal '("Other task") (org-workflow-workbench-test-titles)))
-        (tab-line-switch-to-next-tab)
+        (org-workflow-agenda-next-project)
         (should (= 4 (length (org-workflow-workbench-test-titles))))
-        (tab-line-switch-to-prev-tab)
+        (org-workflow-agenda-previous-project)
         (should (equal '("Other task") (org-workflow-workbench-test-titles)))
-        (tab-line-switch-to-next-tab nil 2)
+        (org-workflow-agenda-next-project 2)
         (should (equal '("First" "Second" "Third") (org-workflow-workbench-test-titles)))
         (let ((tab-line-switch-cycling nil))
-          (tab-line-switch-to-prev-tab nil 10)
-          (should (= 4 (length (org-workflow-workbench-test-titles)))))
+          (org-workflow-agenda-previous-project 2)
+          (should (equal '("Other task") (org-workflow-workbench-test-titles))))
         (should (equal schedule (with-current-buffer primary (buffer-string))))))))
 
-(ert-deftest org-workflow-workbench-tab-cycle-leaves-ordinary-tab-line-alone ()
-  (let ((tab-line-tabs-function #'tab-line-tabs-fixed-window-buffers) called)
-    (org-workflow-agenda--next-project-tab
-     (lambda (event arg) (setq called (list event arg))) nil 3)
-    (should (equal '(nil 3) called))))
+(ert-deftest org-workflow-workbench-project-cycle-does-not-use-tab-line ()
+  (cl-letf (((symbol-function 'tab-line-switch-to-next-tab)
+             (lambda (&rest _) (ert-fail "Used tab-line")))
+            ((symbol-function 'tab-line-switch-to-prev-tab)
+             (lambda (&rest _) (ert-fail "Used tab-line"))))
+    (with-temp-buffer
+      (setq-local org-workflow-agenda--pane-role 'candidates)
+      (org-workflow-agenda-next-project)
+      (org-workflow-agenda-previous-project))
+    (with-temp-buffer
+      (should-error (org-workflow-agenda-next-project) :type 'user-error))))
 
 (ert-deftest org-workflow-workbench-agenda-dispatch-and-left-tab-line ()
   (org-workflow-workbench-test-with-files (list org-workflow-workbench-test-source)

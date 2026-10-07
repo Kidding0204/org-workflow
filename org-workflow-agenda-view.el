@@ -294,30 +294,32 @@
     (tab-line-mode 1)
     (tab-line-force-update nil)))
 
-(defun org-workflow-agenda--cycle-project-tab (original direction event arg)
-  "Cycle project tabs by DIRECTION, otherwise call ORIGINAL with EVENT and ARG."
-  (let ((window (if event (posn-window (tab-line-event-start event))
-                  (selected-window))))
-    (with-selected-window window
-      (if (not (eq tab-line-tabs-function #'org-workflow-agenda-candidate-tabs))
-          (funcall original event arg)
-        (let* ((tabs (org-workflow-agenda-candidate-tabs))
-               (index (or (seq-position tabs t
-                                        (lambda (tab selected)
-                                          (eq (alist-get 'selected tab) selected))) 0))
-               (next (+ index (* direction (or arg 1))))
-               (target (if tab-line-switch-cycling
-                           (mod next (length tabs))
-                         (max 0 (min next (1- (length tabs)))))))
-          (funcall (alist-get 'select (nth target tabs))))))))
+(defun org-workflow-agenda--cycle-candidate-project (count)
+  "Cycle candidate project groups by signed COUNT, including All."
+  (unless (eq org-workflow-agenda--pane-role 'candidates)
+    (user-error "请在右侧待安排栏切换项目"))
+  (let* ((groups org-workflow-agenda--candidate-tab-data)
+         (selected (org-workflow-agenda--setting 'org-workflow-agenda-selected-group))
+         (index (or (seq-position groups selected
+                                  (lambda (group id)
+                                    (equal (alist-get 'org-workflow-agenda-group-id group) id)))
+                    0)))
+    (when groups
+      (org-workflow-agenda--select-candidate-project
+       (alist-get 'org-workflow-agenda-group-id
+                  (nth (mod (+ index count) (length groups)) groups))))))
 
-(defun org-workflow-agenda--next-project-tab (original &optional event arg)
-  "Call ORIGINAL next-tab command for project tabs using EVENT and ARG."
-  (org-workflow-agenda--cycle-project-tab original 1 event arg))
+;;;###autoload
+(defun org-workflow-agenda-next-project (&optional count)
+  "Select the next candidate project, wrapping through All, by COUNT steps."
+  (interactive "p")
+  (org-workflow-agenda--cycle-candidate-project (or count 1)))
 
-(defun org-workflow-agenda--previous-project-tab (original &optional event arg)
-  "Call ORIGINAL previous-tab command for project tabs using EVENT and ARG."
-  (org-workflow-agenda--cycle-project-tab original -1 event arg))
+;;;###autoload
+(defun org-workflow-agenda-previous-project (&optional count)
+  "Select the previous candidate project by COUNT steps, wrapping through All."
+  (interactive "p")
+  (org-workflow-agenda--cycle-candidate-project (- (or count 1))))
 
 (defun org-workflow-agenda-candidates (_match)
   "Render compact parent groups and native Agenda candidate rows."
@@ -737,8 +739,6 @@ This changes only display.")
 
 (defun org-workflow-agenda-view--enable ()
   "Install this component while Workflow is being enabled."
-  (org-workflow--advice-add 'tab-line-switch-to-next-tab :around #'org-workflow-agenda--next-project-tab)
-  (org-workflow--advice-add 'tab-line-switch-to-prev-tab :around #'org-workflow-agenda--previous-project-tab)
   (org-workflow--add-hook 'org-agenda-finalize-hook #'org-workflow-agenda--planning-line-display -90)
   (org-workflow--add-hook 'org-agenda-finalize-hook #'org-workflow-agenda--align-right-details 96)
   (org-workflow--add-hook 'window-size-change-functions #'org-workflow-agenda--realign-details)
