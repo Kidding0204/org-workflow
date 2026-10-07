@@ -13,3 +13,11 @@
 本次 GUI 检查验证窗口、模式、marker 和 image 对象；未重新完成物理鼠标及全部主题视觉验收。
 未安装新的 GNOME 扩展、未调用截图 Portal、未运行 GitHub hosted CI。
 MELPA recipe 尚未针对公开远端用 package-build 验证，未提交或获得 MELPA 接受。
+
+## User Lisp 部署复核
+
+同日迁至 `~/.config/emacs/user-lisp/org-workflow/`，启用标准启动准备。
+开发目录通过 `user-lisp-ignored-directories` 排除；自动生成的 autoload 文件
+不含测试、脚本和依赖缓存。实际服务冷启动无 init 错误，入口和核心函数均从
+`.elc` 加载；独立回归仍为 506/506。Wayland 双栏和 SVG 再次通过，数据库表内容
+及源文件保持一致。用户配置适配器仅 require，不再手动设置包的 load-path。

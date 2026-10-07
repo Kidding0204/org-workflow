@@ -2,7 +2,7 @@
 
 Org Workflow is an Emacs package for planning and doing work in Org, with a persistent record of commitments and daily effort. It brings task selection, Sprint planning, timers, weekly journals, an inbox, habits and a native history panel into one workflow.
 
-Version 0.1.0 is the first extraction of an existing personal configuration. The package is prepared for a dedicated GitHub repository; it has not been submitted to or accepted by MELPA.
+Version 0.1.0 is the first extraction of an existing personal configuration. The source is hosted in a dedicated GitHub repository; it has not been submitted to or accepted by MELPA.
 
 ## Requirements
 
@@ -14,14 +14,22 @@ Evil and Org Modern are optional. Desktop utilities are optional integrations an
 
 ## Installation
 
-Until a public repository is created, build from this checkout:
+Clone the repository into Emacs 31's User Lisp directory:
 
 ```sh
-make bootstrap
-make package
+git clone https://github.com/Kidding0204/org-workflow.git ~/.config/emacs/user-lisp/org-workflow
 ```
 
-`bootstrap` downloads dependencies from GNU ELPA and MELPA into `.ci/elpa/`. The package archive is written to `dist/org-workflow-0.1.0.tar`; the version comes from the source header. In your normal Emacs, install the declared dependencies first, then use `M-x package-install-file` to select the archive.
+Install the declared dependencies using `package.el` first. User Lisp does not resolve dependencies. In `early-init.el`, exclude the repository's development and companion directories from recursive scraping:
+
+```elisp
+(dolist (directory '(".ci" "dist" "test" "scripts" "extras" "docs" "recipes" ".github"))
+  (add-to-list 'user-lisp-ignored-directories directory))
+```
+
+Leave `package-enable-at-startup` enabled so dependencies are available before User Lisp compilation. On the next start, Emacs adds the libraries to `load-path`, byte-compiles them and generates autoloads. In an existing session, use `M-x prepare-user-lisp`. This does not enable Workflow automatically; configure and enable the mode below.
+
+Alternatively, build an archive with `make bootstrap` and `make package`, then install `dist/org-workflow-0.1.0.tar` with `M-x package-install-file`. `bootstrap` downloads dependencies and development tools into `.ci/elpa/`.
 
 For development, add this directory to `load-path` after installing the dependencies. Configure the paths before enabling Workflow:
 
