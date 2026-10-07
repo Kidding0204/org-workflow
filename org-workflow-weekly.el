@@ -186,6 +186,8 @@ On wide frames, also open the Vulpea sidebar using its usual note check."
   "Dispatch planning, execution, capture and native review commands.
 Commands are grouped by purpose, like Projectile's dispatch menu.
 Use the timer key sequences to control Focus Timer independently."
+  :variable-pitch t
+  :column-widths '(16 20)
   [["工作台"
     ("a" "Sprint" org-workflow-open-agenda)
     ("A" "双栏工作台" org-workflow-agenda-open-workbench)
@@ -193,36 +195,36 @@ Use the timer key sequences to control Focus Timer independently."
     ("p" "项目／领域" org-workflow-open-project)
     ("c" "当前任务" org-workflow-target-visit)]
    ["规划与收集"
-    ("t" "选择当前任务" org-workflow-target-select)
+    ("t" "选择任务" org-workflow-target-select)
     ("w" "本周目标" org-workflow-guidance-open-goals)
     ("n" "捕获任务／笔记" org-capture)
     ("o" "明日开工提示" org-workflow-guidance-edit-tomorrow)
-    ("u" "当前任务续接" org-workflow-guidance-edit-resume)
-    ("S" "当前任务截图" org-workflow-screenshot-capture)]
+    ("u" "续接提示" org-workflow-guidance-edit-resume)
+    ("S" "任务截图" org-workflow-screenshot-capture)]
    ["执行"
-    ("s" "开始当前任务" org-workflow-target-start)
-    ("d" "完成当前任务" org-workflow-target-complete)
+    ("s" "开始任务" org-workflow-target-start)
+    ("d" "完成任务" org-workflow-target-complete)
     ("b" "休息" org-workflow-target-rest)
     ("v" "推进任务" org-workflow-target-step)
     ("P" "添加前置任务" org-workflow-target-prerequisite)
-    ("x" "取消当前执行" org-workflow-target-cancel)]]
+    ("x" "取消执行" org-workflow-target-cancel)]]
   [["回顾"
-    ("h" "长期历史（Emacs）" org-workflow-history-workbench)
+    ("h" "长期历史" org-workflow-history-workbench)
     ("e" "晚间收尾" org-workflow-evening-open)
     ("r" "日志旁 Sprint" org-workflow-week-open-review)
-    ("i" "全部未处理收集项" org-workflow-collection-inbox-review)]
+    ("i" "收集箱回顾" org-workflow-collection-inbox-review)]
    ["计时与习惯"
     ("f t" "开始／结束专注" org-workflow-focus-timer-toggle)
-    ("f f" "结束当前阶段" org-workflow-focus-timer-finish-phase)
+    ("f f" "阶段结束" org-workflow-focus-timer-finish-phase)
     ("f s" "停止计时" org-workflow-focus-timer-stop)
-    ("f r" "重置计时器" org-workflow-focus-timer-reset)
+    ("f r" "重置计时" org-workflow-focus-timer-reset)
     ("H" "打开习惯" org-workflow-habits-open)
     ("N" "新建习惯" org-workflow-habits-create)]
    ["导航与设置"
     ("[" "前一周" org-workflow-week-previous)
     ("]" "后一周" org-workflow-week-next)
     ("g" "开工提示" org-workflow-guidance-open)
-    ("C" "Workflow 设置" org-workflow-customize)
+    ("C" "参数设置" org-workflow-customize)
     ("q" "退出" transient-quit-one)]]
   (interactive)
   (require 'org-workflow)
