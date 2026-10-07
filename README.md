@@ -1,5 +1,7 @@
 # org-workflow
 
+[![Emacs package](https://github.com/Kidding0204/org-workflow/actions/workflows/ci.yml/badge.svg)](https://github.com/Kidding0204/org-workflow/actions/workflows/ci.yml)
+
 Org Workflow is an Emacs package for planning and doing work in Org, with a persistent record of commitments and daily effort. It brings task selection, Sprint planning, timers, weekly journals, an inbox, habits and a native history panel into one workflow.
 
 Version 0.1.0 is the first extraction of an existing personal configuration. The source is hosted in a dedicated GitHub repository; it has not been submitted to or accepted by MELPA.
@@ -72,7 +74,7 @@ make bootstrap  # download declared dependencies and package-lint
 make check      # compile, ERT, metadata lint, checkdoc, build and install smoke
 ```
 
-`EMACS` selects the executable. `PACKAGE_USER_DIR` selects the dependency installation directory; by default it is `.ci/elpa/`. Compilation uses disposable copies in `dist/compile/` and leaves source files untouched. The installation smoke test uses a fresh directory for Workflow and activates the separately installed dependencies, without loading the user's init file or enabling the workflow.
+`EMACS` selects the executable. `PACKAGE_USER_DIR` selects the dependency installation directory; by default it is `.ci/elpa/`. Compilation uses disposable copies in `dist/compile/` and leaves source files untouched. The installation smoke test uses a fresh directory for Workflow and activates the separately installed dependencies, without loading the user's init file. It verifies inert loading, then enables and disables the installed package using temporary notes and storage.
 
 See [the extraction verification record](docs/verification.md) for the checks actually completed and their limits. Compilation succeeds with inherited nonfatal warnings.
 
