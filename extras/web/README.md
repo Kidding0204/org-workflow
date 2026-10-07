@@ -2,7 +2,8 @@
 
 [文档入口](../../docs/README.md) · [任务与历史模型](../../docs/workflow-architecture.md)
 
-这是可选的只读网页：展示已结束日期，不控制当前任务或 Focus Timer，也不写 Org 或 SQLite。
+这是保留的可选静态快照查看器：展示已结束日期，不控制当前任务或 Focus Timer，也不写 Org 或 SQLite。
+长期状态追踪使用 Emacs 原生历史面板；Workflow 不再提供网页启动命令或后台自动导出。
 原生 [历史面板](../../docs/workflow-history-panel.md) 直接读取后端，不依赖 JSON。
 仓库不携带个人历史快照；第一次使用前需要导出自己的数据。
 
@@ -13,11 +14,9 @@
 ```elisp
 (setq org-workflow-web-export-file
       "/absolute/path/to/org-workflow/extras/web/public/data/workflow-history.v1.json")
-(setq org-workflow-web-open-function
-      (lambda () (browse-url "http://localhost:5173")))
 ```
 
-启用 Workflow 后初始化导出一次，成功的历史结算再次触发导出。
+仅在显式执行导出命令时生成或更新快照；启用 Workflow 和历史结算均不触发导出。
 手动更新：`M-x org-workflow-web-export-history`，或：
 
 ```sh
@@ -33,7 +32,7 @@ npm test
 npm run build
 ```
 
-启动本地服务器后，`M-x org-workflow-web-open` 先导出，再调用用户配置的打开函数。
+启动本地服务器后，用浏览器打开终端输出的本地地址。
 构建产生静态 bundle；Emacs 离线时可以展示最后一次有效快照。
 导出验证失败保留旧快照；不能假定浏览器展示的数据自动更新到最新日期。
 `node_modules/`、`dist/` 和 `public/data/` 不纳入 Git 或 Emacs 包。

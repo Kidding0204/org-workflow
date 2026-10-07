@@ -29,7 +29,6 @@
     org-workflow-history-workbench--enable
     org-workflow-leave--enable
     org-workflow-panel--enable
-    org-workflow-web-export--enable
     org-workflow-core--enable
     org-workflow-agenda-actions--enable
     org-workflow-agenda-layout--enable
@@ -123,9 +122,6 @@
           (org-workflow-store-recover)
           (org-workflow-history-setup)
           (org-workflow-weekly-setup)
-          (org-workflow--add-hook 'org-workflow-journal-finalized-hook #'org-workflow-web-export-after-finalize)
-          (when (string< (org-workflow-store-meta "anchor") (org-workflow-target--today-string))
-            (org-workflow-web-export-history))
           (dolist (buffer (buffer-list))
             (with-current-buffer buffer
               (when (derived-mode-p 'org-mode)

@@ -358,16 +358,8 @@
                      (org-workflow-web-export-test--file-bytes
                       org-workflow-web-export-file))))))
 
-(ert-deftest org-workflow-web-export-wrapper-ignores-hook-date ()
-  "Passing the ISO hook date as NOW breaks this test."
-  (let (arguments)
-    (cl-letf (((symbol-function 'org-workflow-web-export-history)
-               (lambda (&optional now) (push now arguments))))
-      (org-workflow-web-export-after-finalize "2026-08-24"))
-    (should (equal '(nil) arguments))))
-
-(ert-deftest org-workflow-web-export-error-cannot-undo-journal-finalize ()
-  "Coupling exporter failure to Journal persistence breaks this test."
+(ert-deftest org-workflow-web-export-journal-finalization-does-not-export ()
+  "Finalizing a journal must persist it without refreshing a web snapshot."
   (let* ((directory (make-temp-file "workflow-web-hook-" t))
          (journal-file (expand-file-name "journal.org" directory))
          (org-workflow-web-export-file
@@ -375,8 +367,8 @@
          (buffer nil)
          (note nil)
          (org-workflow-journal--tracking-anchor nil)
-         (org-workflow-journal-finalized-hook
-          '(org-workflow-web-export-after-finalize)))
+         (org-workflow-journal-finalized-hook nil)
+         (export-called nil))
     (unwind-protect
         (progn
           (with-temp-file journal-file (insert "#+title: Journal\n"))
@@ -395,9 +387,13 @@
                     ((symbol-function 'org-workflow-journal-rows)
                      (lambda (_date) nil))
                     ((symbol-function 'org-workflow-web-export-history)
-                     (lambda (&optional _now) (error "export failed"))))
+                     (lambda (&optional _now)
+                       (setq export-called t)
+                       (error "export must be explicit"))))
             (should (eq 'untouch
                         (org-workflow-journal-finalize "2026-08-24"))))
+          (should-not export-called)
+          (should-not (file-exists-p org-workflow-web-export-file))
           (with-current-buffer buffer
             (goto-char (point-min))
             (should (equal "[2026-08-24 22:00]"
@@ -434,39 +430,6 @@
             (should-not (plist-get payload :coverage))
             (should (equal nil (plist-get payload :days)))))
       (delete-directory directory t))))
-
-(ert-deftest org-workflow-web-export-setup-registers-wrapper-and-catches-error ()
-  "Registering the command directly or leaking startup errors breaks this test."
-  (let ((org-workflow-journal-finalized-hook nil)
-        messages)
-    (cl-letf (((symbol-function 'org-workflow-web-export-history)
-               (lambda (&optional _now) (error "export failed")))
-              ((symbol-function 'message)
-               (lambda (format-string &rest arguments)
-                 (push (apply #'format format-string arguments) messages))))
-      (should-not (org-workflow-web-export-setup)))
-    (should (memq #'org-workflow-web-export-after-finalize
-                  org-workflow-journal-finalized-hook))
-    (should (equal '("Org Workflow web export failed: export failed")
-                   messages))))
-
-(ert-deftest org-workflow-web-open-exports-before-configured-launcher ()
-  "The portable opener exports before delegating to its optional launcher."
-  (let* ((calls nil)
-         (org-workflow-web-open-function (lambda () (push 'launch calls))))
-    (cl-letf (((symbol-function 'org-workflow-web-export-history)
-               (lambda (&optional _) (push 'export calls))))
-      (org-workflow-web-open))
-    (should (equal '(export launch) (nreverse calls)))))
-
-(ert-deftest org-workflow-web-open-requires-an-explicit-launcher ()
-  (let ((org-workflow-web-open-function nil))
-    (should-error (org-workflow-web-open) :type 'user-error)))
-
-(ert-deftest org-workflow-web-open-has-a-free-workflow-key ()
-  "The dashboard opener should use uppercase H without replacing lowercase h."
-  (should (eq #'org-workflow-web-open
-              (key-binding (kbd "C-c o H")))))
 
 (provide 'org-workflow-web-export-test)
 ;;; org-workflow-web-export-test.el ends here

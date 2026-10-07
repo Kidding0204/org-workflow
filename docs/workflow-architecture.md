@@ -83,7 +83,7 @@ Emacs 离线时下次启动补结算。已有日期快照直接复用，missing 
 保存源文件在前，同步失败可在启动或显式 `org-workflow-history-sync-habits` 时重试。
 旧习惯字段未知时显示未知；总投入包含承诺、可选及习惯，承诺兑现不混入习惯。
 
-启用 `org-workflow-mode` 后调用网页导出 setup：启动导出一次，成功结算后生成新快照。
+长期追踪直接读取 Emacs 原生历史模型，不再自动生成网页快照。
 失败保留旧 JSON，不保证浏览器自动看到最新数据。原生面板不依赖 JSON。
 详见 [原生历史面板](workflow-history-panel.md) 和 [网页说明](../extras/web/README.md)。
 

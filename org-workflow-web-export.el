@@ -12,7 +12,7 @@
 ;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ;; GNU General Public License for more details.
 ;;; Commentary:
-;; A component of org-workflow.  Activation is coordinated by its global mode.
+;; Explicit static export and legacy history readers for org-workflow.
 ;;; Code:
 (require 'org-workflow-lifecycle)
 ;;; org-workflow-web-export.el --- Export sealed Workflow history -*- lexical-binding: t; -*-
@@ -422,38 +422,6 @@ NOW is a time value intended for deterministic tests."
   (interactive)
   (org-workflow-web-export--write-atomically
    (org-workflow-web-export--payload (or now (current-time)))))
-
-(defun org-workflow-web-export-after-finalize (_date)
-  "Refresh the history snapshot after a finalized Journal DATE event."
-  (org-workflow-web-export-history))
-
-(defun org-workflow-web-export-setup ()
-  "Install the post-finalization exporter and perform an initial export."
-  (org-workflow--add-hook 'org-workflow-journal-finalized-hook
-            #'org-workflow-web-export-after-finalize)
-  (condition-case error-data
-      (org-workflow-web-export-history)
-    (error
-     (message "Org Workflow web export failed: %s"
-              (error-message-string error-data))))
-  nil)
-
-(defcustom org-workflow-web-open-function nil
-  "Optional function that opens the separately installed web dashboard."
-  :type '(choice (const nil) function) :group 'org-workflow)
-
-;;;###autoload
-(defun org-workflow-web-open ()
-  "Export current history and invoke the configured web launcher."
-  (interactive)
-  (unless org-workflow-web-open-function
-    (user-error "Configure org-workflow-web-open-function or use native history"))
-  (org-workflow-web-export-history)
-  (funcall org-workflow-web-open-function))
-
-(defun org-workflow-web-export--enable ()
-  "Install this component while Workflow is being enabled."
-  (org-workflow--global-set-key "C-c o H" #'org-workflow-web-open))
 
 (provide 'org-workflow-web-export)
 ;;; org-workflow-web-export.el ends here

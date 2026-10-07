@@ -2,7 +2,7 @@
 
 [![Emacs package](https://github.com/Kidding0204/org-workflow/actions/workflows/ci.yml/badge.svg)](https://github.com/Kidding0204/org-workflow/actions/workflows/ci.yml)
 
-Org Workflow is an Emacs package for planning and doing work in Org, with a persistent record of commitments and daily effort. It brings task selection, Sprint planning, timers, weekly journals, an inbox, habits and a native history panel into one workflow.
+Org Workflow is an Emacs package for planning and doing work in Org, with a persistent record of commitments and daily effort. It brings task selection, Sprint planning, timers, weekly journals, an inbox, habits and a native history panel into one workflow. `M-x org-workflow-menu` is the main entry point.
 
 Version 0.1.0 is the first extraction of an existing personal configuration. The source is hosted in a dedicated GitHub repository; it has not been submitted to or accepted by MELPA.
 
@@ -51,6 +51,21 @@ Create the notes directory and your Agenda files first. Tag task files with `#+f
 
 Enabling the global minor mode installs Workflow's hooks and integrations. Loading the package alone does not start the workflow. Disable it with `(org-workflow-mode -1)`. This cancels Workflow timers and clears the Focus Timer phase; an active standard Org clock remains running and can be stopped with `org-clock-out`. Activation opens the store and performs recovery, but does not automatically import legacy journals. If upgrading legacy data, back up your sources and run `M-x org-workflow-migrate` explicitly before continuing normal work. Existing users should retain their existing notes, journal and database paths when switching from the configuration modules.
 
+## Main entry point
+
+Use `M-x org-workflow-menu` (or `C-c o m` when default bindings are enabled).
+The Transient dispatch groups workbench navigation, planning/capture, execution,
+review, timers/habits and settings. It follows Projectile's grouped dispatch
+style and needs no Projectile dependency.
+
+Common entries: `a` Sprint, `A` two-pane planning, `n` capture, `s` start the
+current task, `h` native long-term history, `e` evening review and `C` settings.
+Timer controls use the `f t`, `f f`, `f s` and `f r` key sequences. `q` exits.
+
+User Lisp automatically generates bytecode at startup. Run `M-x prepare-user-lisp`
+after updating the source, or use a prefix argument to force recompilation.
+The source repository excludes the generated `.elc` files from Git.
+
 ## Workflow and data
 
 Tasks retain standard Org scheduling, priorities and clocks. `DIVE` identifies active task groups. The current model uses `A`, `B` and `C` priorities for morning, afternoon and evening availability. The package tracks commitments separately from completion: working on a committed task can satisfy a daily responsibility without marking the task done.
@@ -63,7 +78,7 @@ The native history panel reads the same persisted history as the optional web ex
 
 [`extras/`](extras/) contains the web dashboard, GNOME integration and desktop client and screenshot helpers. These are companion tools, not part of the Emacs package archive. Follow their own instructions and review paths and desktop requirements before installing them. The core package does not install a GNOME extension or desktop executable.
 
-For screenshots, install `extras/bin/org-screenshot` and set `org-workflow-screenshot-helper` to its absolute path. The desktop clients use a user systemd Emacs service. For the optional web dashboard, set `org-workflow-web-export-file` to the companion site's `public/data/workflow-history.v1.json` and configure `org-workflow-web-open-function` to open your local site. See the [companion instructions](extras/README.md) for requirements and examples.
+For screenshots, install `extras/bin/org-screenshot` and set `org-workflow-screenshot-helper` to its absolute path. The desktop clients use a user systemd Emacs service. Long-term tracking uses the native Emacs history workbench (`h` in the dispatch menu). The old web companion can still display a manually exported static snapshot using `org-workflow-web-export-history`; there is no web launcher or background export. See the [companion instructions](extras/README.md).
 
 Personal Org files, databases, backups, caches and personal Emacs configuration are excluded from package builds. A build includes only root-level `org-workflow*.el` libraries, the license, and generated package metadata and autoloads.
 

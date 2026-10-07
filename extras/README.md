@@ -40,7 +40,7 @@ install -Dm755 bin/org-screenshot-client "$HOME/.local/bin/org-screenshot-client
 
 ## Web history
 
-[`web/`](web/README.md) contains the React/Vite source only. Configure an export path into its `public/data/` directory and run the site yourself. The core package provides `org-workflow-web-open-function` for your browser or local-server launcher; no Ghostty/Fish launcher is imposed.
+[`web/`](web/README.md) contains the React/Vite source only. Configure an export path into its `public/data/` directory and run the site yourself. Run `M-x org-workflow-web-export-history` explicitly to create or refresh the static snapshot, then open the site in your browser. Workflow no longer launches this site or exports in the background. Use the native Emacs history panel for ongoing tracking.
 
 ## Checks
 

@@ -24,3 +24,19 @@ MELPA recipe 尚未针对公开远端用 package-build 验证，未提交或获�
 
 Web 导出测试显式指定上海时区；UTC 环境完整 `make check` 为 506/506，
 测试在源文件副本中运行，避免用户自动编译字节码与隔离依赖的 Org 版本冲突。
+
+## 原生主入口与部署编译
+
+同日扩展 `org-workflow-menu` 为分组 Transient 主入口；移除网页启动器与
+后台快照生成，保留显式静态导出和迁移解析。本次本地 `make check` 为
+503/503 ERT、checkdoc 0 项、编译／metadata lint／安装启停验证通过。
+
+实际 User Lisp 33 个库完成字节编译及异步原生编译；服务冷启动加载 `.elc`，
+无 init 错误，网页命令、旧快捷键和导出 hook 均不存在。
+隐藏 Wayland frame 中通过真实 `C-c k` 键盘入口，`h` 打开双栏历史和 SVG，
+`A` 打开双栏 Sprint；所有菜单分组可见，`f t` 动作分派通过无副作用替身验证。
+Org 源文件和 SQLite 全部七张表仍与操作前一致。
+
+隔离进程比较三次包 require（依赖预先激活）：源码中位数 206 ms，编译中位数
+182 ms。该数据仅衡量包加载，不代表完整个人 Emacs 启动时间。
+本节记录本地工作树；本次新增代码未宣称完成 hosted CI。

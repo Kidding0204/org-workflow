@@ -1,0 +1,55 @@
+;;; org-workflow-dispatch-test.el --- Native dispatch boundaries -*- lexical-binding: t; -*-
+;; Copyright (C) 2026 Jinwang Dong
+;; Author: Jinwang Dong <dongjinwang040204@gmail.com>
+;; Assisted-by: Codex:GPT-6
+;; SPDX-License-Identifier: GPL-3.0-or-later
+(require 'ert)
+(require 'org-workflow)
+
+(ert-deftest org-workflow-dispatch-connects-native-review-and-capture ()
+  "The first entry connects native history, capture and package settings."
+  (dolist (entry '(("h" . org-workflow-history-workbench)
+                   ("A" . org-workflow-agenda-open-workbench)
+                   ("n" . org-capture)
+                   ("C" . org-workflow-customize)
+                   ("f t" . org-workflow-focus-timer-toggle)
+                   ("f f" . org-workflow-focus-timer-finish-phase)))
+    (let* ((suffix (transient-get-suffix 'org-workflow-menu (car entry)))
+           (command (plist-get (cdr suffix) :command)))
+      (should (eq command (cdr entry)))
+      (should (commandp command))
+      (when (string-prefix-p "f " (car entry))
+        (should (= 2 (length (kbd (plist-get (cdr suffix) :key)))))))))
+
+(ert-deftest org-workflow-mode-does-not-export-or-install-web-launcher ()
+  "Activating an established store neither writes a snapshot nor exposes a launcher."
+  (let ((org-workflow-store-enabled org-workflow-store-enabled))
+    (org-workflow-mode -1)
+    (let* ((directory (make-temp-file "workflow-native-entry-" t))
+           (org-workflow-store-file (expand-file-name "facts.sqlite" directory))
+           (org-workflow-store--connection nil)
+           (org-workflow-store--path nil)
+           (org-workflow-web-export-file (expand-file-name "history.json" directory))
+           exported)
+      (unwind-protect
+          (progn
+            (org-workflow-store-set-meta "anchor" "2026-10-01")
+            (cl-letf (((symbol-function 'org-workflow-web-export-history)
+                       (lambda (&rest _) (setq exported t)))
+                      ((symbol-function 'org-workflow-history-setup) #'ignore)
+                      ((symbol-function 'org-workflow-weekly-setup) #'ignore))
+              (org-workflow-mode 1)
+              (should-not exported)
+              (should-not (file-exists-p org-workflow-web-export-file))
+              (should-not (fboundp 'org-workflow-web-open))
+              (should-not (boundp 'org-workflow-web-open-function))
+              (should-not (memq 'org-workflow-web-export-after-finalize
+				org-workflow-journal-finalized-hook))
+              (org-workflow-mode -1)))
+	(when (org-workflow-store--live-p org-workflow-store--connection)
+          (sqlite-close org-workflow-store--connection))
+	(delete-directory directory t)))
+    (org-workflow-mode 1)))
+
+(provide 'org-workflow-dispatch-test)
+;;; org-workflow-dispatch-test.el ends here
