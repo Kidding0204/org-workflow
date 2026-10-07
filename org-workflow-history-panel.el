@@ -378,11 +378,13 @@ NOW defaults to the current time."
   (interactive)
   (unless (derived-mode-p 'org-workflow-history-panel-mode)
     (user-error "请先打开 Workflow 历史面板"))
-  (org-workflow-history-panel--deactivate)
-  ;; Teardown is presentation work, not an undoable user edit.
-  (let ((buffer-undo-list t))
-    (vui-unmount (current-buffer)))
-  (quit-window))
+  (if org-workflow-history-workbench--state
+      (org-workflow-history-workbench-close)
+    (org-workflow-history-panel--deactivate)
+    ;; Teardown is presentation work, not an undoable user edit.
+    (let ((buffer-undo-list t))
+      (vui-unmount (current-buffer)))
+    (quit-window)))
 
 ;;;###autoload
 (defun org-workflow-history-tracking (&optional now)

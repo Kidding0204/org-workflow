@@ -466,7 +466,8 @@ NOW defaults to the current time."
                 (evil-define-key* '(normal motion) org-workflow-history-workbench-mode-map
                   (kbd "q") #'org-workflow-history-workbench-close
                   (kbd "RET") #'org-workflow-history-workbench-activate
-                  (kbd "b") #'org-workflow-history-workbench-show-overview))))
+                  (kbd "b") #'org-workflow-history-workbench-show-overview)
+                (evil-normalize-keymaps))))
           (with-current-buffer overview (org-workflow-history-panel-refresh now))
           overview)
       (error (tab-bar-close-tab) (org-workflow-history-workbench--cleanup state) (signal (car err) (cdr err))))))

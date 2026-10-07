@@ -58,6 +58,37 @@
             (should-not (buffer-live-p (org-workflow-history-workbench-state-detail (car states)))))
         (kill-buffer other-buffer)))))
 
+(ert-deftest workflow-history-workbench-quit-keys-close-both-panes ()
+  "Normal/Motion q and inherited panel close release the entire owned tab."
+  (workflow-history-workbench-test--tabs
+    (let ((payload (workflow-history-view-test--payload
+                    (workflow-history-view-test--day "2026-09-30")))
+          (tabs-before (length (funcall tab-bar-tabs-function))))
+      (dolist (pane '(overview detail))
+        (dolist (exit '(normal motion panel))
+          (cl-letf (((symbol-function 'org-workflow-history-read)
+                     (lambda (&rest _) payload)))
+            (org-workflow-history-workbench))
+          (let ((state org-workflow-history-workbench--state))
+            (push state states)
+            (select-window
+             (get-buffer-window
+              (if (eq pane 'overview)
+                  (org-workflow-history-workbench-state-overview state)
+                (org-workflow-history-workbench-state-detail state))))
+            (if (eq exit 'panel)
+                (org-workflow-history-panel-close)
+              (evil-local-mode 1)
+              (evil-change-state exit)
+              (let ((command (key-binding (kbd "q"))))
+                (should (eq command #'org-workflow-history-workbench-close))
+                (call-interactively command)))
+            (should (= tabs-before (length (funcall tab-bar-tabs-function))))
+            (should-not (buffer-live-p
+                         (org-workflow-history-workbench-state-overview state)))
+            (should-not (buffer-live-p
+                         (org-workflow-history-workbench-state-detail state)))))))))
+
 (ert-deftest workflow-history-workbench-shared-selection-stale-and-recovery ()
   (workflow-history-workbench-test--tabs
     (let ((reads 0)
