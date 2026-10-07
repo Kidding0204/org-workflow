@@ -181,7 +181,8 @@ On wide frames, also open the Vulpea sidebar using its usual note check."
   (interactive)
   (customize-group 'org-workflow))
 
-;;;###autoload
+;; Loaddefs cannot evaluate Transient macros before Transient is loaded.
+;;;###autoload (autoload 'org-workflow-menu "org-workflow-weekly" nil t)
 (transient-define-prefix org-workflow-menu ()
   "Dispatch planning, execution, capture and native review commands.
 Commands are grouped by purpose, like Projectile's dispatch menu.
