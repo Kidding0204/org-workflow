@@ -6,6 +6,8 @@ Org Workflow is an Emacs package for planning and doing work in Org, with a pers
 
 Version 0.1.0 is the first extraction of an existing personal configuration. The source is hosted in a dedicated GitHub repository; it has not been submitted to or accepted by MELPA.
 
+For maintenance sessions, start with [project context](docs/CONTEXT.md) and [AGENTS.md](AGENTS.md).
+
 ## Requirements
 
 - Emacs 31.1 or newer, with SQLite support. SVG support and a graphical frame are needed for the graphical history charts.
