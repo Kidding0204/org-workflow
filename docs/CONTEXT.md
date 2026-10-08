@@ -94,7 +94,13 @@ Sprint 右侧项目循环用 `org-workflow-agenda-previous-project` / `org-workf
 - panel 库每 30 秒检查到点习惯；当日通知、跳过和最新提醒写入 meta 的
   `habit-reminders:YYYY-MM-DD`，不修改完成事实。通知只一次，最新覆盖旧提醒，
   完成／跳过不会重新露出旧提醒。GNOME v22 非专注且无 Org clock 时显示最新提醒，
-  桌面 start/toggle/visit/complete 路由至该习惯，真实执行任务选择保持独立。
+  桌面及 Emacs 的 start/toggle/visit/complete 共用 items 库的当前项，普通任务选择保留。
+- `org-workflow-target-entry` 是共用条目，`kind` 区分 task／habit；items 库只读适配原文，
+  不创建 ID。唯一当前项解析优先正在执行的计时周期（包含休息），再读取空闲提醒和普通队列。
+  状态、capture、新 frame 和操作共用这个解析结果；mode-line 仅读缓存快照，不在重绘时扫描。
+- 共用操作保留习惯的原生重复完成及仅当天跳过规则；推进、前置任务、延期和承诺属于普通
+  任务的能力。普通队列准入不因当前项统一而扩大。任务／习惯共用直接 CLOCK 的每日读取，
+  没有新增表、迁移历史快照或改写已结算事实。原文查询和定位在局部关闭 Org element cache。
 - 当前执行目标独立于排序建议；刷新、重排和展示不能悄悄切换执行目标。
 - 每日“承担并尝试”与实际完成不同，不应因满足当天责任自动将任务改为 DONE。
 - 承诺创建／调整规则由 core、commands、store、history 共同实现。

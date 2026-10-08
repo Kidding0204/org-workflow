@@ -18,6 +18,8 @@
 ;;; org-workflow-habits.el --- Independent native Org habits -*- lexical-binding: t; -*-
 (require 'org-habit)
 (require 'org-workflow-periods)
+(require 'org-workflow-items)
+(require 'org-workflow-store)
 
 (require 'org-clock)
 
@@ -60,48 +62,79 @@ It is not added to Workflow's Agenda scope."
   (delete-dups (cons (org-workflow-habits-file) (org-agenda-files t))))
 
 (defun org-workflow-habits--map (function)
-  "Call FUNCTION on each habit in existing sources, without creating files."
-  (dolist (file (org-workflow-habits-files))
-    (when (file-exists-p file)
-      (unless (file-readable-p file) (error "Unreadable habit source: %s" file))
-      (with-current-buffer (find-file-noselect file)
-        (org-with-wide-buffer
-         (org-map-entries
-          (lambda () (when (org-workflow-habit-p) (funcall function))) nil 'file))))))
+  "Call FUNCTION on each native habit with bounded, cache-free source reads."
+  (let ((org-element-use-cache nil))
+    (dolist (file (org-workflow-habits-files))
+      (when (file-exists-p file)
+        (unless (file-readable-p file) (error "Unreadable habit source: %s" file))
+        (with-current-buffer (find-file-noselect file)
+          (org-with-wide-buffer
+           (org-map-entries
+            (lambda () (when (org-workflow-habit-p) (funcall function))) nil 'file)))))))
 
 (defun org-workflow-habits--direct-end ()
   "Return the position of the next heading, excluding nested habit content."
   (save-excursion (outline-next-heading) (point)))
 
 (defun org-workflow-habits-records (date)
-  "Read direct CLOCK and DONE logs for DATE, including repeated TODO entries.
-No source properties are changed.  Missing IDs are errors, not silent omissions."
-  (let* ((start (org-time-string-to-time (concat date " 00:00")))
-         (parts (decode-time start))
-         (end (encode-time 0 0 0 (1+ (nth 3 parts)) (nth 4 parts) (nth 5 parts)))
-         records)
+  "Read DATE's habit facts through the shared item day-record pipeline."
+  (let (records)
     (org-workflow-habits--map
      (lambda ()
-       (let ((id (org-entry-get nil "ID"))
-             (title (org-get-heading t t t t))
-             completions minutes)
-         (save-excursion
-           (save-restriction
-             (narrow-to-region (point) (org-workflow-habits--direct-end))
-             (org-clock-sum start end)
-             (setq minutes org-clock-file-total-minutes)
-             (goto-char (point-min))
-             (while (re-search-forward
-                     "^[ \t]*- State \"DONE\".*?\\[\\([0-9-]+[^]\n]*\\)\\]" nil t)
-               (let ((stamp (match-string-no-properties 1)))
-                 (when (string-prefix-p date stamp) (push stamp completions))))))
-         (when (or completions (> minutes 0))
-           (unless id (user-error "习惯缺少 ID：%s；请在源条目运行 org-id-get-create 并保存" title))
+       (when-let* ((record (org-workflow-item-day-record
+                           (org-workflow-item-at-marker (point-marker) date) date)))
+         (let ((id (plist-get record :id)))
+           (unless id (user-error "习惯缺少 ID：%s；请创建 ID 并保存" (plist-get record :task)))
            (when (seq-find (lambda (row) (equal id (plist-get row :id))) records)
              (error "Duplicate habit ID: %s" id))
-           (push (list :id id :task title :outcome (if completions "done" "focused")
-                       :focusMinutes minutes :completedAt (vconcat (nreverse completions))) records)))))
+           (push record records)))))
     (nreverse records)))
+
+(defun org-workflow-habits-items (date)
+  "Return native habit items due or completed on DATE."
+  (let ((day (time-to-days (org-time-string-to-time (concat date " 12:00")))) items)
+    (when (and org-workflow-store-enabled (org-workflow-store-meta "habit-source")
+               (not (file-readable-p (org-workflow-habits-file))))
+      (error "Habit source unavailable"))
+    (org-workflow-habits--map
+     (lambda ()
+       (unless (org-entry-is-done-p)
+         (let* ((habit (org-habit-parse-todo))
+                (done (memq day (org-habit-done-dates habit))))
+           (when (or done (<= (org-habit-scheduled habit) day))
+             (let ((item (org-workflow-item-at-marker (point-marker) date)))
+               (setf (org-workflow-target-entry-done item) (and done t)
+                     (org-workflow-target-entry-habit-position item) (org-workflow-habits-position)
+                     (org-workflow-target-entry-reminder-time item) (org-workflow-habits-reminder-clock))
+               (push item items)))))))
+    (nreverse items)))
+
+(defun org-workflow-habits-current-item ()
+  "Return the latest reminded occurrence, independent of UI presentation."
+  (when org-workflow-store-enabled
+    (let* ((date (org-workflow-target--today-string))
+           (state (org-workflow-store--decode
+                   (org-workflow-store-meta (concat "habit-reminders:" date))))
+           (key (plist-get state :current)))
+      (when key
+        (seq-find (lambda (item) (and (equal key (org-workflow-item-key item))
+                                     (not (org-workflow-target-entry-done item))))
+                  (org-workflow-habits-items date))))))
+
+(defun org-workflow-habits-skip-item (item)
+  "Suppress ITEM's habit occurrence today without altering completion facts."
+  (unless (eq (org-workflow-target-entry-kind item) 'habit)
+    (user-error "普通任务不使用习惯跳过规则"))
+  (let* ((date (org-workflow-target--today-string))
+         (key (org-workflow-item-key item))
+         (meta-key (concat "habit-reminders:" date))
+         (state (org-workflow-store--decode (org-workflow-store-meta meta-key))))
+    (unless (equal date (org-workflow-target-entry-occurrence-date item))
+      (user-error "习惯本次执行日期已经变化"))
+    (setq state (plist-put state :skipped
+                           (vconcat (delete-dups (cons key (append (plist-get state :skipped) nil))))))
+    (when (equal key (plist-get state :current)) (setq state (plist-put state :current nil)))
+    (org-workflow-store-set-meta meta-key (org-workflow-store--encode state))))
 
 (defun org-workflow-habits-dates ()
   "Enumerate dates covered by native habit logs and clocks, including clock spans."
@@ -201,31 +234,15 @@ No source properties are changed.  Missing IDs are errors, not silent omissions.
     marker))
 
 (defun org-workflow-habits-complete ()
-  "Record one completion through Org's native repeat mechanism."
+  "Complete the selected habit using the shared item operation."
   (interactive)
-  (let ((marker (org-workflow-habits--marker))
-        (agenda (derived-mode-p 'org-agenda-mode)))
-    (when (and (fboundp 'org-workflow-clock--clock-matches-p)
-               (org-workflow-clock--clock-matches-p marker))
-      (org-workflow-clock--clock-stop))
-    (org-with-point-at marker
-      (let ((org-log-repeat 'time) (org-log-into-drawer t))
-        (org-todo "DONE")
-        ;; Flush the native deferred state log before saving and synchronizing.
-        (when org-log-note-marker (org-add-log-note)))
-      (save-buffer))
-    (when agenda (org-agenda-redo))))
+  (org-workflow-item-complete (org-workflow-item-at-marker (org-workflow-habits--marker)))
+  (when (derived-mode-p 'org-agenda-mode) (org-agenda-redo)))
 
 (defun org-workflow-habits-start ()
-  "Time this habit without changing the Workflow selection or stopping other work."
+  "Start the selected habit through the shared item clock operation."
   (interactive)
-  (let ((marker (org-workflow-habits--marker)))
-    (when (or (org-clocking-p)
-              (and (fboundp 'org-workflow-focus-timer-active-p) (org-workflow-focus-timer-active-p)))
-      (user-error "请先结束当前计时"))
-    (if (fboundp 'org-workflow-clock--clock-start)
-        (org-workflow-clock--clock-start marker)
-      (org-with-point-at marker (org-clock-in)))))
+  (org-workflow-item-start (org-workflow-item-at-marker (org-workflow-habits--marker))))
 
 (defun org-workflow-habits--after-save ()
   "Notify adapters after saving a dedicated or embedded habit source."

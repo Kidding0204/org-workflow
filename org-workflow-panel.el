@@ -40,28 +40,20 @@
     (org-workflow-panel-invalidate)
     (org-workflow--request-gnome-refresh)))
 
+(defun org-workflow-panel--habit-presentation (item)
+  "Convert shared habit ITEM to the desktop presentation contract."
+  (list :key (org-workflow-item-key item) :title (org-workflow-target-entry-title item)
+        :done (if (org-workflow-target-entry-done item) t :false)
+        :reminderTime (org-workflow-target-entry-reminder-time item)))
+
 (defun org-workflow-panel--habits (today)
-  "Return habits due or completed on TODAY and retain their source markers."
-  (let ((day (time-to-days (org-time-string-to-time (concat today " 12:00")))) rows markers)
-    (when (and org-workflow-store-enabled (org-workflow-store-meta "habit-source")
-               (not (file-readable-p (org-workflow-habits-file))))
-      (error "Habit source unavailable"))
-    (org-workflow-habits--map
-     (lambda ()
-       (unless (org-entry-is-done-p)
-         (let* ((habit (org-habit-parse-todo))
-                (done (memq day (org-habit-done-dates habit))))
-           (when (or done (<= (org-habit-scheduled habit) day))
-             (let ((key (or (org-entry-get nil "ID")
-                            (secure-hash 'sha256 (format "%s:%s" buffer-file-name
-                                                         (org-get-heading t t t t))))))
-               (push (cons key (point-marker)) markers)
-             (push (list :key key :title (substring-no-properties (org-get-heading t t t t))
-                         :done (if done t :false)
-                         :reminderTime (org-workflow-habits-reminder-clock)) rows)))))))
+  "Present shared habit items for TODAY and retain source markers for visits."
+  (let ((items (org-workflow-habits-items today)))
     (dolist (entry org-workflow-panel--habit-markers) (set-marker (cdr entry) nil))
-    (setq org-workflow-panel--habit-markers (nreverse markers))
-    (vconcat (nreverse rows))))
+    (setq org-workflow-panel--habit-markers
+          (mapcar (lambda (item) (cons (org-workflow-item-key item)
+                                     (org-workflow-target-entry-marker item))) items))
+    (vconcat (mapcar #'org-workflow-panel--habit-presentation items))))
 
 (defun org-workflow-panel--reminder-state (date)
   "Read daily reminder delivery state for DATE, independent of completions."
@@ -74,18 +66,13 @@
   (org-workflow-store-set-meta (concat "habit-reminders:" date)
                                (org-workflow-store--encode state))
   (org-workflow-panel-invalidate)
+  (org-workflow-target-refresh nil)
   (org-workflow--request-gnome-refresh))
 
 (defun org-workflow-panel-current-habit ()
-  "Return the latest reminded, unfinished habit, or nil.
-Covered reminders never resurface after the latest one is skipped or completed."
-  (when org-workflow-store-enabled
-    (let* ((today (org-workflow-target--today-string))
-           (state (org-workflow-panel--reminder-state today))
-           (key (plist-get state :current))
-           (row (and key (seq-find (lambda (habit) (equal key (plist-get habit :key)))
-                                  (org-workflow-panel--habits today)))))
-      (when (and row (not (eq t (plist-get row :done)))) row))))
+  "Present the pending reminder; common current-item selection lives in items."
+  (when-let* ((item (org-workflow-habits-current-item)))
+    (org-workflow-panel--habit-presentation item)))
 
 (defun org-workflow-panel--reminder-tick (&optional now)
   "Notify once for due habits at NOW; persist the newest reminder as current."
@@ -124,43 +111,24 @@ Covered reminders never resurface after the latest one is skipped or completed."
       (error (message "习惯提醒：%s" (error-message-string err))))))
 
 (defun org-workflow-panel-skip-habit ()
-  "Skip the latest reminded habit for today without recording completion."
+  "Skip the latest reminded occurrence through the shared item operation."
   (interactive)
-  (let* ((habit (org-workflow-panel-current-habit))
-         (date (org-workflow-target--today-string))
-         (state (org-workflow-panel--reminder-state date)))
-    (unless habit (user-error "没有当前习惯提醒"))
-    (setq state (plist-put state :skipped
-                           (vconcat (cons (plist-get habit :key)
-                                          (append (plist-get state :skipped) nil)))))
-    (setq state (plist-put state :current nil))
-    (org-workflow-panel--save-reminder-state date state)
-    (message "今天跳过：%s" (plist-get habit :title))))
-
-(defun org-workflow-panel--clocked-habit ()
-  "Return the native habit marker being clocked, if any."
-  (when (and (org-clocking-p)
-             (org-with-point-at org-clock-marker (org-workflow-habit-p)))
-    org-clock-marker))
+  (let ((item (or (org-workflow-habits-current-item) (user-error "没有当前习惯提醒"))))
+    (org-workflow-item-skip item)
+    (message "今天跳过：%s" (org-workflow-target-entry-title item))))
 
 (defun org-workflow-panel-habit-action (action)
-  "Perform ACTION on the current reminder's native habit source."
-  (let* ((habit (org-workflow-panel-current-habit))
-         (marker (or (and (memq action '(complete visit)) (org-workflow-panel--clocked-habit))
-                     (cdr (assoc (plist-get habit :key) org-workflow-panel--habit-markers)))))
-    (unless (and (markerp marker) (marker-buffer marker))
-      (user-error "没有当前习惯提醒"))
+  "Apply ACTION to the shared current habit item, using common operations."
+  (let ((item (org-workflow-item-require action)))
+    (unless (eq (org-workflow-target-entry-kind item) 'habit)
+      (user-error "当前项不是习惯"))
     (pcase action
-      ('skip (org-workflow-panel-skip-habit))
-      ('visit
-       (org-workflow-panel--select-frame)
-       (pop-to-buffer (marker-buffer marker)) (goto-char marker)
-       (org-fold-show-context) (org-fold-show-entry))
-      ((or 'start 'toggle) (org-with-point-at marker (org-workflow-habits-start)))
-      ('complete (org-with-point-at marker (org-workflow-habits-complete)))
-      (_ (user-error "未知习惯操作：%s" action)))
-    (org-workflow-panel-invalidate)
-    (org-workflow--request-gnome-refresh)))
+      ('skip (org-workflow-item-skip item))
+      ('visit (org-workflow-panel--select-frame) (org-workflow-item-visit item t))
+      ('start (org-workflow-item-start item))
+      ('toggle (org-workflow-focus-toggle))
+      ('complete (org-workflow-item-complete item))
+      (_ (user-error "未知习惯操作：%s" action)))))
 
 (defun org-workflow-panel--invested-p (rows)
   "Whether ROWS contain valid recorded focus or an actual completion."
@@ -246,15 +214,8 @@ Covered reminders never resurface after the latest one is skipped or completed."
     org-workflow-panel--cache))
 
 (defun org-workflow-panel--augment (status)
-  "Add desktop panel facts and the current task's resume hint to STATUS."
-  (let ((marker (org-workflow-target-current-marker))
-        (clocked (org-workflow-panel--clocked-habit)))
-    (when clocked
-      (setq status (copy-sequence status))
-      (setq status (plist-put status :available t))
-      (setq status (plist-put status :task (org-with-point-at clocked
-                                            (substring-no-properties (org-get-heading t t t t)))))
-      (setq status (plist-put status :parent "")))
+  "Add desktop facts and the shared current item's resume hint to STATUS."
+  (let ((marker (org-workflow-target-current-marker)))
     (append status (list :panel (org-workflow-panel-status)
                          :habitReminderPaused (if (org-clocking-p) t :false)
                          :resume (or (and marker (org-with-point-at marker (org-entry-get nil "WORKFLOW_RESUME"))) "")))))

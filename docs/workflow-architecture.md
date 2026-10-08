@@ -1,6 +1,6 @@
 # Workflow：任务、执行与历史模型
 
-[文档入口](README.md)（文中的默认快捷键需设置 `org-workflow-install-default-bindings` 为 t） · 维护基线：2026-10-07
+[文档入口](README.md)（文中的默认快捷键需设置 `org-workflow-install-default-bindings` 为 t） · 维护基线：2026-10-08
 
 本文描述当前规则。CURR 标签、READY、22:00 日日志封存和标签承诺属于历史模型。
 
@@ -35,6 +35,23 @@ Workflow 队列读取 Agenda 中具有 project 或 area 文件标签的任务。
 执行目标独立于排序建议。开始计时或明确选择后，刷新和重排不改变执行目标；
 明确完成、切换或延期负责转换执行状态。Focus Timer 通过标准 Org Clock 记录分钟，
 停止后不足默认五分钟的区间取消，其他区间正常 clock-out；手动 Org Clock 不受此规则接管。
+
+## 共用条目与习惯
+
+`org-workflow-items.el` 用现有 `org-workflow-target-entry` 表达两种条目，`kind` 为
+task 或 habit；习惯附加当天 occurrence、展示位置和提醒钟点。这里是语义上的任务子类，
+不引入类继承框架。原文 marker、ID、标题及正文读取共用一个适配入口。
+
+`org-workflow-current-item` 是唯一当前项解析入口：执行中的 Focus Timer 周期（含休息）
+优先，其次是匹配的 Org Clock；空闲时最新待处理习惯提醒优先于普通任务。
+提醒、跳过和完成仍遵循原有当日策略，旧提醒不会重新浮现。普通执行选择独立保留，
+以便提醒结束后恢复；这不构成第二个界面当前项。
+
+Emacs 状态、桌面命令、原文导航、新图形 frame、capture 和 mode-line 使用共用条目。
+mode-line 仅读解析快照；局部原文查询和定位不使用 Org element cache。
+start／complete／visit／save 共用操作，习惯 complete 保留 Org 原生重复日志，skip 仅
+抑制当天提醒。推进、前置任务、延期及承诺仍仅适用于普通任务。
+两种条目共用直接 CLOCK 和每日完成记录读取；现有持久表、输出语义和封存事实不迁移。
 
 ## 承诺与每日兑现
 

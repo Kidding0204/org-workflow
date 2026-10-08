@@ -37,6 +37,7 @@
 
 (require 'org-workflow-commands)
 (require 'org-workflow-periods)
+(require 'org-workflow-items)
 
 (defcustom org-workflow-clock 'org-clock
   "Clock backend used by current-target workflow commands."
@@ -120,13 +121,7 @@ Errors become desktop notifications so GNOME shortcuts do not fail silently."
       (let ((command (alist-get action org-workflow-external-actions)))
         (unless command
           (user-error "Unknown Org Workflow action: %s" action))
-        (if (or (and (memq action '(complete visit)) (org-workflow-panel--clocked-habit))
-                (and (memq action '(start toggle complete visit))
-                     (not (org-workflow-focus-timer-active-p))
-                     (not (org-clocking-p))
-                     (org-workflow-panel-current-habit)))
-            (org-workflow-panel-habit-action action)
-          (call-interactively command))
+        (call-interactively command)
         (list :ok t :action action))
     (error
      (let ((reason (error-message-string error-data)))
@@ -149,11 +144,6 @@ the minibuffer, so other clients such as the GNOME status reader stay usable."
   (run-at-time 0.1 nil #'org-workflow--dispatch-in-frame
                (selected-frame) action)
   (list :queued t :action action))
-
-(cl-defstruct (org-workflow-target-entry
-               (:constructor org-workflow-target-entry-create))
-  marker group-marker priority scheduled-date scheduled-minute title group-title
-  file outline-position)
 
 (defun org-workflow-target--today-string ()
   "Return today's local date in ISO format."
@@ -661,27 +651,7 @@ REPLACEMENT is newly created by `org-workflow-target-step'."
                              (org-workflow-target--unfinished-leaf-p)
                              (org-workflow-target--eligible-leaf-p kind today)
                              (org-workflow--scheduled-on-or-before-p (or through-date today)))
-                    (let* ((scheduled (org-entry-get nil "SCHEDULED"))
-                           (scheduled-date
-                            (org-workflow-target--timestamp-date scheduled))
-                           (leaf (copy-marker (point)))
-                           (group (org-workflow-target--direct-parent-marker)))
-                        (push
-                         (org-workflow-target-entry-create
-                          :marker leaf
-                          :group-marker group
-                          :priority
-                          (org-workflow--effective-priority-at-point)
-                          :scheduled-date scheduled-date
-                          :scheduled-minute
-                          (org-workflow-target--scheduled-minute scheduled)
-                          :title (org-workflow-target--entry-title)
-                          :group-title
-                          (org-with-point-at group
-                            (org-get-heading t t t t))
-                          :file (buffer-file-name)
-                          :outline-position (marker-position leaf))
-                         entries))))
+                    (push (org-workflow-item-at-marker (point-marker) today) entries)))
                 nil 'file)))))))
     entries))
 
@@ -839,18 +809,8 @@ Without THROUGH-DATE, use today as the upper scheduling boundary."
 (defvar org-workflow-target-selection-history nil)
 
 (defun org-workflow-target--entry-at-point ()
-  "Describe the current heading for the target selector."
-  (let ((parent (org-workflow-target--direct-parent-marker))
-        (scheduled (org-entry-get nil "SCHEDULED")))
-    (org-workflow-target-entry-create
-     :marker (copy-marker (point)) :group-marker parent
-     :priority (org-workflow--effective-priority-at-point)
-     :scheduled-date (org-workflow-target--timestamp-date scheduled)
-     :scheduled-minute (org-workflow-target--scheduled-minute scheduled)
-     :title (org-workflow-target--entry-title)
-     :group-title (when parent
-                    (org-with-point-at parent (org-get-heading t t t t)))
-     :file (buffer-file-name) :outline-position (point))))
+  "Describe the current heading through the shared item source adapter."
+  (org-workflow-item-at-marker (point-marker)))
 
 (defun org-workflow-target--selection-entries ()
   "Return (SECTION . ENTRY) pairs, with today's queue before other DIVE children."
@@ -1054,7 +1014,7 @@ is deferred, or the day changes.  Do not start timing automatically."
 (defvar org-workflow-executing-marker nil
   "Explicit execution target, independent of the recommendation queue.")
 
-(defun org-workflow-target-current-marker ()
+(defun org-workflow-target--ordinary-marker ()
   "Return the execution target, or the first recommendation when idle."
   (if (and (markerp org-workflow-executing-marker)
            (marker-buffer org-workflow-executing-marker))
@@ -1062,6 +1022,11 @@ is deferred, or the day changes.  Do not start timing automatically."
     (when-let* ((entry (car org-workflow-target-stack))
                 ((org-workflow-target--valid-entry-p entry)))
       (copy-marker (org-workflow-target-entry-marker entry)))))
+
+(defun org-workflow-target-current-marker ()
+  "Return the source marker of the current task or habit item."
+  (when-let* ((item (org-workflow-current-item)))
+    (copy-marker (org-workflow-target-entry-marker item))))
 
 (defun org-workflow-target-next-marker ()
   "Return the first recommendation other than the current target."
@@ -1184,11 +1149,15 @@ is deferred, or the day changes.  Do not start timing automatically."
                          (org-workflow-target-refresh nil)
                          (org-workflow-target--schedule-midnight-refresh))))))
 
-(defun org-workflow-target--require-current ()
-  "Refresh and return today's current target, or signal `user-error'."
+(defun org-workflow-target--require-current (&optional action)
+  "Refresh and require the current source, checking optional ACTION support."
   (org-workflow-target-refresh t)
-  (or (org-workflow-target-current-marker)
-      (user-error "No unfinished Org TODO is scheduled for today")))
+  (let ((marker (or (org-workflow-target-current-marker)
+                    (user-error "没有当前任务或习惯"))))
+    (when (and action (not (org-workflow-item-supports-p
+                           (org-workflow-item-at-marker marker) action)))
+      (user-error "当前习惯不支持此任务规划操作"))
+    marker))
 
 (defun org-workflow-target--clock-matches-p (marker)
   "Return non-nil when the selected clock backend belongs to MARKER."
@@ -1201,11 +1170,10 @@ is deferred, or the day changes.  Do not start timing automatically."
     (user-error "Another Org entry is currently being timed")))
 
 (defun org-workflow-target-start ()
-  "Start timing today's current target."
+  "Start timing the shared current task or habit item."
   (interactive)
-  (let ((marker (org-workflow-target--require-current)))
-    (org-workflow-clock--clock-start marker)
-    (setq org-workflow-executing-marker (copy-marker marker))))
+  (org-workflow-item-start
+   (org-workflow-item-at-marker (org-workflow-target--require-current 'start))))
 
 (defun org-workflow-focus-toggle ()
   "Switch Focus Timer state for a desktop caller.
@@ -1216,17 +1184,16 @@ active Focus and break phases need no Workflow target."
   (require 'org-workflow-focus-timer)
   (let ((marker (unless (org-workflow-focus-timer-active-p) (org-workflow-target--require-current))))
     (org-workflow-focus-timer-toggle marker)
-    (when marker (setq org-workflow-executing-marker (copy-marker marker)))))
+    (when (and marker (eq (org-workflow-target-entry-kind
+                          (org-workflow-item-at-marker marker)) 'task))
+      (setq org-workflow-executing-marker (copy-marker marker)))
+    (org-workflow-target-refresh t)))
 
 (defun org-workflow-target-complete ()
-  "Clock out and complete today's current target."
+  "Complete the shared current task or habit occurrence."
   (interactive)
-  (let ((marker (org-workflow-target--require-current)))
-    (org-workflow-target--reject-other-clock marker)
-    (when (org-workflow-target--clock-matches-p marker)
-      (org-workflow-clock--clock-stop))
-    (org-with-point-at marker (org-todo "DONE"))
-    (org-workflow-target-refresh t)))
+  (org-workflow-item-complete
+   (org-workflow-item-at-marker (org-workflow-target--require-current 'complete))))
 
 (defun org-workflow--curr-scope-p ()
   "Return non-nil in a writable project/area file in the Agenda scope."
@@ -1423,17 +1390,17 @@ an intentional no-op, so manual refinement can retain the parent facts."
 Interactive calls reveal the task before prompting.  Programmatic callers may
 pass MARKER after arranging their own UI, or omit it for a pure transformation."
   (interactive
-   (let ((marker (org-workflow-target--require-current)))
+   (let ((marker (org-workflow-target--require-current 'step)))
      (org-workflow-target--reveal marker nil)
      (list (org-workflow-target--read-executed-part) marker)))
-  (org-workflow-target--step title (or marker (org-workflow-target--require-current))))
+  (org-workflow-target--step title (or marker (org-workflow-target--require-current 'step))))
 
 (defun org-workflow-target-prerequisite (title)
   "Insert a scheduled same-level prerequisite named TITLE above current leaf."
   (interactive (list (read-string "Prerequisite: ")))
   (when (string-empty-p (string-trim title))
     (user-error "Prerequisite title cannot be empty"))
-  (let ((marker (org-workflow-target--require-current)))
+  (let ((marker (org-workflow-target--require-current 'prerequisite)))
     (org-with-point-at marker
       (org-back-to-heading t)
       (let* ((scheduled (org-entry-get nil "SCHEDULED"))
@@ -1471,7 +1438,7 @@ pass MARKER after arranging their own UI, or omit it for a pure transformation."
 (defun org-workflow-target-defer ()
   "Defer only the current atomic target by setting priority C."
   (interactive)
-  (org-with-point-at (org-workflow-target--require-current)
+  (org-with-point-at (org-workflow-target--require-current 'defer)
     (let ((org-workflow--normalizing t))
       (org-priority ?C)))
   (org-workflow--release-execution)
@@ -1482,7 +1449,7 @@ pass MARKER after arranging their own UI, or omit it for a pure transformation."
   "Defer today's unfinished leaves sharing the current target's parent."
   (interactive)
   (let ((today (org-workflow-target--today-string))
-        (marker (org-workflow-target--require-current)))
+        (marker (org-workflow-target--require-current 'defer-group)))
     (org-with-point-at marker
       (let ((parent (org-workflow-target--direct-parent-marker)))
         (unless parent
@@ -1530,22 +1497,18 @@ the selected frame, including removal of protected side windows."
   (widen)
   (goto-char marker)
   (org-back-to-heading t)
-  (org-fold-show-context 'agenda))
+  (org-fold-show-context 'agenda)
+  (org-fold-show-entry))
 
 (defun org-workflow-target--visit (focused-frame-p)
-  "Reveal the current workflow leaf.
-
-When FOCUSED-FRAME-P is non-nil, use the selected frame as its only window."
-  (org-workflow-target--reveal (org-workflow-target--require-current) focused-frame-p))
+  "Reveal the shared current item, alone when FOCUSED-FRAME-P is non-nil."
+  (org-workflow-item-visit
+   (org-workflow-item-at-marker (org-workflow-target--require-current 'visit)) focused-frame-p))
 
 (defun org-workflow-target-visit ()
-  "Reveal and narrow to the current workflow leaf without changing the window layout.
-
-Use `org-toggle-narrow-to-subtree' to return to the complete plan."
+  "Reveal the current task or habit subtree without changing the window layout."
   (interactive)
-  (org-workflow-target--visit nil)
-  (org-toggle-narrow-to-subtree)
-  (org-end-of-meta-data t))
+  (org-workflow-target--visit nil))
 
 (defun org-workflow--visit-current-target-in-new-frame ()
   "Show today's current target when a graphical frame becomes available.
@@ -1563,25 +1526,33 @@ alone when there is no current target."
       (user-error nil))))
 
 (defun org-workflow--visit-in-frame ()
-  "Reveal and narrow to the current workflow leaf as the frame's only window.
-
-Place point at the start of the leaf's body."
+  "Reveal the shared current task or habit source as the frame's only window."
   (interactive)
-  (org-workflow-target--visit t)
-  (org-toggle-narrow-to-subtree)
-  (org-end-of-meta-data t))
+  (org-workflow-target--visit t))
 
 (defun org-workflow--step-in-frame ()
   "Reveal the current target in this frame, then read its Executed Part."
   (interactive)
-  (let ((marker (org-workflow-target--require-current)))
+  (let ((marker (org-workflow-target--require-current 'step)))
     (org-workflow-target--reveal marker t)
     (org-workflow-target--step (org-workflow-target--read-executed-part) marker)))
 
 (defun org-workflow-target-modeline-text ()
-  "Return cached current and next target names for modeline display."
-  (let* ((entries (seq-take (seq-filter #'org-workflow-target--valid-entry-p org-workflow-target-stack) 2))
-         (text (mapconcat #'org-workflow-target--entry-label entries " -> ")))
+  "Present the cached common current item and its next ordinary recommendation."
+  (let* ((current org-workflow-current-item-cache)
+         (valid (and current (org-workflow-target--valid-entry-p current)))
+         (next (and valid (seq-find
+                          (lambda (entry) (and (org-workflow-target--valid-entry-p entry)
+                                               (not (org-workflow-target--same-marker-p
+                                                     (org-workflow-target-entry-marker current)
+                                                     (org-workflow-target-entry-marker entry)))))
+                          org-workflow-target-stack)))
+         (entries (if valid (delq nil (list current next))
+                    (seq-take (seq-filter #'org-workflow-target--valid-entry-p org-workflow-target-stack) 2)))
+         (text (mapconcat (lambda (entry)
+                            (if (eq (org-workflow-target-entry-kind entry) 'habit)
+                                (concat "↻ " (org-workflow-target-entry-title entry))
+                              (org-workflow-target--entry-label entry))) entries " -> ")))
     (unless (string-empty-p text)
       (truncate-string-to-width text org-workflow-target-modeline-max-width nil nil "…"))))
 
@@ -1607,25 +1578,16 @@ Place point at the start of the leaf's body."
           (list title progress))))))
 
 (defun org-workflow--clean-body (marker)
-  "Return MARKER's direct body without Org workflow metadata."
-  (org-with-point-at marker
-    (org-back-to-heading t)
-    (save-restriction
-      (org-narrow-to-subtree)
-      (org-end-of-meta-data t)
-      (let* ((beg (point))
-             (end (save-excursion
-                    (if (outline-next-heading) (line-beginning-position)
-                      (point-max))))
-             (text (buffer-substring-no-properties beg end)))
-        (string-trim
-         (replace-regexp-in-string "^[ \t]*CLOCK:.*\n?" "" text))))))
+  "Read MARKER's body through the shared item source pipeline."
+  (org-workflow-item-body (org-workflow-item-at-marker marker)))
 
 (defun org-workflow-status ()
   "Return a stable plist describing the current Org workflow state."
   (let* ((today (org-workflow-target--today-string))
          (marker (org-workflow-target-current-marker))
-         (parent (and marker (org-workflow--display-parent-data marker)))
+         (item (and marker (org-workflow-item-at-marker marker)))
+         (parent (and marker (eq (org-workflow-target-entry-kind item) 'task)
+                      (org-workflow--display-parent-data marker)))
          (daily (or (and org-workflow-status-provider-function
                          (funcall org-workflow-status-provider-function
                                   today))
@@ -1640,11 +1602,11 @@ Place point at the start of the leaf's body."
          (stage (org-workflow--stage-progress today)))
     (append
      (if marker
-         (list :available t
-               :task (org-with-point-at marker (org-workflow-target--entry-title))
+         (list :available t :kind (symbol-name (org-workflow-target-entry-kind item))
+               :task (org-workflow-target-entry-title item)
                :parent (or (car parent) "")
                :parentProgress (or (cadr parent) "")
-               :body (org-workflow--clean-body marker))
+               :body (org-workflow-item-body item))
        (list :available :false :task "" :parent ""
              :parentProgress "" :body ""))
      daily

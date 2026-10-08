@@ -77,35 +77,31 @@ Today's pending occurrence does not break the ongoing streak."
   :group 'org-workflow-habits)
 
 (defun org-workflow-evening--habit-rows (date)
-  "Collect DATE's native habit rows with position and week tracking."
-  (let ((today (time-to-days (org-time-string-to-time (concat date " 12:00")))) rows)
-    (org-workflow-habits--map
-     (lambda ()
-       (unless (org-entry-is-done-p)
-         (let* ((habit (let ((org-habit-preceding-days most-positive-fixnum)
-                            (org-habit-following-days 0))
-                        (org-habit-parse-todo)))
-                (done (org-habit-done-dates habit)))
-           (when (or (<= (org-habit-scheduled habit) today) (memq today done))
-             (let* ((marker (org-agenda-new-marker (point)))
-                    (tags (org-workflow-display-tags))
-                    (position (org-workflow-habits-position))
-                    (line (concat "    " (propertize "↻" 'face 'shadow)
-                                  (propertize " " 'display '(space :align-to 6))
-                                  (propertize (substring-no-properties (org-get-heading t t t t))
-                                              'face 'org-workflow-evening-habit-title)
-                                  (org-workflow-agenda--visible-tags tags) "\n      "
-                                  (org-workflow-evening--week
-                                   done today
-                                   (not (and (= (org-habit-scheduled-repeat habit) 1)
-                                             (null (nth 3 habit))))) "\n")))
-               (org-add-props line nil
-                              'org-marker marker 'org-hd-marker marker
-                              'org-category (org-get-category) 'todo-state (org-get-todo-state)
-                              'tags tags 'priority (org-get-priority (thing-at-point 'line))
-                              'type "todo" 'org-heading t 'mouse-face 'highlight
-                              'org-workflow-agenda-create-context 'habit)
-               (push (cons position line) rows)))))))
+  "Render shared habit items for DATE with native week tracking."
+  (let ((today (time-to-days (org-time-string-to-time (concat date " 12:00"))))
+        (org-element-use-cache nil) rows)
+    (dolist (item (org-workflow-habits-items date))
+      (org-with-point-at (org-workflow-target-entry-marker item)
+        (let* ((habit (let ((org-habit-preceding-days most-positive-fixnum)
+                           (org-habit-following-days 0)) (org-habit-parse-todo)))
+               (done (org-habit-done-dates habit))
+               (marker (org-agenda-new-marker (point)))
+               (tags (org-workflow-display-tags))
+               (line (concat "    " (propertize "↻" 'face 'shadow)
+                             (propertize " " 'display '(space :align-to 6))
+                             (propertize (org-workflow-target-entry-title item)
+                                         'face 'org-workflow-evening-habit-title)
+                             (org-workflow-agenda--visible-tags tags) "\n      "
+                             (org-workflow-evening--week done today
+                              (not (and (= (org-habit-scheduled-repeat habit) 1)
+                                        (null (nth 3 habit))))) "\n")))
+          (org-add-props line nil
+                         'org-marker marker 'org-hd-marker marker
+                         'org-category (org-get-category) 'todo-state (org-get-todo-state)
+                         'tags tags 'priority (org-workflow-target-entry-priority item)
+                         'type "todo" 'org-heading t 'mouse-face 'highlight
+                         'org-workflow-agenda-create-context 'habit)
+          (push (cons (org-workflow-target-entry-habit-position item) line) rows))))
     (nreverse rows)))
 
 (defun org-workflow-evening--insert-habits (rows period edge)

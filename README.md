@@ -119,6 +119,16 @@ reminders do not resurface after skipping/completing the current one. Daily
 notification and skip state persists across Emacs/Shell restarts in Workflow
 storage and resets for the next local date.
 
+Tasks and habits share the typed item model in `org-workflow-items.el` and
+one current-item resolver. Status, source navigation (including new graphical
+frames), capture, start and completion use that same item. An active timer
+cycle, including its break, takes precedence over pending reminders. The mode
+line reads a resolved snapshot rather than scanning habit sources on redraw.
+Habit completion records the native Org repeat occurrence; skip only changes
+today's reminder state. Habits remain outside ordinary task queues and
+commitments, and task refinement/defer commands reject them. Both types use
+the same direct CLOCK reader for daily effort, without migrating stored facts.
+
 ## Optional integrations
 
 [`extras/`](extras/) contains the web dashboard, GNOME integration and desktop client and screenshot helpers. These are companion tools, not part of the Emacs package archive. Follow their own instructions and review paths and desktop requirements before installing them. The core package does not install a GNOME extension or desktop executable.

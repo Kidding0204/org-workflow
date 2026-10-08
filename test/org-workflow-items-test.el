@@ -1,0 +1,159 @@
+;;; org-workflow-items-test.el --- Unified task and habit interfaces -*- lexical-binding: t; -*-
+(require 'ert)
+(require 'org-workflow)
+(load "org-workflow-habits-test" nil t)
+
+(defmacro workflow-items-test (&rest body)
+  `(workflow-habit-test
+    (let* ((org-workflow-focus-timer-phase nil)
+           (org-workflow-focus-timer-task-marker nil)
+           (org-clock-marker (make-marker))
+           (org-workflow-current-changed-hook nil)
+           (org-workflow-stack-empty-hook nil)
+           (org-workflow-current-item-cache nil)
+           (org-workflow-panel--key nil)
+           (org-workflow-panel--cache nil)
+           (org-workflow-target-selected-date nil)
+           (task-file (expand-file-name "tasks.org" directory))
+           (date (org-workflow-target--today-string)))
+      (with-temp-file task-file
+        (insert "#+filetags: :area:\n* DIVE Project\n** TODO [#A] Task\nSCHEDULED: <" date ">\n:PROPERTIES:\n:ID: shared-task\n:END:\nTask body.\n"))
+      (setq org-agenda-files (list task-file))
+      (org-workflow-habits-create "Habit")
+      (goto-char (point-max)) (insert "Habit body.\n")
+      (let* ((habit-marker (save-excursion (org-back-to-heading t) (point-marker)))
+             (habit-item (org-workflow-item-at-marker habit-marker))
+             (habit-key (org-workflow-item-key habit-item)))
+        (org-workflow-store-set-meta (concat "habit-reminders:" date)
+                                    (org-workflow-store--encode
+                                     (list :sent (vector habit-key) :skipped [] :current habit-key)))
+        (org-workflow-target-refresh t)
+        ,@body))))
+
+(ert-deftest workflow-items-common-identity-and-ordinary-admission ()
+  (workflow-items-test
+   (let* ((task (car org-workflow-target-stack))
+          (current (org-workflow-current-item)))
+     (should (eq 'task (org-workflow-target-entry-kind task)))
+     (should (equal "shared-task" (org-workflow-target-entry-id task)))
+     (should (eq 'habit (org-workflow-target-entry-kind current)))
+     (should (equal habit-key (org-workflow-item-key current)))
+     (should (equal date (org-workflow-target-entry-occurrence-date current)))
+     (should (= 1 (length org-workflow-target-stack)))
+     (should (equal habit-marker (org-workflow-target-current-marker))))))
+
+(ert-deftest workflow-items-one-current-source-for-focus-and-reminder ()
+  (workflow-items-test
+   (let ((task-marker (org-workflow-target-entry-marker (car org-workflow-target-stack))))
+     (should (eq 'habit (org-workflow-target-entry-kind (org-workflow-current-item))))
+     (let ((org-workflow-focus-timer-phase 'focus)
+           (org-workflow-focus-timer-task-marker task-marker))
+       (should (equal "Task" (org-workflow-target-entry-title (org-workflow-current-item)))))
+     (let ((org-workflow-focus-timer-phase 'short-break)
+           (org-workflow-focus-timer-task-marker habit-marker))
+       (should (equal habit-marker (org-workflow-target-current-marker))))
+     (cl-letf (((symbol-function 'org-clocking-p) (lambda () t)))
+       (let ((org-clock-marker task-marker))
+         (should (equal "Task" (org-workflow-target-entry-title (org-workflow-current-item)))))
+       (let ((org-clock-marker habit-marker))
+         (should (eq 'habit (org-workflow-target-entry-kind (org-workflow-current-item)))))))))
+
+(ert-deftest workflow-items-shared-start-keeps-ordinary-selection-for-habit ()
+  (workflow-items-test
+   (let* ((task-marker (org-workflow-target-entry-marker (car org-workflow-target-stack)))
+          (org-workflow-executing-marker task-marker) started)
+     (cl-letf (((symbol-function 'org-workflow-clock--clock-start)
+                (lambda (marker) (setq started marker)))
+               ((symbol-function 'org-workflow--request-gnome-refresh) #'ignore))
+       (org-workflow-target-start)
+       (should (equal habit-marker started))
+       (should (eq task-marker org-workflow-executing-marker))
+       (org-workflow-panel-skip-habit)
+       (org-workflow-target-start)
+       (should (equal task-marker started))))))
+
+(ert-deftest workflow-items-common-complete-records-one-habit-occurrence ()
+  (workflow-items-test
+   (cl-letf (((symbol-function 'org-workflow--request-gnome-refresh) #'ignore))
+     (org-workflow-target-complete)
+     (org-with-point-at habit-marker
+       (should (equal "TODO" (org-get-todo-state)))
+       (should (string-match-p "\\.\\+1d" (org-entry-get nil "SCHEDULED"))))
+     (should (equal "done" (plist-get (car (org-workflow-habits-records date)) :outcome)))
+     (should (equal "Task" (org-workflow-target-entry-title (org-workflow-current-item))))
+     (should-not (org-workflow-store-due date)))))
+
+(ert-deftest workflow-items-skip-does-not-complete-or-resurrect-reminders ()
+  (workflow-items-test
+   (let ((before (org-with-point-at habit-marker (buffer-string))))
+     (cl-letf (((symbol-function 'org-workflow--request-gnome-refresh) #'ignore))
+       (org-workflow-item-skip-current))
+     (should (equal before (org-with-point-at habit-marker (buffer-string))))
+     (should-not (org-workflow-habits-records date))
+     (should (equal "Task" (org-workflow-target-entry-title (org-workflow-current-item))))
+     (should-not (org-workflow-panel-current-habit)))))
+
+(ert-deftest workflow-items-habit-cannot-inherit-task-only-planning ()
+  (workflow-items-test
+   (let ((before (org-with-point-at habit-marker (buffer-string))))
+     (dolist (command '(org-workflow-target-defer org-workflow-target-defer-group))
+       (should-error (funcall command) :type 'user-error))
+     (should-not (org-workflow-item-supports-p habit-item 'step))
+     (should (org-workflow-item-supports-p habit-item 'skip))
+     (should (equal before (org-with-point-at habit-marker (buffer-string)))))))
+
+(ert-deftest workflow-items-current-capture-and-visit-use-identical-source ()
+  (workflow-items-test
+   (let ((source (marker-buffer habit-marker))
+         (before (org-with-point-at habit-marker (buffer-string))))
+     (org-with-point-at habit-marker (org-fold-subtree t))
+     (save-window-excursion
+       (org-workflow-target-visit)
+       (should (eq source (current-buffer)))
+       (should (buffer-narrowed-p))
+       (should (looking-at-p "Habit body\\."))
+       (should-not (invisible-p (point)))
+       (org-workflow-target-capture-location)
+       (should (org-at-heading-p))
+       (should (equal "Habit" (org-get-heading t t t t)))
+       (save-restriction (widen) (should (equal before (buffer-string))))))))
+
+(ert-deftest workflow-items-current-status-has-shared-type-title-and-body ()
+  (workflow-items-test
+   (let ((status (org-workflow-status)))
+     (should (eq t (plist-get status :available)))
+     (should (equal "habit" (plist-get status :kind)))
+     (should (equal "Habit" (plist-get status :task)))
+     (should (equal "Habit body." (plist-get status :body))))))
+
+(ert-deftest workflow-items-day-record-shares-direct-cross-midnight-clock-reader ()
+  (workflow-items-test
+   (org-with-point-at habit-marker
+     (widen) (goto-char (point-max))
+     (insert ":LOGBOOK:\nCLOCK: [2026-10-07 Wed 23:50]--[2026-10-08 Thu 00:20] => 0:30\n:END:\n"))
+   (let ((record (org-workflow-item-day-record habit-item "2026-10-08")))
+     (should (= 20 (plist-get record :focusMinutes)))
+     (should (equal habit-key (plist-get record :id))))
+   (let ((task (car org-workflow-target-stack)))
+     (org-with-point-at (org-workflow-target-entry-marker task)
+       (goto-char (point-max))
+       (insert ":LOGBOOK:\nCLOCK: [2026-10-07 Wed 23:50]--[2026-10-08 Thu 00:20] => 0:30\n:END:\n"))
+     (should (= 20 (plist-get (org-workflow-item-day-record task "2026-10-08") :focusMinutes))))))
+
+(ert-deftest workflow-items-source-adapter-is-cache-free-and-readonly ()
+  (workflow-items-test
+   (let ((before (org-with-point-at habit-marker (buffer-string)))
+         (original (symbol-function 'org-workflow-target--entry-title)))
+     (cl-letf (((symbol-function 'org-workflow-target--entry-title)
+                (lambda () (should-not org-element-use-cache) (funcall original))))
+       (org-workflow-item-at-marker habit-marker))
+     (should (equal before (org-with-point-at habit-marker (buffer-string)))))))
+
+(ert-deftest workflow-items-modeline-uses-common-snapshot-without-source-rescan ()
+  (workflow-items-test
+   (org-workflow-current-item)
+   (cl-letf (((symbol-function 'org-workflow-current-item)
+              (lambda () (ert-fail "Mode line must not rescan habit sources"))))
+     (should (string-prefix-p "↻ Habit -> Task" (org-workflow-target-modeline-text))))))
+
+(provide 'org-workflow-items-test)

@@ -111,9 +111,7 @@ Keep original due dates intact.  Leave records do not discharge commitments."
 
 (defun org-workflow-history--tasks (date)
   "Read direct clocks and completed tasks on DATE, including refined containers."
-  (let ((org-clock-report-include-clocking-task nil)
-        (start (concat "[" date " 00:00]"))
-        (end (concat "[" (org-workflow-history-add-days date 1) " 00:00]")) rows)
+  (let ((org-clock-report-include-clocking-task nil) rows)
     (dolist (file (org-agenda-files t))
       (when (file-readable-p file)
         (with-current-buffer (find-file-noselect file)
@@ -121,12 +119,10 @@ Keep original due dates intact.  Leave records do not discharge commitments."
            (when (org-workflow--file-kind)
              (org-map-entries
               (lambda ()
-                (let ((minutes (org-workflow-journal-direct-clock-minutes (point-marker) start end))
-                      (done (and (equal (org-get-todo-state) "DONE")
-                                 (equal date (org-workflow-target--timestamp-date (org-entry-get nil "CLOSED"))))))
-                  (when (and (not (org-workflow-habit-p)) (or done (> minutes 0)))
-                    (push (list :id (org-entry-get nil "ID") :task (org-get-heading t t t t)
-                                :outcome (if done "done" "focused") :focusMinutes minutes) rows))))
+                (unless (org-workflow-habit-p)
+                  (when-let* ((record (org-workflow-item-day-record
+                                      (org-workflow-item-at-marker (point-marker) date) date)))
+                    (push record rows))))
               nil 'file))))))
     rows))
 
