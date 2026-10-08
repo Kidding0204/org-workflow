@@ -53,8 +53,8 @@
        (with-temp-buffer
          (org-workflow-agenda-task-stack nil rows)
          (should-not (string-match-p "习惯 ·" (buffer-string)))
-         (should (string-match-p "连续 0 天\n\n    Tasks" (buffer-string)))
-         (should (string-match-p "Second task\n\n      Late habit" (buffer-string)))
+         (should (string-match-p "连续 0 天\n    Tasks" (buffer-string)))
+         (should (string-match-p "Second task\n    Late habit" (buffer-string)))
          (goto-char (point-min))
          (search-forward "Early habit")
          (should (eq 'habit (get-text-property (1- (point)) 'org-workflow-agenda-create-context)))

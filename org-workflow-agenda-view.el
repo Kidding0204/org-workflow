@@ -463,7 +463,6 @@
                 (put-text-property cursor next 'org-workflow-agenda-create-context
                                    `(task ,target ,letter)))
               (setq cursor next))))))
-    (insert "\n")
     (add-text-properties start (point) '(org-agenda-type todo))))
 
 (defvar org-workflow-agenda-future-expanded t

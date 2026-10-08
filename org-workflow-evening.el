@@ -70,8 +70,8 @@ Today's pending occurrence does not break the ongoing streak."
              (let* ((marker (org-agenda-new-marker (point)))
                     (tags (org-workflow-display-tags))
                     (position (org-workflow-habits-position))
-                    (line (concat "      " (substring-no-properties (org-get-heading t t t t))
-                                  (org-workflow-agenda--visible-tags tags) "\n        "
+                    (line (concat "    " (substring-no-properties (org-get-heading t t t t))
+                                  (org-workflow-agenda--visible-tags tags) "\n      "
                                   (org-workflow-evening--week
                                    done today
                                    (not (and (= (org-habit-scheduled-repeat habit) 1)
@@ -92,12 +92,8 @@ Today's pending occurrence does not break the ongoing streak."
                                                 (eq (nth 2 item) edge)))
                              org-workflow-habits-positions))
          (selected (seq-filter (lambda (row) (equal (car row) position)) rows)))
-    (when selected
-      ;; Titles use the same six-space inset as ordinary task titles.
-      ;; A blank line separates the habit block from the adjacent task block.
-      (when (eq edge 'late) (insert "\n"))
-      (dolist (row selected) (insert (cdr row)))
-      (when (eq edge 'early) (insert "\n")))))
+    ;; Habit titles share the task parent heading's four-space inset.
+    (dolist (row selected) (insert (cdr row)))))
 
 (defun org-workflow-evening-today (_match)
   "Render the queue with placed habits and an unassigned habit section."
