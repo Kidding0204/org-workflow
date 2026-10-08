@@ -26,6 +26,7 @@
 (require 'button)
 
 (require 'tab-line)
+(require 'org-workflow-sources)
 
 (defun org-workflow-agenda-direct-parent-breadcrumb ()
   "Return the current Org entry's direct parent as an Agenda breadcrumb."
@@ -365,10 +366,68 @@
     (insert "\n")
     (add-text-properties start (point) '(org-agenda-type todo))))
 
+(defun org-workflow-agenda--deadline-goals ()
+  "Return unfinished TODO deadline records in ascending date order.
+Records contain date, source file and heading position.  Parent milestones
+and inactive project stages are included; execution queue rules are unchanged."
+  (let (records)
+    (dolist (file (org-agenda-files t))
+      (setq records
+            (nconc records
+                   (org-workflow-source-read
+                    file
+                    (lambda ()
+                      (when (and (org-workflow--file-kind)
+                                 (not (member "workflow-closed" org-file-tags)))
+                        (let (found)
+                          (org-map-entries
+                           (lambda ()
+                             (when (and (equal (org-get-todo-state) "TODO")
+                                        (not (org-workflow--held-p))
+                                        (not (equal (org-entry-get nil "STYLE") "habit")))
+                               (when-let* ((date (org-workflow-target--timestamp-date
+                                                 (org-entry-get nil "DEADLINE"))))
+                                 (push (list date file (point)) found))))
+                           nil 'file)
+                          (nreverse found))))))))
+    (cl-stable-sort records #'string< :key #'car)))
+
+(defun org-workflow-agenda-deadline-goals (_match)
+  "Insert deadline milestones before Sprint's daily arrangements.
+Use native Agenda markers for visiting, editing and TODO actions."
+  (when-let* ((records (org-workflow-agenda--deadline-goals)))
+    (let ((start (point))
+          (today (org-workflow-target--today-string)))
+      (insert (org-workflow-agenda--section-header "阶段目标 · 截止日期"))
+      (dolist (record records)
+        (pcase-let ((`(,date ,file ,position) record))
+          (let* ((line
+                  (with-current-buffer (find-file-noselect file)
+                    (save-excursion
+                      (goto-char position)
+                      (org-workflow-agenda--stack-line
+                       (org-workflow-target-entry-create
+                        :marker (point-marker)
+                        :title (org-link-display-format (org-get-heading t t t t))
+                        :priority (org-workflow--effective-priority-at-point)) nil))))
+                 (marker (get-text-property 0 'org-hd-marker line))
+                 (label (concat date (cond ((string< date today) " · 已逾期")
+                                          ((equal date today) " · 今天截止")
+                                          (t "")))))
+            (insert line
+                    (propertize (concat "  " label)
+                                'face (if (string< date today) 'org-warning
+                                        'org-workflow-agenda-meta)
+                                'org-marker marker 'org-hd-marker marker)
+                    "\n"))))
+      (insert "\n")
+      (add-text-properties start (point) '(org-agenda-type todo)))))
+
 (defun org-workflow-agenda-workbench-view (_match)
   "Render the independent candidate, schedule or combined workbench pane."
   (let ((role (or (bound-and-true-p org-workflow-agenda--pane-role) 'combined)))
     (when (memq role '(combined schedule))
+      (org-workflow-agenda-deadline-goals nil)
       (org-workflow-guidance-agenda nil)
       (org-workflow-evening-today nil))
     (when (eq role 'candidates)
