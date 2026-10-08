@@ -109,6 +109,7 @@
     ("b" "习惯开始计时" org-workflow-habits-start)
     ("x" "习惯停止计时" org-workflow-evening-stop-clock)
     ("n" "新增习惯" org-workflow-habits-create)
+    ("C-c r" "习惯重复安排" org-workflow-habits-configure-repeat)
     ("C-c h" "习惯时段／提醒" org-workflow-habits-configure)
     ("S" "跳过当前习惯提醒" org-workflow-panel-skip-habit)
     ("I" "在当前栏新增" org-workflow-agenda-create-at-point)

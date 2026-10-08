@@ -43,11 +43,12 @@
         (nerd-icons-mdicon (nth 1 icon) :height 1.0 :v-adjust 0.0 :face face)
       (propertize (nth 2 icon) 'face face))))
 
-(defun org-workflow-evening--week (done today &optional non-daily)
-  "Render Monday to Sunday from DONE absolute dates relative to TODAY.
+(defun org-workflow-evening--week (done today &optional non-daily weekdays weekly)
+  "Render Sunday to Saturday from DONE absolute dates relative to TODAY.
 NON-DAILY disables the daily streak indicator.
+WEEKDAYS restrict expected days; WEEKLY makes uncompleted days neutral.
 Today's pending occurrence does not break the ongoing streak."
-  (let* ((monday (- today (mod (1- today) 7)))
+  (let* ((sunday (org-workflow-habits-week-start today))
          (cursor (if (memq today done) today (1- today)))
          (total 0))
     (while (memq cursor done)
@@ -55,17 +56,18 @@ Today's pending occurrence does not break the ongoing streak."
     (concat
      (mapconcat
       (lambda (offset)
-        (let* ((day (+ monday offset))
+        (let* ((day (+ sunday offset))
                (completed (memq day done))
                (future (> day today))
-               (state (cond (completed 'done) (future 'future)
+               (neutral (or weekly (and weekdays (not (memq offset weekdays)))))
+               (state (cond (completed 'done) (neutral 'future) (future 'future)
                             ((= day today) 'today) (t 'missed)))
                (face (cond (completed 'success) ((= day today) 'default) (t 'shadow))))
           (propertize
-           (concat (propertize (concat (nth offset '("一" "二" "三" "四" "五" "六" "日")) " ")
+           (concat (propertize (concat (nth offset '("日" "一" "二" "三" "四" "五" "六")) " ")
                                'face face)
                    (org-workflow-evening--day-icon state face))
-           'help-echo (cond (completed "已完成") (future "未来")
+           'help-echo (cond (completed "已完成") (neutral (if weekly "自主安排执行日" "无需执行")) (future "未来")
                             ((= day today) "今天待完成") (t "未记录完成")))))
       (number-sequence 0 6) "  ")
      (unless non-daily
@@ -82,8 +84,7 @@ Today's pending occurrence does not break the ongoing streak."
         (org-element-use-cache nil) rows)
     (dolist (item (org-workflow-habits-items date))
       (org-with-point-at (org-workflow-target-entry-marker item)
-        (let* ((habit (let ((org-habit-preceding-days most-positive-fixnum)
-                           (org-habit-following-days 0)) (org-habit-parse-todo)))
+        (let* ((habit (org-workflow-habits--parse))
                (done (org-habit-done-dates habit))
                (marker (org-agenda-new-marker (point)))
                (tags (org-workflow-display-tags))
@@ -91,10 +92,16 @@ Today's pending occurrence does not break the ongoing streak."
                              (propertize " " 'display '(space :align-to 6))
                              (propertize (org-workflow-target-entry-title item)
                                          'face 'org-workflow-evening-habit-title)
-                             (org-workflow-agenda--visible-tags tags) "\n      "
+                             (org-workflow-agenda--visible-tags tags)
+                             (propertize (concat "  " (org-workflow-habits-rule-label habit today)) 'face 'shadow)
+                             "\n      "
                              (org-workflow-evening--week done today
                               (not (and (= (org-habit-scheduled-repeat habit) 1)
-                                        (null (nth 3 habit))))) "\n")))
+                                        (null (nth 3 habit))
+                                        (null (org-workflow-habits-week-target))
+                                        (null (org-workflow-habits-weekdays))))
+                              (org-workflow-habits-weekdays)
+                              (org-workflow-habits-week-target)) "\n")))
           (org-add-props line nil
                          'org-marker marker 'org-hd-marker marker
                          'org-category (org-get-category) 'todo-state (org-get-todo-state)

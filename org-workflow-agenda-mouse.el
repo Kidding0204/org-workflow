@@ -221,6 +221,7 @@ When EVENT is nil, visit the task at point."
 						     (and (fboundp 'org-workflow-focus-timer-active-p) (org-workflow-focus-timer-active-p)))) 'disabled))
 		  (item 'stop "停止计时" 'org-workflow-evening-stop-clock
 			(unless (org-workflow-clock--clock-matches-p (org-get-at-bol 'org-hd-marker)) 'disabled))
+		  (item 'repeat "重复安排" 'org-workflow-habits-configure-repeat)
 		  (item 'configure "时段／提醒" 'org-workflow-habits-configure)
 		  (item 'skip "跳过当前习惯提醒" 'org-workflow-panel-skip-habit)
 		  (item 'habit "新增习惯" 'org-workflow-habits-create)))

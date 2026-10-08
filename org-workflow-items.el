@@ -22,6 +22,8 @@
 (declare-function org-workflow-clock--clock-stop "org-workflow-core" ())
 (declare-function org-workflow-clock--clock-matches-p "org-workflow-core" (marker))
 (declare-function org-workflow-focus-timer-active-p "org-workflow-focus-timer" ())
+(declare-function org-workflow-habits-check-completion "org-workflow-habits" ())
+(declare-function org-workflow-habits-after-complete "org-workflow-habits" ())
 (declare-function org-workflow-habits-current-item "org-workflow-habits" ())
 (declare-function org-workflow-habits-skip-item "org-workflow-habits" (item))
 (declare-function org-workflow-panel-invalidate "org-workflow-panel" (&rest ignored))
@@ -124,6 +126,8 @@ This bounded source read bypasses the Org element cache and never creates IDs."
   (let ((marker (org-workflow-target-entry-marker item))
         (habit (eq (org-workflow-target-entry-kind item) 'habit))
         (org-element-use-cache nil))
+    (when habit
+      (org-with-point-at marker (org-workflow-habits-check-completion)))
     (when (and (org-clocking-p) (not (org-workflow-clock--clock-matches-p marker)))
       (user-error "另一项正在计时"))
     (when (org-workflow-clock--clock-matches-p marker) (org-workflow-clock--clock-stop))
@@ -131,7 +135,8 @@ This bounded source read bypasses the Org element cache and never creates IDs."
       (if habit
           (let ((org-log-repeat 'time) (org-log-into-drawer t))
             (org-todo "DONE")
-            (when org-log-note-marker (org-add-log-note)))
+            (when org-log-note-marker (org-add-log-note))
+            (org-workflow-habits-after-complete))
         (org-todo "DONE")))
     ;; Habits already save native repeat logs immediately; ordinary edits retain
     ;; their established unsaved-buffer/recovery policy.

@@ -86,6 +86,127 @@ An explicit file keeps the dedicated habit document behavior."
            (push record records)))))
     (nreverse records)))
 
+(defun org-workflow-habits--parse ()
+  "Read all native completion dates, independent of graph display settings."
+  (let ((org-habit-preceding-days most-positive-fixnum)
+        (org-habit-following-days 0))
+    (org-habit-parse-todo)))
+
+(defun org-workflow-habits-week-start (day)
+  "Return the Sunday starting the week containing absolute DAY."
+  (- day (mod day 7)))
+
+(defun org-workflow-habits-week-target ()
+  "Read the optional weekly completion target at point."
+  (when-let* ((value (org-entry-get nil "WORKFLOW_HABIT_WEEK_TARGET")))
+    (unless (string-match-p "\\`[1-7]\\'" value)
+      (user-error "每周习惯次数必须为 1 至 7"))
+    (string-to-number value)))
+
+(defun org-workflow-habits-week-count (habit day)
+  "Count distinct completion days of HABIT in DAY's Sunday-based week."
+  (let ((start (org-workflow-habits-week-start day)))
+    (length (seq-filter (lambda (date) (and (<= start date) (<= date day)))
+                        (delete-dups (copy-sequence (org-habit-done-dates habit)))))))
+
+(defun org-workflow-habits-weekdays ()
+  "Read optional fixed weekdays at point as Sunday-based numbers."
+  (when-let* ((value (org-entry-get nil "WORKFLOW_HABIT_WEEKDAYS")))
+    (unless (string-match-p "\\`[0-6]\\(?:,[0-6]\\)*\\'" value)
+      (user-error "习惯星期应为 0 至 6，以逗号分隔；0 表示周日"))
+    (delete-dups (mapcar #'string-to-number (split-string value ",")))))
+
+(defun org-workflow-habits--next-weekday (day weekdays)
+  "Return the first date on or after DAY matching WEEKDAYS."
+  (while (not (memq (mod day 7) weekdays)) (setq day (1+ day)))
+  day)
+
+(defun org-workflow-habits--day-time (day)
+  "Convert absolute calendar DAY to local noon."
+  (let ((date (calendar-gregorian-from-absolute day)))
+    (encode-time 0 0 12 (nth 1 date) (nth 0 date) (nth 2 date))))
+
+(defun org-workflow-habits-check-completion ()
+  "Reject duplicate or excess completions for a weekly habit at point."
+  (when-let* ((target (org-workflow-habits-week-target)))
+    (let* ((habit (org-workflow-habits--parse))
+           (day (time-to-days (current-time))))
+      (when (memq day (org-habit-done-dates habit))
+        (user-error "本习惯今天已完成；每周次数每天最多计一次"))
+      (when (>= (org-workflow-habits-week-count habit day) target)
+        (user-error "本周习惯次数已达标")))))
+
+(defun org-workflow-habits-after-complete ()
+  "Advance a fixed-weekday habit to the next selected day after completion."
+  (when-let* ((habitp (org-workflow-habit-p))
+              (weekdays (org-workflow-habits-weekdays)))
+    (let* ((day (org-workflow-habits--next-weekday
+                 (1+ (time-to-days (current-time))) weekdays))
+           (time (org-workflow-habits--day-time day)))
+      (unless (= day (time-to-days (org-get-scheduled-time (point))))
+        (org-schedule nil (format-time-string "%Y-%m-%d" time))))))
+
+(defun org-workflow-habits-rule-label (&optional habit day)
+  "Describe the current repeat rule using optional parsed HABIT and DAY."
+  (let* ((habit (or habit (org-workflow-habits--parse)))
+         (day (or day (time-to-days (current-time))))
+         (target (org-workflow-habits-week-target))
+         (weekdays (org-workflow-habits-weekdays)))
+    (cond (target (format "每周 %d 次 · 本周 %d/%d" target
+                          (org-workflow-habits-week-count habit day) target))
+          (weekdays (concat "每周 " (mapconcat
+                                     (lambda (n) (nth n '("日" "一" "二" "三" "四" "五" "六")))
+                                     weekdays "、")))
+          (t (let ((repeat (org-get-repeat (org-entry-get nil "SCHEDULED"))))
+               (if (string-match "\\`\\([.+]*+\\)\\([0-9]+\\)\\([dwmy]\\)" repeat)
+                   (format "%s %s %s"
+                           (if (equal (match-string 1 repeat) ".+") "完成后隔" "每")
+                           (match-string 2 repeat)
+                           (cdr (assoc (match-string 3 repeat)
+                                       '(("d" . "天") ("w" . "周") ("m" . "个月") ("y" . "年")))))
+                 "原生重复"))))))
+
+(defun org-workflow-habits-set-repeat (mode value &optional first-date)
+  "Set habit repeat MODE and VALUE, starting at optional FIRST-DATE.
+MODE is interval (days after completion), weekdays (0 Sunday through 6),
+or weekly (1 to 7 completion days per Sunday-based week)."
+  (unless (org-workflow-habit-p) (user-error "请将光标放在习惯上"))
+  (pcase mode
+    ('interval (unless (and (integerp value) (> value 0))
+                 (user-error "间隔天数必须为正整数")))
+    ('weekly (unless (and (integerp value) (<= 1 value 7))
+               (user-error "每周习惯次数必须为 1 至 7")))
+    ('weekdays (unless (and (consp value)
+                           (seq-every-p (lambda (n) (and (integerp n) (<= 0 n 6))) value))
+                 (user-error "请选择至少一个有效星期")))
+    (_ (user-error "未知习惯重复模式")))
+  (let* ((day (time-to-days (if first-date (org-time-string-to-time first-date) (current-time))))
+         (day (if (eq mode 'weekdays) (org-workflow-habits--next-weekday day value) day))
+         (repeat (if (eq mode 'weekdays) "++1d"
+                   (format ".+%dd" (if (eq mode 'interval) value 1)))))
+    (org-entry-delete nil "WORKFLOW_HABIT_WEEK_TARGET")
+    (org-entry-delete nil "WORKFLOW_HABIT_WEEKDAYS")
+    (pcase mode
+      ('weekly (org-entry-put nil "WORKFLOW_HABIT_WEEK_TARGET" (number-to-string value)))
+      ('weekdays (org-entry-put nil "WORKFLOW_HABIT_WEEKDAYS"
+                                 (mapconcat #'number-to-string (sort (delete-dups (copy-sequence value)) #'<) ","))))
+    (org-schedule nil (concat "<" (format-time-string "%Y-%m-%d" (org-workflow-habits--day-time day)) " " repeat ">"))
+    (save-buffer)))
+
+(defun org-workflow-habits-configure-repeat ()
+  "Choose a simple repeat rule for the selected habit."
+  (interactive)
+  (let* ((marker (org-workflow-habits--marker))
+         (label (completing-read "重复方式：" '("完成后间隔" "固定星期" "每周次数") nil t))
+         (mode (cdr (assoc label '(("完成后间隔" . interval) ("固定星期" . weekdays) ("每周次数" . weekly)))))
+         (value (if (eq mode 'weekdays)
+                    (mapcar (lambda (label) (cl-position label '("周日" "周一" "周二" "周三" "周四" "周五" "周六") :test #'equal))
+                            (completing-read-multiple "星期（逗号分隔）：" '("周日" "周一" "周二" "周三" "周四" "周五" "周六") nil t))
+                  (read-number (if (eq mode 'weekly) "每周几次（1–7，每天最多一次）：" "完成后隔几天：") 1)))
+         (first-date (org-read-date nil nil nil "首次日期：")))
+    (org-with-point-at marker (org-workflow-habits-set-repeat mode value first-date))
+    (when (derived-mode-p 'org-agenda-mode) (org-agenda-redo))))
+
 (defun org-workflow-habits-items (date)
   "Return native habit items due or completed on DATE."
   (let ((day (time-to-days (org-time-string-to-time (concat date " 12:00")))) items)
@@ -95,9 +216,14 @@ An explicit file keeps the dedicated habit document behavior."
     (org-workflow-habits--map
      (lambda ()
        (unless (org-entry-is-done-p)
-         (let* ((habit (org-habit-parse-todo))
-                (done (memq day (org-habit-done-dates habit))))
-           (when (or done (<= (org-habit-scheduled habit) day))
+         (let* ((habit (org-workflow-habits--parse))
+                (done (memq day (org-habit-done-dates habit)))
+                (target (org-workflow-habits-week-target))
+                (weekdays (org-workflow-habits-weekdays)))
+           (when (or done
+                     (and (<= (org-habit-scheduled habit) day)
+                          (or (null weekdays) (memq (mod day 7) weekdays))
+                          (or (null target) (< (org-workflow-habits-week-count habit day) target))))
              (let ((item (org-workflow-item-at-marker (point-marker) date)))
                (setf (org-workflow-target-entry-done item) (and done t)
                      (org-workflow-target-entry-habit-position item) (org-workflow-habits-position)
@@ -226,7 +352,9 @@ An explicit file keeps the dedicated habit document behavior."
   (org-back-to-heading t)
   (org-id-get-create)
   (save-buffer)
-  (when (called-interactively-p 'interactive) (org-workflow-habits-configure)))
+  (when (called-interactively-p 'interactive)
+    (org-workflow-habits-configure-repeat)
+    (org-workflow-habits-configure)))
 
 (defun org-workflow-habits--marker ()
   "Return the selected habit's marker or signal a user error."
@@ -264,6 +392,7 @@ An explicit file keeps the dedicated habit document behavior."
 
 (defun org-workflow-habits--enable ()
   "Install this component while Workflow is being enabled."
+  (org-workflow--add-hook 'org-todo-repeat-hook #'org-workflow-habits-after-complete)
   (org-workflow--add-hook 'org-clock-out-hook #'org-workflow-habits--after-clock-out)
   (org-workflow--add-hook 'after-save-hook #'org-workflow-habits--after-save))
 

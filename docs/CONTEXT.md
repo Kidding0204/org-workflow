@@ -35,6 +35,7 @@ rg --files -g 'org-workflow*.el' -g '*-test.el'
 | 要了解的内容 | 优先阅读 |
 | --- | --- |
 | 安装、依赖与公开使用入口 | [README](../README.md)、[主库](../org-workflow.el) |
+| 习惯重复、周次数与截止阶段目标 | [习惯系统长期上下文](habit-system.md) |
 | 当前任务与历史规则 | [任务与历史模型](workflow-architecture.md) |
 | 模块职责和修改位置 | [模块边界](gtd-module-layout.md) |
 | 开关模式、集成撤销和键位归属 | [生命周期](../org-workflow-lifecycle.el) |
