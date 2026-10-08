@@ -31,6 +31,18 @@
     (org-with-point-at marker (save-buffer))
     (org-agenda-redo)))
 
+(declare-function nerd-icons-mdicon "nerd-icons" (icon-name &rest args))
+
+(defun org-workflow-evening--day-icon (state face)
+  "Return a consistently sized status glyph for STATE using FACE."
+  (let ((icon (assq state '((done "nf-md-checkbox_marked_outline" "☑")
+                           (missed "nf-md-close_box_outline" "☒")
+                           (today "nf-md-checkbox_blank_outline" "☐")
+                           (future "nf-md-minus_box_outline" "⊟")))))
+    (if (and (display-graphic-p) (require 'nerd-icons nil t))
+        (nerd-icons-mdicon (nth 1 icon) :height 1.0 :v-adjust 0.0 :face face)
+      (propertize (nth 2 icon) 'face face))))
+
 (defun org-workflow-evening--week (done today &optional non-daily)
   "Render Monday to Sunday from DONE absolute dates relative to TODAY.
 NON-DAILY disables the daily streak indicator.
@@ -45,11 +57,14 @@ Today's pending occurrence does not break the ongoing streak."
       (lambda (offset)
         (let* ((day (+ monday offset))
                (completed (memq day done))
-               (future (> day today)))
+               (future (> day today))
+               (state (cond (completed 'done) (future 'future)
+                            ((= day today) 'today) (t 'missed)))
+               (face (cond (completed 'success) ((= day today) 'default) (t 'shadow))))
           (propertize
-           (concat (nth offset '("一" "二" "三" "四" "五" "六" "日"))
-                   (cond (completed "✓") (future "–") ((= day today) "○") (t "×")))
-           'face (cond (completed 'success) ((= day today) 'default) (t 'shadow))
+           (concat (propertize (concat (nth offset '("一" "二" "三" "四" "五" "六" "日")) " ")
+                               'face face)
+                   (org-workflow-evening--day-icon state face))
            'help-echo (cond (completed "已完成") (future "未来")
                             ((= day today) "今天待完成") (t "未记录完成")))))
       (number-sequence 0 6) "  ")

@@ -131,7 +131,7 @@
   (let* ((sat (time-to-days (org-time-string-to-time "2026-09-19 12:00")))
          (done (list (- sat 2) (1- sat)))
          (pending (substring-no-properties (org-workflow-evening--week done sat))))
-    (should (string-match-p "五✓  六○  日–" pending))
+    (should (string-match-p "五 ☑  六 ☐  日 ⊟" pending))
     (should (string-match-p "连续 2 天" pending))
     (should (string-match-p "连续 3 天"
                             (org-workflow-evening--week (cons sat done) sat)))
@@ -152,7 +152,7 @@
          (should (markerp (org-get-at-bol 'org-hd-marker)))
          (should (eq 'todo (get-text-property (point) 'org-agenda-type)))
          (should-not (string-match-p "Future" (buffer-string)))
-         (should (string-match-p "六✓" (buffer-string)))))
+         (should (string-match-p "六 ☑" (buffer-string)))))
      (should (equal before (with-current-buffer source (buffer-string))))
      (should-not (buffer-modified-p source)))))
 
@@ -186,7 +186,7 @@
 (ert-deftest workflow-habit-nondaily-grid-has-no-daily-streak ()
   (let* ((today (time-to-days (org-time-string-to-time "2026-09-20 12:00")))
          (grid (org-workflow-evening--week (list today) today t)))
-    (should (string-match-p "日✓" grid))
+    (should (string-match-p "日 ☑" grid))
     (should-not (string-match-p "连续" grid))))
 
 (ert-deftest workflow-habit-default-path-follows-late-notes-configuration ()

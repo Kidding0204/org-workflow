@@ -133,6 +133,8 @@ Focus Timer 通过标准 Org Clock 记录；自身停止时默认不足五分钟
 ## 5. Evil、字体与桌面集成
 
 - Evil 和 Org Modern 可选；包不负责调用 `evil-mode 1` 或安装 Evil。
+- 图形习惯周追踪可选使用 nerd-icons 的同系列方框图标；无该库或终端环境用 Unicode 方框，
+  不增加包硬依赖。图标字体由 nerd-icons 的用户配置决定。
 - `org-workflow-install-default-bindings` 默认 nil，当前宿主设为 t。
   它控制默认全局／共享绑定，不是 Evil 总开关；包内私有界面键表仍存在。
 - 普通 Agenda 的 Normal 辅助绑定由生命周期工具管理；Sprint 复制局部 map，
