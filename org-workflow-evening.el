@@ -56,6 +56,11 @@ Today's pending occurrence does not break the ongoing streak."
      (unless non-daily
        (propertize (format "  连续 %d 天" total) 'face 'shadow)))))
 
+(defface org-workflow-evening-habit-title
+  '((t (:inherit shadow :weight normal)))
+  "Quiet habit titles in the Sprint work windows."
+  :group 'org-workflow-habits)
+
 (defun org-workflow-evening--habit-rows (date)
   "Collect DATE's native habit rows with position and week tracking."
   (let ((today (time-to-days (org-time-string-to-time (concat date " 12:00")))) rows)
@@ -70,7 +75,10 @@ Today's pending occurrence does not break the ongoing streak."
              (let* ((marker (org-agenda-new-marker (point)))
                     (tags (org-workflow-display-tags))
                     (position (org-workflow-habits-position))
-                    (line (concat "    " (substring-no-properties (org-get-heading t t t t))
+                    (line (concat "    " (propertize "↻" 'face 'shadow)
+                                  (propertize " " 'display '(space :align-to 6))
+                                  (propertize (substring-no-properties (org-get-heading t t t t))
+                                              'face 'org-workflow-evening-habit-title)
                                   (org-workflow-agenda--visible-tags tags) "\n      "
                                   (org-workflow-evening--week
                                    done today
@@ -92,7 +100,7 @@ Today's pending occurrence does not break the ongoing streak."
                                                 (eq (nth 2 item) edge)))
                              org-workflow-habits-positions))
          (selected (seq-filter (lambda (row) (equal (car row) position)) rows)))
-    ;; Habit titles share the task parent heading's four-space inset.
+    ;; Habit and task glyphs share the four-space inset; titles follow them.
     (dolist (row selected) (insert (cdr row)))))
 
 (defun org-workflow-evening-today (_match)
