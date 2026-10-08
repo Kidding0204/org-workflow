@@ -386,7 +386,7 @@
   (let ((start (point)) (inhibit-read-only t) previous-date)
     (insert "\n" (org-workflow-agenda--section-header "收集箱"))
     (dolist (record (org-workflow-collection-inbox--pending
-                     (org-workflow-collection-inbox--review-files) t))
+                     (org-workflow-collection-inbox--review-files) t t))
       (let ((date (car record)) (original-title (cadr record)) (marker (nth 2 record)))
         (unwind-protect
             (when-let* ((line

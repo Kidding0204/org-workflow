@@ -15,6 +15,10 @@
 (defcustom org-workflow-directory nil
   "Directory for weekly journals and planning notes; nil uses `org-directory'."
   :type '(choice (const nil) directory) :group 'org-workflow)
+(defcustom org-workflow-projects-file
+  (expand-file-name "projects.org" (or org-workflow-directory org-directory))
+  "Miscellaneous Org context containing Someday, habits and guidance."
+  :type 'file :group 'org-workflow)
 (defcustom org-workflow-install-default-bindings nil
   "Whether to install Workflow global prefixes and shared Org bindings."
   :type 'boolean :group 'org-workflow)

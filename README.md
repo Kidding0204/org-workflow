@@ -129,6 +129,26 @@ today's reminder state. Habits remain outside ordinary task queues and
 commitments, and task refinement/defer commands reject them. Both types use
 the same direct CLOCK reader for daily effort, without migrating stored facts.
 
+## Source files and buffer lifetime
+
+`org-workflow-projects-file` is the miscellaneous context. By default habits
+are children of `* 习惯`, and guidance is scoped to `* 实践指导` in that file.
+Habit and guidance commands visit their own subtrees. An explicit
+`org-workflow-habit-file` keeps a dedicated habit document. Existing dedicated
+notes must be migrated with their IDs and repeat logs retained; the package
+never moves user notes automatically.
+
+Background journal scouting and guidance reads reuse visited buffers, including
+unsaved text. Otherwise they use temporary read-only Org buffers without startup
+hooks or save/close prompts. Only actual Agenda inbox matches open source files
+and retain native markers. Existing user, capture, clock, transaction and
+marker-bearing buffers are not automatically closed.
+
+Use `M-x org-workflow-week-close` in a resolved past weekly journal, or menu `J`.
+It rejects current/future weeks and unresolved collection entries, then saves the
+indexed `workflow-closed` filetag. Closed notes are excluded before background
+source reads; explicit file visits and stored historical facts remain available.
+
 ## Optional integrations
 
 [`extras/`](extras/) contains the web dashboard, GNOME integration and desktop client and screenshot helpers. These are companion tools, not part of the Emacs package archive. Follow their own instructions and review paths and desktop requirements before installing them. The core package does not install a GNOME extension or desktop executable.

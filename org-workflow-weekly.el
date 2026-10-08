@@ -116,6 +116,39 @@
   (find-file (org-workflow-week-ensure date))
   (org-workflow-week-detect))
 
+(defun org-workflow-week-close (&optional file)
+  "Seal past weekly FILE after its collection entries are resolved.
+Closed weeks remain readable for explicit review but leave background scans."
+  (interactive)
+  (setq file (or file buffer-file-name))
+  (unless (and file (org-workflow-week--agenda-file-p file) (file-readable-p file)
+               (string< (file-name-base file) (org-workflow-week-start)))
+    (user-error "只能封存已结束的周日志"))
+  (require 'org-workflow-agenda-inbox)
+  (when (org-workflow-source-read
+         file (lambda ()
+                (catch 'pending
+                  (org-map-entries
+                   (lambda ()
+                     (when (and (org-workflow-collection-inbox-entry-p)
+                                (not (org-entry-is-done-p)))
+                       (throw 'pending t))) nil 'file)
+                  nil)))
+    (user-error "旧周仍有未完成或未归类的收集项"))
+  (with-current-buffer (find-file-noselect file)
+    (org-with-wide-buffer
+     (goto-char (point-min))
+     (unless (member "workflow-closed" org-file-tags)
+       (if (re-search-forward "^#\\+filetags:[ \t]*.*$" nil t)
+           (progn (end-of-line) (insert " :workflow-closed:"))
+         (goto-char (point-min)) (insert "#+filetags: :workflow-closed:\n"))
+       (org-set-regexps-and-options)
+       (save-buffer))))
+  (require 'vulpea-db)
+  (vulpea-db-update-file file)
+  (org-workflow-target-refresh t)
+  (message "已封存：%s" (file-name-base file)))
+
 (defcustom org-workflow-review-sidebar-min-width 180
   "Minimum frame width in columns for Vulpea beside the review workbench."
   :type 'integer :group 'org)
@@ -213,7 +246,8 @@ Use the timer key sequences to control Focus Timer independently."
     ("h" "长期历史" org-workflow-history-workbench)
     ("e" "晚间收尾" org-workflow-evening-open)
     ("r" "日志旁 Sprint" org-workflow-week-open-review)
-    ("i" "收集箱回顾" org-workflow-collection-inbox-review)]
+    ("i" "收集箱回顾" org-workflow-collection-inbox-review)
+    ("J" "封存旧周日志" org-workflow-week-close)]
    ["计时与习惯"
     ("f t" "开始／结束专注" org-workflow-focus-timer-toggle)
     ("f f" "阶段结束" org-workflow-focus-timer-finish-phase)

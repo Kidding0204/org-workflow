@@ -19,6 +19,7 @@
 (require 'org-habit)
 (require 'org-workflow-periods)
 (require 'org-workflow-items)
+(require 'org-workflow-sources)
 (require 'org-workflow-store)
 
 (require 'org-clock)
@@ -34,21 +35,16 @@
 (defgroup org-workflow-habits nil "Independent habits and daily facts." :group 'org)
 
 (defcustom org-workflow-habit-file nil
-  "Dedicated habit source, or nil to resolve the configured notes directory.
-The default is resolved when used, after note configuration has loaded.
-It is not added to Workflow's Agenda scope."
-  :type '(choice (const :tag "In the configured notes directory" nil) file)
+  "Habit source; nil uses the configured miscellaneous projects file.
+An explicit file keeps the dedicated habit document behavior."
+  :type '(choice (const :tag "Miscellaneous projects file" nil) file)
   :group 'org-workflow-habits)
 
 (defun org-workflow-habits-file ()
   "Resolve the source without capturing load order or the visited directory."
   (expand-file-name
    (or org-workflow-habit-file
-       (expand-file-name "habits.org"
-                         (or org-workflow-directory
-                             (bound-and-true-p vulpea-default-notes-directory)
-                             (car (bound-and-true-p vulpea-db-sync-directories))
-                             org-directory)))))
+       org-workflow-projects-file)))
 
 (defvar org-workflow-habits-saved-hook nil
   "Run after a habit source has been saved; database adapters may synchronize.")
@@ -162,8 +158,15 @@ It is not added to Workflow's Agenda scope."
   (unless (file-exists-p (org-workflow-habits-file))
     (make-directory (file-name-directory (org-workflow-habits-file)) t)
     (with-temp-file (org-workflow-habits-file)
-      (insert "#+title: 习惯\n#+TODO: TODO | DONE\n#+STARTUP: logrepeat\n#+PROPERTY: LOGGING logrepeat\n\n")))
-  (find-file (org-workflow-habits-file)))
+      (insert (if org-workflow-habit-file
+                  "#+title: 习惯\n#+TODO: TODO | DONE\n#+STARTUP: logrepeat\n#+PROPERTY: LOGGING logrepeat\n\n"
+                "#+title: 杂项\n#+filetags: :project:\n\n* Someday\n\n* 习惯\n"))))
+  (find-file (org-workflow-habits-file))
+  (widen)
+  (unless org-workflow-habit-file
+    (goto-char (org-workflow-source-section "习惯" t))
+    (org-fold-show-entry)
+    (org-narrow-to-subtree)))
 
 (defconst org-workflow-habits-positions
   '(("上午·初" morning early "morning-early")
@@ -218,7 +221,7 @@ It is not added to Workflow's Agenda scope."
   (when (string-empty-p (string-trim title)) (user-error "请输入习惯标题"))
   (org-workflow-habits-open)
   (goto-char (point-max))
-  (insert "\n* TODO " title "\nSCHEDULED: <" (format-time-string "%Y-%m-%d %a")
+  (insert (if org-workflow-habit-file "\n* TODO " "\n** TODO ") title "\nSCHEDULED: <" (format-time-string "%Y-%m-%d %a")
           " .+1d>\n:PROPERTIES:\n:STYLE: habit\n:LOGGING: logrepeat\n:END:\n")
   (org-back-to-heading t)
   (org-id-get-create)

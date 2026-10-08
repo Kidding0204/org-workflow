@@ -112,6 +112,17 @@ Sprint 右侧项目循环用 `org-workflow-agenda-previous-project` / `org-workf
 具体准入、跨日、推进和兑现条件见 [任务与历史模型](workflow-architecture.md)，
 涉及这类行为必须同时看相关 core/store/history 测试。
 
+### 源文件与缓冲区生命周期
+
+- `org-workflow-projects-file` 集中杂项；默认习惯位于“习惯”子树，指导位于“实践指导”子树。
+  迁移保留原有 ID、重复日志及选择状态；程序不自动搬移用户文件。
+- sources 库后台读取优先使用现场 buffer，否则使用禁止启动钩子、缓存和保存询问的临时
+  只读 Org buffer。收集项先取得位置，只有实际显示的匹配才访问文件并生成存活 marker。
+  修改、事务、计时、捕获和现存用户 buffer 的生命周期不变。
+- `org-workflow-week-close`／菜单 J 封存已结束且收集项已清空的周；保存并索引
+  `workflow-closed` 文件标签，在日常查询打开文件之前过滤。已结算历史不改写；明确回顾
+  仍可直接打开源日志。不会仅按“旧周／未修改”批量关闭现有 buffer。
+
 ### 持久事实与恢复
 
 Org 文件保存结构、安排、状态和真实 CLOCK；SQLite 保存持久事实与恢复映像。

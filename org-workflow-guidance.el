@@ -19,13 +19,18 @@
 (require 'org-workflow-weekly)
 
 (require 'org-workflow-planning)
+(require 'org-workflow-sources)
+
+(defcustom org-workflow-guidance-file nil
+  "Guidance source; nil uses the configured miscellaneous projects file."
+  :type '(choice (const :tag "Miscellaneous projects file" nil) file)
+  :group 'org-workflow)
 
 (defun org-workflow-guidance--read (file function)
   "Call FUNCTION in existing FILE without creating a document."
   (when (file-exists-p file)
     (unless (file-readable-p file) (error "Cannot read %s" file))
-    (with-current-buffer (find-file-noselect file)
-      (org-with-wide-buffer (goto-char (point-min)) (funcall function)))))
+    (org-workflow-source-read file function)))
 
 (defun org-workflow-guidance-week-goals (date)
   "Return the weekly goals text for DATE, or nil when absent."
@@ -74,7 +79,7 @@
 
 (defun org-workflow-guidance--file ()
   "Return the guidance note path in the configured notes directory."
-  (expand-file-name "planning/guidance.org" (org-workflow--directory)))
+  (expand-file-name (or org-workflow-guidance-file org-workflow-projects-file)))
 
 (defun org-workflow-guidance-open ()
   "Visit the guidance note, creating a minimal document if absent."
@@ -82,9 +87,13 @@
   (let ((file (org-workflow-guidance--file)))
     (unless (file-exists-p file)
       (make-directory (file-name-directory file) t)
-      (vulpea-create "实践指导" file :tags '("workflow-guidance")
-                    :body "* 指导\n添加自己的指导标题；在选中的标题运行 org-workflow-guidance-select。\n"))
-    (find-file file)))
+      (vulpea-create "杂项" file :tags '("project")
+                    :body "* 实践指导\n** 指导\n添加自己的指导标题；在选中的标题运行 org-workflow-guidance-select。\n"))
+    (find-file file)
+    (widen)
+    (goto-char (org-workflow-source-section "实践指导" t))
+    (org-fold-show-entry)
+    (org-narrow-to-subtree)))
 
 (defun org-workflow-guidance-select ()
   "Select the guidance heading at point, without rotation."
@@ -93,9 +102,15 @@
     (user-error "请在实践指导笔记中选择标题"))
   (let ((marker (point-marker)))
     (atomic-change-group
-      (org-with-wide-buffer
-       (org-map-entries (lambda () (org-entry-delete nil "WORKFLOW_GUIDANCE_SELECTED")) nil 'file)
-       (org-with-point-at marker (org-entry-put nil "WORKFLOW_GUIDANCE_SELECTED" "t"))))
+      (save-restriction
+	(widen)
+	(let ((position (org-workflow-source-section "实践指导")))
+          (unless position (user-error "缺少实践指导节"))
+          (goto-char position) (org-narrow-to-subtree)
+          (unless (and (<= (point-min) marker) (< marker (point-max)))
+            (user-error "请在实践指导节中选择标题")))
+	(org-map-entries (lambda () (org-entry-delete nil "WORKFLOW_GUIDANCE_SELECTED")) nil 'tree)
+	(org-with-point-at marker (org-entry-put nil "WORKFLOW_GUIDANCE_SELECTED" "t"))))
     (save-buffer))
   (org-workflow--request-gnome-refresh))
 
@@ -105,9 +120,12 @@
    (org-workflow-guidance--file)
    (lambda ()
      (let (text)
-       (org-map-entries
-        (lambda () (when (org-entry-get nil "WORKFLOW_GUIDANCE_SELECTED")
-                     (setq text (substring-no-properties (org-get-heading t t t t))))) nil 'file)
+       (when-let* ((position (org-workflow-source-section "实践指导")))
+         (goto-char position)
+         (org-narrow-to-subtree)
+	 (org-map-entries
+          (lambda () (when (org-entry-get nil "WORKFLOW_GUIDANCE_SELECTED")
+                       (setq text (substring-no-properties (org-get-heading t t t t))))) nil 'tree))
        text))))
 
 (defun org-workflow-guidance-edit-resume ()

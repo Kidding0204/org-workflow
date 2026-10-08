@@ -15,6 +15,7 @@
 ;; A component of org-workflow.  Activation is coordinated by its global mode.
 ;;; Code:
 (require 'org-workflow-lifecycle)
+(require 'org-workflow-sources)
 ;;; org-workflow-agenda-inbox.el --- Capture classification and continuous collection review -*- lexical-binding: t; -*-
 ;;; Commentary:
 ;; Internal implementation module loaded by org-workflow-agenda.
@@ -31,12 +32,6 @@
 (defcustom org-workflow-inbox-file
   (expand-file-name "inbox.org" (org-workflow--directory))
   "Org file containing unprocessed Inbox items."
-  :type 'file
-  :group 'org)
-
-(defcustom org-workflow-projects-file
-  (expand-file-name "projects.org" (org-workflow--directory))
-  "Org file containing the Someday heading."
   :type 'file
   :group 'org)
 
@@ -271,37 +266,54 @@ from the source.  Navigation, cancellation and failed moves save no buffers."
   "Find existing journal files through Vulpea without creating notes."
   (require 'vulpea-journal)
   (delete-dups
-   (delq nil (mapcar #'vulpea-note-path
+   (delq nil (mapcar (lambda (note)
+                       (unless (member "workflow-closed" (vulpea-note-tags note))
+                         (vulpea-note-path note)))
                      (append (vulpea-db-query-by-tags-every (list vulpea-journal-tag))
                              (vulpea-db-query-by-tags-every '("journal-week")))))))
 
-(defun org-workflow-collection-inbox--pending (files &optional all)
+(defun org-workflow-collection-inbox--pending (files &optional all unscheduled)
   "Return date/title/marker records still in collection headings in FILES.
 Include the last seven calendar days unless ALL; nested child headings are
-part of their containing captured item, never duplicate pending entries."
+part of their containing captured item, never duplicate pending entries.
+UNSCHEDULED selects only Sprint inbox rows before visiting any source."
   (let ((today (format-time-string "%Y-%m-%d"))
         (cutoff (format-time-string
                  "%Y-%m-%d" (time-subtract (current-time) (days-to-time 6))))
         entries)
     (dolist (file (delete-dups (copy-sequence files)))
       (when (file-readable-p file)
-        (with-current-buffer (find-file-noselect file)
-          (org-with-wide-buffer
-           (org-map-entries
-            (lambda ()
-              (when-let* ((date (org-entry-get nil "JOURNAL_INBOX")))
-                (when (or all (and (not (string< date cutoff))
-                                   (not (string< today date))))
-                  (let ((level (1+ (org-outline-level)))
-                        (end (save-excursion (org-end-of-subtree t t))))
-                    (save-excursion
-                      (forward-line 1)
-                      (while (re-search-forward org-heading-regexp end t)
-                        (when (and (= level (org-outline-level))
-                                   (not (equal (org-get-todo-state) "DONE")))
-                          (push (list (or (org-entry-get nil "CAPTURED_ON") date) (substring-no-properties (org-get-heading t nil t t))
-                                      (copy-marker (line-beginning-position))) entries))))))))
-            nil 'file)))))
+        (let ((matches
+               (org-workflow-source-read
+                file
+                (lambda ()
+                  (let (locations)
+		    (org-map-entries
+		     (lambda ()
+		       (when-let* ((date (org-entry-get nil "JOURNAL_INBOX")))
+			 (when (or all (and (not (string< date cutoff))
+					    (not (string< today date))))
+			   (let ((level (1+ (org-outline-level)))
+				 (end (save-excursion (org-end-of-subtree t t))))
+			     (save-excursion
+			       (forward-line 1)
+			       (while (re-search-forward org-heading-regexp end t)
+				 (when (and (= level (org-outline-level))
+					    (not (equal (org-get-todo-state) "DONE"))
+					    (or (not unscheduled)
+						(not (or (org-entry-get nil "SCHEDULED")
+							 (org-entry-get nil "DEADLINE")
+							 (org-entry-is-done-p)
+							 (org-workflow--held-p)
+							 (org-workflow-habit-p)))))
+				   (push (list (or (org-entry-get nil "CAPTURED_ON") date) (substring-no-properties (org-get-heading t nil t t))
+					       (line-beginning-position)) locations))))))))
+		     nil 'file)
+                    (nreverse locations))))))
+          (when matches
+            (with-current-buffer (find-file-noselect file)
+              (dolist (record matches)
+                (push (list (car record) (cadr record) (copy-marker (nth 2 record))) entries)))))))
     (cl-stable-sort (nreverse entries) #'string< :key #'car)))
 
 (defun org-workflow-collection-review--marker ()
@@ -324,16 +336,16 @@ part of their containing captured item, never duplicate pending entries."
   (cl-remove-if-not
    (lambda (file)
      (when (file-readable-p file)
-       (with-current-buffer (find-file-noselect file)
-         (org-with-wide-buffer
-          (catch 'scheduled
-            (org-map-entries
-             (lambda ()
-               (when (and (member (org-get-todo-state) org-not-done-keywords)
-                          (org-entry-get nil "SCHEDULED")
-                          (org-workflow-collection-inbox-entry-p))
-                 (throw 'scheduled t))) nil 'file)
-            nil)))))
+       (org-workflow-source-read file
+				 (lambda ()
+				   (catch 'scheduled
+				     (org-map-entries
+				      (lambda ()
+					(when (and (member (org-get-todo-state) org-not-done-keywords)
+						   (org-entry-get nil "SCHEDULED")
+						   (org-workflow-collection-inbox-entry-p))
+					  (throw 'scheduled t))) nil 'file)
+				     nil)))))
    (cl-remove-if
     (lambda (file)
       (seq-some (lambda (agenda-file) (org-workflow-inbox--same-file-p file agenda-file))
