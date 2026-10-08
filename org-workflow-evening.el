@@ -47,8 +47,8 @@ Today's pending occurrence does not break the ongoing streak."
                (completed (memq day done))
                (future (> day today)))
           (propertize
-           (concat (nth offset '("一" "二" "三" "四" "五" "六" "日"))
-                   (cond (completed "●") (future "–") ((= day today) "○") (t "·")))
+           (concat (cond (completed "✓") (future "–") ((= day today) "○") (t "×"))
+                   " " (nth offset '("一" "二" "三" "四" "五" "六" "日")))
            'face (cond (completed 'success) ((= day today) 'default) (t 'shadow))
            'help-echo (cond (completed "已完成") (future "未来")
                             ((= day today) "今天待完成") (t "未记录完成")))))
