@@ -120,8 +120,8 @@ Errors become desktop notifications so GNOME shortcuts do not fail silently."
       (let ((command (alist-get action org-workflow-external-actions)))
         (unless command
           (user-error "Unknown Org Workflow action: %s" action))
-        (if (or (and (memq action '(complete visit)) (org-workflow-panel--clocked-habit))
-                (and (memq action '(start toggle complete visit))
+        (if (or (and (eq action 'complete) (org-workflow-panel--clocked-habit))
+                (and (memq action '(start toggle complete))
                      (not (org-workflow-focus-timer-active-p))
                      (not (org-clocking-p))
                      (org-workflow-panel-current-habit)))
@@ -1184,6 +1184,22 @@ is deferred, or the day changes.  Do not start timing automatically."
                          (org-workflow-target-refresh nil)
                          (org-workflow-target--schedule-midnight-refresh))))))
 
+(defun org-workflow-current-source-marker ()
+  "Return the source currently presented as a task or habit.
+A clocked habit takes precedence.  Pending reminders apply only outside
+active timers and Org clocks; the ordinary execution selection is unchanged."
+  (or (org-workflow-panel--clocked-habit)
+      (and (not (org-workflow-focus-timer-active-p))
+           (not (org-clocking-p))
+           (org-workflow-panel--reminded-habit-marker))
+      (org-workflow-target-current-marker)))
+
+(defun org-workflow--require-current-source ()
+  "Refresh and return the current task or habit source, or signal an error."
+  (org-workflow-target-refresh t)
+  (or (org-workflow-current-source-marker)
+      (user-error "没有当前任务或习惯")))
+
 (defun org-workflow-target--require-current ()
   "Refresh and return today's current target, or signal `user-error'."
   (org-workflow-target-refresh t)
@@ -1511,8 +1527,8 @@ pass MARKER after arranging their own UI, or omit it for a pure transformation."
 (defun org-workflow-target-cancel () "Cancel the active timing interval." (interactive) (org-workflow-clock--clock-cancel))
 
 (defun org-workflow-target-capture-location ()
-  "Move point to today's current target for `org-capture'."
-  (let ((marker (org-workflow-target--require-current)))
+  "Move point to the current task or habit source for `org-capture'."
+  (let ((marker (org-workflow--require-current-source)))
     (set-buffer (marker-buffer marker)) (goto-char marker) (org-back-to-heading t)))
 
 (defun org-workflow-target--reveal (marker focused-frame-p)
@@ -1536,7 +1552,7 @@ the selected frame, including removal of protected side windows."
   "Reveal the current workflow leaf.
 
 When FOCUSED-FRAME-P is non-nil, use the selected frame as its only window."
-  (org-workflow-target--reveal (org-workflow-target--require-current) focused-frame-p))
+  (org-workflow-target--reveal (org-workflow--require-current-source) focused-frame-p))
 
 (defun org-workflow-target-visit ()
   "Reveal and narrow to the current workflow leaf without changing the window layout.

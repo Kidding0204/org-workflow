@@ -94,7 +94,11 @@ Sprint 右侧项目循环用 `org-workflow-agenda-previous-project` / `org-workf
 - panel 库每 30 秒检查到点习惯；当日通知、跳过和最新提醒写入 meta 的
   `habit-reminders:YYYY-MM-DD`，不修改完成事实。通知只一次，最新覆盖旧提醒，
   完成／跳过不会重新露出旧提醒。GNOME v22 非专注且无 Org clock 时显示最新提醒，
-  桌面 start/toggle/visit/complete 路由至该习惯，真实执行任务选择保持独立。
+  桌面 start/toggle/complete 路由至该习惯，真实执行任务选择保持独立。
+- `org-workflow-current-source-marker` 统一当前项定位：计时中的习惯优先；普通专注／
+  休息期间沿用任务，空闲时定位最新习惯提醒。新 frame、手动／桌面打开当前项和当前项
+  note capture 都沿用该位置；打开时保留既有子树聚焦与正文定位。capture、workflow-select
+  专用 frame 仍不自动跳转。队列准入／排序／承诺继续使用普通任务选择。
 - 当前执行目标独立于排序建议；刷新、重排和展示不能悄悄切换执行目标。
 - 每日“承担并尝试”与实际完成不同，不应因满足当天责任自动将任务改为 DONE。
 - 承诺创建／调整规则由 core、commands、store、history 共同实现。
