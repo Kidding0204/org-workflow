@@ -79,7 +79,7 @@ Today's pending occurrence does not break the ongoing streak."
                                   (propertize " " 'display '(space :align-to 6))
                                   (propertize (substring-no-properties (org-get-heading t t t t))
                                               'face 'org-workflow-evening-habit-title)
-                                  (org-workflow-agenda--visible-tags tags) "\n        "
+                                  (org-workflow-agenda--visible-tags tags) "\n      "
                                   (org-workflow-evening--week
                                    done today
                                    (not (and (= (org-habit-scheduled-repeat habit) 1)
