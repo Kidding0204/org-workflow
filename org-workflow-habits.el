@@ -17,6 +17,7 @@
 (require 'org-workflow-lifecycle)
 ;;; org-workflow-habits.el --- Independent native Org habits -*- lexical-binding: t; -*-
 (require 'org-habit)
+(require 'org-workflow-periods)
 
 (require 'org-clock)
 
@@ -131,6 +132,52 @@ No source properties are changed.  Missing IDs are errors, not silent omissions.
       (insert "#+title: 习惯\n#+TODO: TODO | DONE\n#+STARTUP: logrepeat\n#+PROPERTY: LOGGING logrepeat\n\n")))
   (find-file (org-workflow-habits-file)))
 
+(defconst org-workflow-habits-positions
+  '(("上午·初" morning early "morning-early")
+    ("上午·末" morning late "morning-late")
+    ("下午·初" afternoon early "afternoon-early")
+    ("下午·末" afternoon late "afternoon-late")
+    ("晚上·初" evening early "evening-early")
+    ("晚上·末" evening late "evening-late"))
+  "Habit position labels, window names, edges and Org property values.")
+
+(defun org-workflow-habits-position ()
+  "Return the current habit's configured position, or nil when unassigned."
+  (let ((value (org-entry-get nil "WORKFLOW_HABIT_POSITION")))
+    (when value
+      (or (seq-find (lambda (item) (equal value (nth 3 item)))
+                    org-workflow-habits-positions)
+          (user-error "未知习惯位置：%s" value)))))
+
+(defun org-workflow-habits-reminder-clock ()
+  "Return the current habit's override clock or work-window boundary."
+  (let ((override (org-entry-get nil "WORKFLOW_HABIT_REMINDER"))
+        (position (org-workflow-habits-position)))
+    (when override (org-workflow-periods--minutes override))
+    (or override (and position (org-workflow-periods-clock
+                                (nth 1 position) (nth 2 position))))))
+
+(defun org-workflow-habits-configure ()
+  "Set the selected habit's position and optional reminder clock."
+  (interactive)
+  (let* ((marker (org-workflow-habits--marker))
+         (position (org-with-point-at marker (org-workflow-habits-position)))
+         (label (completing-read "习惯位置：" (cons "未设置" (mapcar #'car org-workflow-habits-positions))
+                                 nil t nil nil (or (car position) "未设置")))
+         (value (nth 3 (assoc label org-workflow-habits-positions)))
+         (clock (string-trim (read-string "提醒钟点（HH:MM，留空跟随时段）："
+                                         (org-with-point-at marker
+                                           (org-entry-get nil "WORKFLOW_HABIT_REMINDER"))))))
+    ;; Validate all input before touching the source.
+    (unless (string-empty-p clock) (org-workflow-periods--minutes clock))
+    (org-with-point-at marker
+      (if value (org-entry-put nil "WORKFLOW_HABIT_POSITION" value)
+        (org-entry-delete nil "WORKFLOW_HABIT_POSITION"))
+      (if (string-empty-p clock) (org-entry-delete nil "WORKFLOW_HABIT_REMINDER")
+        (org-entry-put nil "WORKFLOW_HABIT_REMINDER" clock))
+      (save-buffer))
+    (when (derived-mode-p 'org-agenda-mode) (org-agenda-redo))))
+
 (defun org-workflow-habits-create (title)
   "Create a native daily habit with TITLE and a stable ID."
   (interactive (list (read-string "习惯（完成标准）：")))
@@ -142,7 +189,8 @@ No source properties are changed.  Missing IDs are errors, not silent omissions.
           " .+1d>\n:PROPERTIES:\n:STYLE: habit\n:LOGGING: logrepeat\n:END:\n")
   (org-back-to-heading t)
   (org-id-get-create)
-  (save-buffer))
+  (save-buffer)
+  (when (called-interactively-p 'interactive) (org-workflow-habits-configure)))
 
 (defun org-workflow-habits--marker ()
   "Return the selected habit's marker or signal a user error."

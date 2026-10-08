@@ -56,49 +56,65 @@ Today's pending occurrence does not break the ongoing streak."
      (unless non-daily
        (propertize (format "  连续 %d 天" total) 'face 'shadow)))))
 
+(defun org-workflow-evening--habit-rows (date)
+  "Collect DATE's native habit rows with position and week tracking."
+  (let ((today (time-to-days (org-time-string-to-time (concat date " 12:00")))) rows)
+    (org-workflow-habits--map
+     (lambda ()
+       (unless (org-entry-is-done-p)
+         (let* ((habit (let ((org-habit-preceding-days most-positive-fixnum)
+                            (org-habit-following-days 0))
+                        (org-habit-parse-todo)))
+                (done (org-habit-done-dates habit)))
+           (when (or (<= (org-habit-scheduled habit) today) (memq today done))
+             (let* ((marker (org-agenda-new-marker (point)))
+                    (tags (org-workflow-display-tags))
+                    (position (org-workflow-habits-position))
+                    (line (concat "      " (substring-no-properties (org-get-heading t t t t))
+                                  (org-workflow-agenda--visible-tags tags) "\n        "
+                                  (org-workflow-evening--week
+                                   done today
+                                   (not (and (= (org-habit-scheduled-repeat habit) 1)
+                                             (null (nth 3 habit))))) "\n")))
+               (org-add-props line nil
+                              'org-marker marker 'org-hd-marker marker
+                              'org-category (org-get-category) 'todo-state (org-get-todo-state)
+                              'tags tags 'priority (org-get-priority (thing-at-point 'line))
+                              'type "todo" 'org-heading t 'mouse-face 'highlight
+                              'org-workflow-agenda-create-context 'habit)
+               (push (cons position line) rows)))))))
+    (nreverse rows)))
+
+(defun org-workflow-evening--insert-habits (rows period edge)
+  "Insert habit ROWS matching priority PERIOD and window EDGE."
+  (let* ((name (cdr (assq period '((?A . morning) (?B . afternoon) (?C . evening)))))
+         (position (seq-find (lambda (item) (and (eq (nth 1 item) name)
+                                                (eq (nth 2 item) edge)))
+                             org-workflow-habits-positions))
+         (selected (seq-filter (lambda (row) (equal (car row) position)) rows)))
+    (when selected
+      (insert (propertize (format "    习惯 · %s\n" (car position))
+                          'face 'org-workflow-agenda-habit 'org-agenda-structural-header t
+                          'org-workflow-agenda-create-context 'habit))
+      (dolist (row selected) (insert (cdr row))))))
+
 (defun org-workflow-evening-today (_match)
-  "Render today's queue followed by habits, using native source markers."
-  (org-workflow-agenda-task-stack nil)
-  (unless (org-workflow-agenda--setting 'org-workflow-agenda-plan-tomorrow)
-    (let ((start (point))
-          (today (time-to-days (org-time-string-to-time
-				(concat (org-workflow-target--today-string) " 12:00"))))
-          rows)
-      (org-workflow-habits--map
-       (lambda ()
-	 (unless (org-entry-is-done-p)
-           (let* (;; Native graphs normally read only a short history window.
-                  ;; Streaks must include all completion logs, across weeks.
-                  (habit (let ((org-habit-preceding-days most-positive-fixnum)
-                               (org-habit-following-days 0))
-                           (org-habit-parse-todo)))
-                  (done (org-habit-done-dates habit)))
-             (when (or (<= (org-habit-scheduled habit) today) (memq today done))
-               (let* ((marker (org-agenda-new-marker (point)))
-                      (tags (org-workflow-display-tags))
-                      (line (concat "      " (substring-no-properties (org-get-heading t t t t))
-                                    (org-workflow-agenda--visible-tags tags) "\n        "
-                                    (org-workflow-evening--week
-                                     done today
-                                     (not (and (= (org-habit-scheduled-repeat habit) 1)
-                                               (null (nth 3 habit))))) "\n")))
-		 (org-add-props line nil
-				'org-marker marker 'org-hd-marker marker
-				'org-category (org-get-category) 'todo-state (org-get-todo-state)
-				'tags tags 'priority (org-get-priority (thing-at-point 'line))
-				'type "todo" 'org-heading t 'mouse-face 'highlight)
-		 (push line rows)))))))
-      (insert (if org-workflow-agenda-sprint-view
-                  (concat "  " (propertize " 习惯 " 'face 'org-workflow-agenda-habit
-                                          'org-agenda-structural-header t) "\n")
-                (propertize (format "  习惯 · %d\n" (length rows))
-                            'face 'org-workflow-agenda-group)))
-      (if rows (mapc #'insert (nreverse rows))
-	(insert (propertize "      今天没有待做习惯\n" 'face 'shadow)))
-      (insert "\n")
-      (add-text-properties start (point)
-                           '(org-agenda-type todo
-					     org-workflow-agenda-create-context habit)))))
+  "Render the queue with placed habits and an unassigned habit section."
+  (let* ((tomorrow (org-workflow-agenda--setting 'org-workflow-agenda-plan-tomorrow))
+         (rows (unless tomorrow
+                 (org-workflow-evening--habit-rows (org-workflow-agenda-target-date)))))
+    (org-workflow-agenda-task-stack nil rows)
+    (unless tomorrow
+      (let ((start (point))
+            (unassigned (seq-filter (lambda (row) (null (car row))) rows)))
+        (when (or unassigned (null rows))
+          (insert (propertize "  习惯\n" 'face 'org-workflow-agenda-habit
+                              'org-agenda-structural-header t))
+          (if unassigned (mapc (lambda (row) (insert (cdr row))) unassigned)
+            (insert (propertize "      今天没有待做习惯\n" 'face 'shadow)))
+          (insert "\n")
+          (add-text-properties start (point) '(org-agenda-type todo
+                                              org-workflow-agenda-create-context habit)))))))
 
 (defun org-workflow-evening-open ()
   "Open the default task and habit console."

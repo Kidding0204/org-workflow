@@ -10,7 +10,7 @@ import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 
 import {parseEmacsclientStatus} from './state.js';
 import {planningPresentation, weekTrackStyle} from './planning.js';
-import {formatWorkflowTitle, parseWorkflowStatus} from './workflow-state.js';
+import {formatWorkflowTitle, parseWorkflowStatus, currentHabitReminder, workflowTitleState} from './workflow-state.js';
 import {titleLayout} from './layout.js';
 import {
     applyStatus,
@@ -187,6 +187,10 @@ export default class FocusTimerExtension extends Extension {
             this._workflowMenuItem.menu.addAction(action.label,
                 () => this._runWorkflowAction(action.id));
         this._indicator.menu.addMenuItem(this._workflowMenuItem);
+        this._reminderMenuItem = new PopupMenu.PopupSubMenuMenuItem('当前习惯');
+        for (const [action, label] of [['start', '开始习惯'], ['complete', '完成本次习惯'], ['visit', '打开习惯']])
+            this._reminderMenuItem.menu.addAction(label, () => this._runWorkflowAction(action));
+        this._indicator.menu.addMenuItem(this._reminderMenuItem);
         this._indicator.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem('计时'));
         this._indicator.menu.addAction('切换计时（Super+s）',
             () => this._runWorkflowAction('toggle'));
@@ -196,6 +200,8 @@ export default class FocusTimerExtension extends Extension {
             () => this._runCommand(STOP_EXPRESSION));
         this._indicator.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem('状态与习惯'));
         this._indicator.menu.addMenuItem(this._habitMenu);
+        this._skipHabitItem = this._indicator.menu.addAction('跳过当前习惯（仅今天）',
+            () => this._runCommand("(org-workflow-panel-habit-action 'skip)"));
         this._indicator.menu.addMenuItem(this._bodyItem);
         this._indicator.menu.addAction('刷新状态', () => this._refresh());
         addToLeftPanel(Main.panel, Main.sessionMode.panel.left,
@@ -336,8 +342,17 @@ export default class FocusTimerExtension extends Extension {
         this._progress.visible = !idle;
         this._label.visible = !idle;
         this._focusGroup.visible = !idle;
+        const title = workflowTitleState(this._workflowStatus, this._timerStatus);
+        this._taskLabel.set_text(title.title);
+        this._parentLabel.set_text(title.parent);
         this._parentLabel.visible = idle && this._workflowStatus?.available === true &&
-            Boolean(this._workflowStatus.parent);
+            Boolean(title.parent);
+        const reminder = currentHabitReminder(this._workflowStatus, this._timerStatus);
+        this._skipHabitItem.visible = Boolean(reminder);
+        this._reminderMenuItem.visible = Boolean(reminder);
+        this._workflowMenuItem.visible = !reminder;
+        if (reminder)
+            this._bodyItem.label.set_text(`习惯：${reminder.title}\n已提醒；可完成或跳过今天。`);
         this._accessoryGroup.visible = !idle || this._parentLabel.visible;
         this._queueLayout();
         const days = view.days ?? [];

@@ -10,8 +10,8 @@ const source = new TextDecoder().decode(bytes);
 const [, metadataBytes] = GLib.file_get_contents('metadata.json');
 const metadata = JSON.parse(new TextDecoder().decode(metadataBytes));
 
-if (metadata.version !== 20)
-    throw new Error(`adaptive parent release version: expected 20, got ${metadata.version}`);
+if (metadata.version !== 22)
+    throw new Error(`canonical Workflow API release version: expected 22, got ${metadata.version}`);
 
 assertContains(source, 'WORKFLOW_MENU_ACTIONS',
     'extension consumes the shared workflow menu model');
@@ -26,8 +26,19 @@ assertContains(source, 'for (const action of WORKFLOW_MENU_ACTIONS)',
 assertContains(source, 'Commitment streak:',
     'extension gives the streak an accessible name');
 
-print('org-workflow-focus-timer extension contract tests passed');
+print('focus-timer extension contract tests passed');
 assertContains(source, 'this._parentLabel.set_text(status.parent)', 'parent is a separate label');
 assertContains(source, 'track.set_style(weekTrackStyle(day))', 'recorded time controls track intensity');
 if (source.includes('_habitButton'))
-    throw new Error('habit titles must remain in the menu only');
+    throw new Error('habit reminders use the current task label');
+
+assertContains(source, "const TIMER_STATUS_EXPRESSION = '(org-workflow-focus-timer-status-json)'",
+    'timer status uses the standalone package API');
+assertContains(source, "const FINISH_EXPRESSION = '(progn (org-workflow-focus-timer-finish-phase) (org-workflow-focus-timer-status-json))'",
+    'finish action uses the standalone package API');
+assertContains(source, "const STOP_EXPRESSION = '(progn (org-workflow-focus-timer-stop) (org-workflow-focus-timer-status-json))'",
+    'stop action uses the standalone package API');
+for (const oldName of ['focus-timer-status-json', 'focus-timer-finish-phase', 'focus-timer-stop']) {
+    if (source.includes(`(${oldName}`))
+        throw new Error(`legacy Emacs interface remains: ${oldName}`);
+}

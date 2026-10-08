@@ -19,7 +19,8 @@
 | `org-workflow-migrate.el` / `org-workflow-cleanup.el` | 有备份的旧模型迁移与显式属性清理 |
 | `org-workflow-weekly.el` | 周日志、周文件 Agenda 同步与导航 |
 | `org-workflow-planning.el` / `org-workflow-guidance.el` | 规划接口、背景、周目标、开工与续接提示 |
-| `org-workflow-habits.el` / `org-workflow-evening.el` | 原生习惯及晚间 Agenda |
+| `org-workflow-periods.el` | 可配置工作窗口、任务阶段和习惯提醒边界的共用时间规则 |
+| `org-workflow-habits.el` / `org-workflow-evening.el` | 原生习惯、时段／提醒配置及带周追踪的分时段 Agenda |
 | `org-workflow-leave.el` / `org-workflow-panel.el` | 请假与桌面只读投影 |
 | `org-workflow-focus-timer.el` | 基于标准 Org Clock 的专注生命周期 |
 | `org-workflow-screenshot.el` | 当前任务截图收集及可选桌面辅助工具 |

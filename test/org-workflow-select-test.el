@@ -12,7 +12,8 @@
          (org-workflow-current-changed-hook nil)
          (org-workflow-stack-empty-hook nil))
     (unwind-protect
-        (cl-letf (((symbol-function 'org-workflow-target--today-string) (lambda () "2026-09-14"))
+        (cl-letf (((symbol-function 'current-time) (lambda () (encode-time 0 0 20 14 9 2026)))
+                  ((symbol-function 'org-workflow-target--today-string) (lambda () "2026-09-14"))
                   ((symbol-function 'org-workflow-clock--clock-active-p) (lambda () nil)))
           (should (equal (mapcar (lambda (pair) (org-workflow-target-entry-title (cdr pair)))
                                 (org-workflow-target--selection-entries))
@@ -50,7 +51,8 @@
          (org-workflow-stack-empty-hook nil)
          (today "2026-09-14") stopped)
     (unwind-protect
-        (cl-letf (((symbol-function 'org-workflow-target--today-string) (lambda () today))
+        (cl-letf (((symbol-function 'current-time) (lambda () (encode-time 0 0 20 14 9 2026)))
+                  ((symbol-function 'org-workflow-target--today-string) (lambda () today))
                   ((symbol-function 'org-workflow-clock--clock-active-p) (lambda () t))
                   ((symbol-function 'org-workflow-clock--clock-matches-p) (lambda (_) t))
                   ((symbol-function 'org-workflow-clock--clock-stop) (lambda () (setq stopped t))))

@@ -71,7 +71,7 @@
                    "2026-08-17" (encode-time 0 0 9 17 8 2026))))
    (should (equal '(:stageSatisfied 2 :stageTotal 3)
                   (org-workflow--stage-progress
-                   "2026-08-17" (encode-time 0 0 13 17 8 2026))))
+                   "2026-08-17" (encode-time 0 0 14 17 8 2026))))
    (should (equal '(:stageSatisfied 3 :stageTotal 4)
                   (org-workflow--stage-progress
                    "2026-08-17" (encode-time 0 0 19 17 8 2026))))))
@@ -258,8 +258,8 @@ SCHEDULED: <2026-08-17 Mon>
                   (mapcar #'org-workflow-target-entry-title
                           (org-workflow-target--sorted-entries))))))
 
-(ert-deftest org-workflow-target-exposes-fixed-priority-bands-with-fallback ()
-  "Morning and afternoon expand only when their normal bands are empty."
+(ert-deftest org-workflow-target-exposes-started-priority-bands-without-fallback ()
+  "Future work windows stay hidden even when started windows are empty."
   (let* ((entry-a (org-workflow-target-entry-create
                    :title "A" :priority (org-get-priority "[#A]")))
          (entry-b (org-workflow-target-entry-create
@@ -271,7 +271,7 @@ SCHEDULED: <2026-08-17 Mon>
                            (org-workflow-target--expose-by-time
                             (list entry-a entry-b entry-c)
                             (encode-time 0 0 10 17 8 2026)))))
-    (should (equal '("B")
+    (should (equal nil
                    (mapcar #'org-workflow-target-entry-title
                            (org-workflow-target--expose-by-time
                             (list entry-b entry-c)
@@ -281,7 +281,7 @@ SCHEDULED: <2026-08-17 Mon>
                            (org-workflow-target--expose-by-time
                             (list entry-a entry-b entry-c)
                             (encode-time 0 0 15 17 8 2026)))))
-    (should (equal '("C")
+    (should (equal nil
                    (mapcar #'org-workflow-target-entry-title
                            (org-workflow-target--expose-by-time
                             (list entry-c)

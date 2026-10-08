@@ -12,25 +12,25 @@ The commitment streak uses the same daily-attempt rule for commitment tasks.
 
 The title-bar menu keeps **Open in Emacs** as a direct action and groups the
 desktop workflow commands under **Workflow Actions**.  Both the menu and GNOME
-shortcuts call `extras/bin/org-workflow-client`.  For frame-aware actions the bridge
+shortcuts call `bin/org-workflow-client`.  For frame-aware actions the bridge
 first runs a no-wait client without `--eval`, leaving a persistent graphical
 frame, and only then dispatches the action through a second client request.
 For `visit`, `step`, and `prerequisite`, an existing graphical frame is reused; closing a newly created client frame
 leaves the daemon running.
 
-`extras/bin/emacs-systemd-client` is the shared daemon boundary.  It starts
+`bin/emacs-systemd-client` is the shared daemon boundary.  It starts
 `emacs.service` idempotently and connects with `--alternate-editor=false`, so
 desktop clients never create a second daemon outside systemd ownership.
 
 Use the same bridge from a terminal when a visible frame is required:
 
 ```sh
-~/.local/bin/org-workflow-client visit
+~/.config/emacs/bin/org-workflow-client visit
 ```
 
 ## Choose the current task
 
-In Emacs, use `C-c o t` (`M-x org-workflow-target-select`).  The completion selector
+In Emacs, use `C-c o t` (`M-x my/org-target-select`).  The Vertico selector
 lists today's full queue first, followed by unfinished task leaves directly
 under a DIVE heading outside that queue. DIVE is an unfinished TODO state that
 opens its direct task children; it is not inherited like the former CURR tag.
@@ -41,7 +41,7 @@ and task tags, all available for filtering.
 The GNOME shortcut **Super+Shift+s** runs:
 
 ```sh
-~/.local/bin/org-workflow-client select
+~/.config/emacs/bin/org-workflow-client select
 ```
 
 Unlike `visit`, `select` always creates a dedicated minibuffer-only graphical
@@ -56,12 +56,12 @@ start a new timer.  Use **Super+s** to start timing the selected task.
 
 ## Source and installation
 
-The UUID is `org-workflow-focus-timer@meph1st0`.  Keep this directory in the package
-source repository; install a bundle rather than editing the copied
+The UUID is `focus-timer@meph1st0`.  Keep this directory in the Emacs
+configuration repository; install a bundle rather than editing the copied
 user-extension directory.
 
 ```sh
-cd extras/gnome-extensions/focus-timer@meph1st0
+cd /home/meph1st0/.config/emacs/gnome-extensions/focus-timer@meph1st0
 mkdir -p /tmp/focus-timer-extension
 gnome-extensions pack --force --out-dir /tmp/focus-timer-extension --extra-source=state.js --extra-source=workflow-state.js --extra-source=ui.js --extra-source=panel-placement.js --extra-source=layout.js --extra-source=sync.js --extra-source=planning.js .
 gnome-extensions install --force /tmp/focus-timer-extension/focus-timer@meph1st0.shell-extension.zip
@@ -71,7 +71,7 @@ On GNOME Shell 50/51 Wayland sessions, newly installed extension directories
 are discovered after the next login.  Enable it then with:
 
 ```sh
-gnome-extensions enable org-workflow-focus-timer@meph1st0
+gnome-extensions enable focus-timer@meph1st0
 ```
 
 Run the contract tests with:
@@ -181,3 +181,25 @@ only through the existing menu; their tracking and completion rules do not chang
 Version 20 lets the idle parent use its natural width. When space runs short,
 the parent shrinks to 80px before the task shrinks. Extreme widths can reduce
 both further to keep the central clock clear. The task's existing 320px cap stays.
+
+Version 21 calls `org-workflow-focus-timer-status-json`,
+`org-workflow-focus-timer-finish-phase` and `org-workflow-focus-timer-stop`
+directly. Personal Emacs configuration no longer provides the old name aliases.
+After installing this update, log out and log back in before restarting Emacs:
+GNOME Shell caches the loaded extension module, so disabling/enabling cannot
+activate changed JavaScript. See the [GNOME extension debugging guide](https://gjs.guide/extensions/development/debugging.html#reloading-extensions).
+The current Emacs process may retain the three old definitions until the old
+GNOME session ends; they are absent from saved configuration.
+
+## Habit reminders (v22)
+
+Configure work windows with `org-workflow-work-periods` in use-package, and
+habit placement/reminder clocks with `org-workflow-habits-configure` in Emacs.
+Emacs delivers one notification per habit/day and stores the latest reminder.
+The title shows that habit only when the timer is inactive and no Org clock
+runs; focus/breaks preserve their actual task. New reminders overwrite older
+ones. Use the menu's “跳过当前习惯（仅今天）” to dismiss for today without completing.
+Start/toggle/visit/complete target the displayed habit. After skip or completion
+older reminders do not resurface. Reloading Shell does not repeat notifications.
+Updated JS needs a new GNOME Wayland login; installing files alone does not
+prove the live Shell loaded v22.

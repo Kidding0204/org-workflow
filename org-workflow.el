@@ -113,7 +113,7 @@
   (org-workflow-focus-timer--clear-state)
   (dolist (variable '(org-workflow-target-midnight-timer org-workflow-history-timer
                       org-workflow-history--refresh-timer org-workflow-journal-seal-timer
-                      org-workflow-leave--startup-timer))
+                      org-workflow-leave--startup-timer org-workflow-panel--reminder-timer))
     (when (and (boundp variable) (timerp (symbol-value variable)))
       (cancel-timer (symbol-value variable)) (set variable nil))))
 (defun org-workflow--enable ()

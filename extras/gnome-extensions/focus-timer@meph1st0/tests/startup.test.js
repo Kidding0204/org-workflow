@@ -1,4 +1,5 @@
 import GLib from 'gi://GLib';
+import {currentHabitReminder, workflowTitleState} from '../workflow-state.js';
 import {planningPresentation, weekTrackStyle} from '../planning.js';
 import {isServerUnavailable, refreshIntervalFor} from '../sync.js';
 
@@ -46,13 +47,14 @@ extension._syncRefreshTimer = () => scheduled++;
 extension._enabled = false;
 extension._completeRefresh(false);
 assert(scheduled === 0, 'disabled extension must not restart polling');
-print('org-workflow-focus-timer startup lifecycle tests passed');
+print('focus-timer startup lifecycle tests passed');
 
 // Exercise the presentation boundary, including replacement of the timer actors.
 const label = () => ({text: '', set_text(text) { this.text = text; },
     clutter_text: {set_markup(text) { this.markup = text; }}});
 Object.assign(extension, {
-    _progress: {}, _label: {}, _parentLabel: label(),
+    _progress: {}, _label: {}, _parentLabel: label(), _taskLabel: label(), _skipHabitItem: {},
+    _workflowMenuItem: {}, _reminderMenuItem: {}, _bodyItem: {label: label()},
     _focusGroup: {}, _accessoryGroup: {}, _queueLayout() {},
     _weekStrip: {}, _weekCells: Array.from({length: 7}, () => ({track: {set_style(value) { this.style = value; }}, unknown: {}, dot: {}})),
     _rightLabel: label(), _rightIndicator: {}, _rightBody: {label: label()},
@@ -90,3 +92,21 @@ assert(extension._rightLabel.text === 'New task cue', 'task switching updates cu
 extension._workflowStatus.parent = '';
 ExtensionClass.prototype._updatePlanning.call(extension);
 assert(!extension._parentLabel.visible && !extension._accessoryGroup.visible, 'no empty parent slot');
+
+extension._workflowStatus.task = 'Original task';
+extension._workflowStatus.panel.habitReminder = {key: 'run', title: 'Run', done: false};
+ExtensionClass.prototype._updatePlanning.call(extension);
+assert(extension._taskLabel.text === '习惯 · Run' && extension._skipHabitItem.visible,
+    'idle shows latest reminder and skip command');
+assert(extension._reminderMenuItem.visible && !extension._workflowMenuItem.visible, 'show habit actions instead of unrelated task actions');
+extension._timerStatus.phase = 'focus';
+ExtensionClass.prototype._updatePlanning.call(extension);
+assert(extension._taskLabel.text === 'Original task' && !extension._skipHabitItem.visible,
+    'focus preserves actual task and hides reminder action');
+extension._timerStatus.phase = 'inactive';
+ExtensionClass.prototype._updatePlanning.call(extension);
+assert(extension._taskLabel.text === '习惯 · Run', 'stopping focus restores pending reminder');
+extension._workflowStatus.panel.habitReminder = null;
+ExtensionClass.prototype._updatePlanning.call(extension);
+assert(extension._taskLabel.text === 'Original task', 'skipping restores underlying task');
+print('Habit reminder actor transitions passed');

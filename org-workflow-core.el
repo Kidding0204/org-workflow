@@ -36,6 +36,7 @@
 (require 'org-id)
 
 (require 'org-workflow-commands)
+(require 'org-workflow-periods)
 
 (defcustom org-workflow-clock 'org-clock
   "Clock backend used by current-target workflow commands."
@@ -119,7 +120,13 @@ Errors become desktop notifications so GNOME shortcuts do not fail silently."
       (let ((command (alist-get action org-workflow-external-actions)))
         (unless command
           (user-error "Unknown Org Workflow action: %s" action))
-        (call-interactively command)
+        (if (or (and (memq action '(complete visit)) (org-workflow-panel--clocked-habit))
+                (and (memq action '(start toggle complete visit))
+                     (not (org-workflow-focus-timer-active-p))
+                     (not (org-clocking-p))
+                     (org-workflow-panel-current-habit)))
+            (org-workflow-panel-habit-action action)
+          (call-interactively command))
         (list :ok t :action action))
     (error
      (let ((reason (error-message-string error-data)))
@@ -389,11 +396,7 @@ DIVE is not inherited through intermediate headings or by a leaf itself."
 
 (defun org-workflow--stage-priorities (&optional time)
   "Return priority characters visible in the stage containing TIME."
-  (let ((hour (decoded-time-hour (decode-time (or time (current-time))))))
-    (cond
-     ((< hour 12) '(?A))
-     ((< hour 18) '(?A ?B))
-     (t '(?A ?B ?C)))))
+  (org-workflow-periods-priorities time))
 
 (defun org-workflow--timestamp-on-date-p (timestamp date)
   "Return non-nil when TIMESTAMP carries exact ISO DATE."
@@ -813,17 +816,9 @@ Without THROUGH-DATE, use today as the upper scheduling boundary."
                 entries)))
 
 (defun org-workflow-target--expose-by-time (entries now)
-  "Expose the fixed priority band from ordered ENTRIES at NOW."
-  (let ((hour (decoded-time-hour (decode-time now))))
-    (cond
-     ((< hour 12)
-      (or (org-workflow-target--entries-at-priorities entries '(?A))
-          (org-workflow-target--entries-at-priorities entries '(?B))
-          (org-workflow-target--entries-at-priorities entries '(?C))))
-     ((< hour 18)
-      (or (org-workflow-target--entries-at-priorities entries '(?A ?B))
-          (org-workflow-target--entries-at-priorities entries '(?C))))
-     (t entries))))
+  "Expose started work windows from ordered ENTRIES at NOW."
+  (org-workflow-target--entries-at-priorities
+   entries (org-workflow-periods-priorities now)))
 
 (defun org-workflow-target--sorted-entries ()
   "Return today's ordered entries exposed by the current priority band."

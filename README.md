@@ -76,6 +76,49 @@ Org files store tasks, schedules and clocks; SQLite stores commitments, events, 
 
 The native history panel reads the same persisted history as the optional web export. Its charts have keyboard date selection as well as mouse interaction. See the documents in [`docs/`](docs/) for detailed workflows, current semantics and maintenance guidance.
 
+### Habit windows and reminders
+
+Configure work windows with `use-package` (gaps are allowed):
+
+```elisp
+(use-package org-workflow
+  :custom
+  (org-workflow-work-periods
+   '((morning "08:30" "12:00")
+     (afternoon "14:00" "17:30")
+     (evening "19:00" "22:00"))))
+```
+
+A/B/C task availability and the desktop stage bar advance at these starts.
+During gaps the previous task bands remain available; later bands are not
+opened automatically. Manual task selection remains available.
+
+Use `M-x org-workflow-habits-configure` on a habit, or `C-c h` on its Sprint
+row (also available in the right-click menu). Choose one of six positions:
+morning/afternoon/evening, early/late. Sprint shows early habits before the
+window's tasks and late habits after them, retaining native weekly completion
+and daily streak tracking. Unassigned habits keep their independent section.
+The Org property is `WORKFLOW_HABIT_POSITION`, for example `afternoon-late`.
+
+Reminder clocks follow the corresponding window's start/end. An optional
+`WORKFLOW_HABIT_REMINDER: 18:10` overrides that clock, including for an unassigned
+habit. No position and no override means no reminder. Each unfinished due
+habit receives one system notification per local day. Reminders are checked
+every 30 seconds while Workflow is enabled; missed clocks are caught up on
+resume/startup, with the most recent reminder winning. Same-clock ties follow
+source order. Completed occurrences do not notify.
+
+The GNOME companion v22 displays the newest reminder only while the timer is
+inactive and no Org clock is running. Focus and breaks preserve the ongoing
+task. The reminder returns on becoming inactive, until completion or explicit
+skip; newer reminders replace it. Desktop start/toggle/visit/complete actions
+act on the displayed habit, without changing the underlying task selection.
+`M-x org-workflow-panel-skip-habit`, Sprint `S`, or the desktop menu's skip
+command suppresses that habit for today without marking it done. Covered
+reminders do not resurface after skipping/completing the current one. Daily
+notification and skip state persists across Emacs/Shell restarts in Workflow
+storage and resets for the next local date.
+
 ## Optional integrations
 
 [`extras/`](extras/) contains the web dashboard, GNOME integration and desktop client and screenshot helpers. These are companion tools, not part of the Emacs package archive. Follow their own instructions and review paths and desktop requirements before installing them. The core package does not install a GNOME extension or desktop executable.

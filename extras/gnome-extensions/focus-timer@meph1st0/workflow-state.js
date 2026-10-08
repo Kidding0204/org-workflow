@@ -37,3 +37,19 @@ export function formatWorkflowTitle(status) {
 
     return status.task;
 }
+
+// A reminder changes presentation and desktop actions, never the running clock.
+export function currentHabitReminder(status, timer) {
+    const habit = status?.panel?.habitReminder;
+    return timer?.phase === 'inactive' && status?.habitReminderPaused !== true &&
+        status?.panel?.available === true &&
+        habit && typeof habit.key === 'string' && typeof habit.title === 'string' &&
+        habit.done === false ? habit : null;
+}
+
+export function workflowTitleState(status, timer) {
+    const habit = currentHabitReminder(status, timer);
+    return habit
+        ? {title: `习惯 · ${habit.title}`, parent: '', habit: true}
+        : {title: formatWorkflowTitle(status), parent: status?.parent ?? '', habit: false};
+}

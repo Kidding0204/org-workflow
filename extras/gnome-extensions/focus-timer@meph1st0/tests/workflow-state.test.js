@@ -1,4 +1,4 @@
-import {formatWorkflowTitle, parseWorkflowStatus} from '../workflow-state.js';
+import {formatWorkflowTitle, parseWorkflowStatus, currentHabitReminder, workflowTitleState} from '../workflow-state.js';
 import {dailyProgressState, PROGRESS_WIDTH} from '../ui.js';
 
 function assertEqual(actual, expected, description) {
@@ -56,3 +56,18 @@ assertEqual(dailyProgressState(addedPendingStatus).variant, 'daily',
     'fulfilled commitments do not prematurely fill additional-task progress');
 
 print('org workflow state tests passed');
+
+const reminded = {...attemptedStatus, panel: {available: true,
+    habitReminder: {key: 'run', title: '跑步', done: false}}};
+assertEqual(workflowTitleState(reminded, {phase: 'inactive'}).title, '习惯 · 跑步', 'idle reminder replaces title');
+assertEqual(workflowTitleState(reminded, {phase: 'inactive'}).parent, '', 'hide unrelated parent');
+for (const phase of ['focus', 'short-break', 'long-break'])
+    assertEqual(workflowTitleState(reminded, {phase}).title, 'Continue textbook', 'active timer preserves task');
+assertEqual(currentHabitReminder(reminded, null), null, 'unknown timer cannot replace task');
+assertEqual(currentHabitReminder({...reminded, habitReminderPaused: true}, {phase: 'inactive'}), null, 'standard clock preserves task');
+assertEqual(workflowTitleState({...reminded, panel: {available: true, habitReminder: null}}, {phase: 'inactive'}).title,
+    'Continue textbook', 'skip or completion restores task');
+assertEqual(workflowTitleState({...reminded, panel: {available: true,
+    habitReminder: {key: 'sicp', title: 'SICP', done: false}}}, {phase: 'inactive'}).title,
+    '习惯 · SICP', 'newest reminder replaces previous');
+print('habit reminder presentation tests passed');

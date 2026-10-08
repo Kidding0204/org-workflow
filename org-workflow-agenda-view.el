@@ -412,8 +412,8 @@
     (insert "\n")
     (add-text-properties start (point) '(org-agenda-type todo))))
 
-(defun org-workflow-agenda-task-stack (_match)
-  "Insert the target day's queue, grouped by priority and direct parent."
+(defun org-workflow-agenda-task-stack (_match &optional habit-rows)
+  "Insert the target day's queue and optional HABIT-ROWS by work window."
   (let* ((start (point))
          (target (org-workflow-agenda-target-date))
          (tomorrow (org-workflow-agenda--setting 'org-workflow-agenda-plan-tomorrow))
@@ -436,6 +436,8 @@
              (period-start (point))
              previous-group)
         (insert (org-workflow-agenda--period-header priority period-entries))
+        (when habit-rows
+          (org-workflow-evening--insert-habits habit-rows letter 'early))
         (dolist (entry period-entries)
           (let ((group (org-workflow-target--group-key entry)))
             (unless (equal group previous-group)
@@ -450,10 +452,17 @@
           (insert (propertize (if (memq letter completed)
                                  "      已完成\n" "      暂无安排\n")
                               'face 'org-workflow-agenda-meta)))
+        (when habit-rows
+          (org-workflow-evening--insert-habits habit-rows letter 'late))
         (insert "\n")
-        (add-text-properties period-start (point)
-                             `(org-workflow-agenda-create-context
-                               (task ,target ,letter)))))
+        (let ((cursor period-start))
+          (while (< cursor (point))
+            (let ((next (next-single-property-change
+                         cursor 'org-workflow-agenda-create-context nil (point))))
+              (unless (get-text-property cursor 'org-workflow-agenda-create-context)
+                (put-text-property cursor next 'org-workflow-agenda-create-context
+                                   `(task ,target ,letter)))
+              (setq cursor next))))))
     (insert "\n")
     (add-text-properties start (point) '(org-agenda-type todo))))
 

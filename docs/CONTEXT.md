@@ -1,6 +1,6 @@
 # org-workflow：项目会话上下文
 
-核对日期：2026-10-07。面向需要研究、修改或排查本包的会话。
+核对日期：2026-10-08。面向需要研究、修改或排查本包的会话。
 本文是当前代码的阅读地图与维护边界；行为事实以对应源码为准。
 修改入口、数据规则、依赖或验证方法时同步本页，避免继续使用历史方案。
 
@@ -87,6 +87,14 @@ Sprint 右侧项目循环用 `org-workflow-agenda-previous-project` / `org-workf
 - Agenda 中 project/area 文件提供任务。默认未安排候选要求直接父标题为 DIVE；
   习惯、HOLD 子树等排除。执行队列另按安排日期和时段筛选，不以 DIVE 标签继承准入。
 - 原生 priority A/B/C 表达上午／下午／晚上的安排意图。
+- 工作窗口统一由 `org-workflow-work-periods` 配置（periods 库）；任务范围和顶栏阶段进度
+  在窗口开始时推进，休息间隔保留上一阶段，不自动提前打开下一阶段。
+- 习惯用 `WORKFLOW_HABIT_POSITION` 指定六种初／末位置，`WORKFLOW_HABIT_REMINDER` 可覆盖
+  窗口边界钟点；Agenda 放在本时段任务前／后并保留原生完成记录。
+- panel 库每 30 秒检查到点习惯；当日通知、跳过和最新提醒写入 meta 的
+  `habit-reminders:YYYY-MM-DD`，不修改完成事实。通知只一次，最新覆盖旧提醒，
+  完成／跳过不会重新露出旧提醒。GNOME v22 非专注且无 Org clock 时显示最新提醒，
+  桌面 start/toggle/visit/complete 路由至该习惯，真实执行任务选择保持独立。
 - 当前执行目标独立于排序建议；刷新、重排和展示不能悄悄切换执行目标。
 - 每日“承担并尝试”与实际完成不同，不应因满足当天责任自动将任务改为 DONE。
 - 承诺创建／调整规则由 core、commands、store、history 共同实现。
