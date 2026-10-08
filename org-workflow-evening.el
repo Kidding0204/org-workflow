@@ -93,10 +93,11 @@ Today's pending occurrence does not break the ongoing streak."
                              org-workflow-habits-positions))
          (selected (seq-filter (lambda (row) (equal (car row) position)) rows)))
     (when selected
-      (insert (propertize (format "    习惯 · %s\n" (car position))
-                          'face 'org-workflow-agenda-habit 'org-agenda-structural-header t
-                          'org-workflow-agenda-create-context 'habit))
-      (dolist (row selected) (insert (cdr row))))))
+      ;; Titles use the same six-space inset as ordinary task titles.
+      ;; A blank line separates the habit block from the adjacent task block.
+      (when (eq edge 'late) (insert "\n"))
+      (dolist (row selected) (insert (cdr row)))
+      (when (eq edge 'early) (insert "\n")))))
 
 (defun org-workflow-evening-today (_match)
   "Render the queue with placed habits and an unassigned habit section."
