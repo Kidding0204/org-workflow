@@ -9,7 +9,6 @@
 - `(org-workflow-planning-context-json FILE POSITION)`：POSITION 是当前阶段标题位置；只读返回该子树与下一兄弟子树、文件 SHA256、任务位置／ID、标签、估时、边界、依赖、记录、最近七日投入及背景／周日志路径。查询不创建 ID。
 - `M-x org-workflow-planning-background`：明确创建或访问独立 Vulpea 背景笔记；只有此编辑动作会为项目补 ID。背景文件保存在笔记目录 `planning/PROJECT-ID.org`。
 - `M-x org-workflow-planning-preview`：选择建议 JSON 文件。SPC 标记，a 采纳所选；C-u a 在明确确认后替换已有值。一次采纳后需要重新生成上下文。
-- `(org-workflow-planning-set-week-goals DATE TEXT)`：目标周日志“周目标”正文写入入口；保留其他节。仅在用户确定目标后调用。
 
 通过 `emacsclient --eval` 调用；构造参数时使用正确的 Lisp 字符串转义，不把外部文本插进 shell 代码。导出的 file/hash/position/title 必须原样引用。版本过期必须重新导出。建议文件可放 `/tmp`，正式的分析、范围和不确定性放项目背景或源任务说明中。
 
@@ -23,7 +22,7 @@
 
 ## 日常入口
 
-Sprint 直接键位：`y` 切换今天／明天，`W` 访问目标周的周目标，`E` 编辑或清空明日开工提示，`N` 编辑任务的“下次从这里开始”；`?` 查看全部按键。明日视图顶部只读取周目标，不会因缺少日志而创建文件。周日的提示和周目标均指向下周。
+Sprint 直接键位：`y` 切换今天／明天，`W` 访问 DIVE + DEADLINE 阶段目标，`E` 编辑或清空明日开工提示，`N` 编辑任务的“下次从这里开始”；`?` 查看全部按键。今天和明天视图顶部都展示阶段目标及原生进度，作为中／短期规划上下文。没有阶段目标时不创建文档；明日开工提示仍写入目标日期的周日志。旧周目标文本保留，新周日志不再生成该节。
 
 长期指导：`M-x org-workflow-guidance-open` 打开专门的 Org 笔记，每个标题写一句指导；在需要的标题运行 `org-workflow-guidance-select`。没有当日提示时使用这个标题，不轮播。任务续接提示存入不继承的 `WORKFLOW_RESUME` 属性。
 

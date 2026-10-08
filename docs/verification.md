@@ -58,3 +58,18 @@ Org 源文件和 SQLite 全部七张表仍与操作前一致。
 - 当前 daemon 不能连接已有 :0 或 :1 显示服务器，无法创建图形验证 frame。
   GUI 中文像素排版、主题与物理鼠标验收未完成；不将真实 Agenda 文本验证等同 GUI 验收。
 - 本轮文档为 `habit-system.md`，CONTEXT 阅读地图已关联；没有建立阶段百分比计算器。
+
+## 2026-10-09：阶段目标语义修正与周目标退役
+
+用户明确阶段目标是活跃阶段的中／短期进度承诺，来源为 DIVE + DEADLINE。
+普通 TODO 截止任务不再列为阶段目标；保留原生 [n/m] 进度与截止日期。
+今天／明天 Sprint 顶部共用阶段目标，W 与主菜单 w 访问源阶段。
+退役旧周目标的展示、读写接口和新周日志模板节，已有日志原文保留。
+
+`TZ=UTC make test` 553/553；`make compile` 成功（既有警告保留）；diff 检查通过。
+测试包含 CMU Deep Learning Intro [1/28]、普通 TODO 排除、双视图与 W 路由、
+只读访问源标题，以及旧周目标文本在其他编辑中保留。
+实际 Wayland 临时 frame 通过真实 Sprint 入口渲染并导出 PNG，确认中文标题、
+CMU 阶段、原生进度及截止日期位于今日安排之前；W 路由核对成功。
+fixture 位于 /tmp，未修改真实 Org 数据；临时 frame 与缓冲区已清理。
+图形证据 `/tmp/workflow-stage-preview.png` 为临时验证产物，不是仓库文件。

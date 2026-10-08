@@ -10,7 +10,7 @@
 | --- | --- |
 | Org 项目／领域及周日志 | 任务结构、TODO 状态、SCHEDULED、优先级、标签、ID 与真实 CLOCK |
 | `org-workflow-store-file`（默认 `var/org-workflow.sqlite`） | 承诺、事件、已结算每日快照、习惯投影、请假记录与操作恢复映像 |
-| 周日志 `journal/weekly/周一日期.org` | 人工周目标、随记、收集箱及周回顾；不自动填统计表 |
+| 周日志 `journal/weekly/周一日期.org` | 随记、收集箱及周回顾；旧周目标原文保留，当前目标采用 DIVE + DEADLINE；不自动填统计表 |
 | 原生历史面板 | 直接读取当前后端的只读缓存与视图 |
 | 网页 JSON | 已结算事实的导出副本；网页只展示，不重新解释任务规则 |
 

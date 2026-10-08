@@ -32,15 +32,6 @@
     (unless (file-readable-p file) (error "Cannot read %s" file))
     (org-workflow-source-read file function)))
 
-(defun org-workflow-guidance-week-goals (date)
-  "Return the weekly goals text for DATE, or nil when absent."
-  (org-workflow-guidance--read
-   (org-workflow-week-file date)
-   (lambda ()
-     (when (re-search-forward "^\\* 周目标[ \t]*$" nil t)
-       (forward-line 1)
-       (string-trim (buffer-substring-no-properties (point) (save-excursion (org-back-to-heading t) (org-end-of-subtree t t) (point))))))))
-
 (defun org-workflow-guidance-opening (date)
   "Return the opening hint explicitly recorded for DATE, or nil."
   (org-workflow-guidance--read
@@ -139,25 +130,6 @@
         (if (string-empty-p text) (org-entry-delete nil "WORKFLOW_RESUME")
           (org-entry-put nil "WORKFLOW_RESUME" text)))))
   (org-workflow--request-gnome-refresh))
-
-(defun org-workflow-guidance-open-goals ()
-  "Visit weekly goals for today or the tomorrow-planning target date."
-  (interactive)
-  (org-workflow-week-open (if (bound-and-true-p org-workflow-agenda-plan-tomorrow)
-                              (org-workflow-history-add-days (org-workflow-target--today-string) 1)
-                            (org-workflow-target--today-string)))
-  (goto-char (point-min)) (re-search-forward "^\\* 周目标" nil t)
-  (org-show-entry))
-
-(defun org-workflow-guidance-agenda (_match)
-  "Display the target week's existing goals only during tomorrow planning."
-  (when (bound-and-true-p org-workflow-agenda-plan-tomorrow)
-    (let* ((date (org-workflow-history-add-days (org-workflow-target--today-string) 1))
-           (goals (org-workflow-guidance-week-goals date)))
-      (insert (propertize (format "周目标 · %s  [W 访问／编辑]\n" (org-workflow-week-start date))
-                          'face 'org-workflow-agenda-group))
-      (insert (propertize (concat "  " (if (or (null goals) (string-empty-p goals)) "尚未填写周目标" (truncate-string-to-width (replace-regexp-in-string "\n+" " · " goals) 100 nil nil "…")) "\n\n")
-                          'face 'org-workflow-agenda-meta)))))
 
 (provide 'org-workflow-guidance)
 ;;; org-workflow-guidance.el ends here

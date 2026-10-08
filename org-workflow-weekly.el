@@ -96,7 +96,7 @@
       (make-directory (file-name-directory file) t)
       (vulpea-create (format "%s — %s" week (org-workflow-history-add-days week 6)) file
                      :tags '("journal-week" "area") :properties `(("WORKFLOW_WEEK" . ,week))
-                     :body (concat "* 周目标\n\n* 随记\n\n* 收集箱\n:PROPERTIES:\n:JOURNAL_INBOX: "
+                     :body (concat "* 随记\n\n* 收集箱\n:PROPERTIES:\n:JOURNAL_INBOX: "
                                    week "\n:END:\n\n* 周回顾\n")))
     (org-workflow-week--ensure-area file)
     (org-workflow-week-sync-agenda file)
@@ -230,7 +230,7 @@ Use the timer key sequences to control Focus Timer independently."
     ("c" "当前任务" org-workflow-target-visit)]
    ["规划与收集"
     ("t" "选择任务" org-workflow-target-select)
-    ("w" "本周目标" org-workflow-guidance-open-goals)
+    ("w" "阶段目标" org-workflow-agenda-open-goals)
     ("n" "捕获任务／笔记" org-capture)
     ("o" "明日开工提示" org-workflow-guidance-edit-tomorrow)
     ("u" "续接提示" org-workflow-guidance-edit-resume)

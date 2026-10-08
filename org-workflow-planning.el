@@ -227,19 +227,5 @@ No IDs, schedules or database facts are created by this query."
     (message "已采纳 %d 项建议；保留非空人工设置，源文件尚未保存" (length rows))
     (quit-window)))
 
-(defun org-workflow-planning-set-week-goals (date text)
-  "Set only DATE's weekly goals body after the user has chosen TEXT."
-  (interactive (list (org-read-date) (read-string "周目标：")))
-  (let ((buffer (find-file-noselect (org-workflow-week-ensure date))))
-    (with-current-buffer buffer
-      (org-with-wide-buffer
-       (goto-char (point-min))
-       (unless (re-search-forward "^\\* 周目标[ \t]*$" nil t) (user-error "缺少周目标节"))
-       (atomic-change-group
-         (forward-line 1)
-         (let ((start (point)) (end (save-excursion (org-back-to-heading t) (org-end-of-subtree t t) (point))))
-           (delete-region start end) (insert "\n" text "\n\n")))))
-    (pop-to-buffer buffer)))
-
 (provide 'org-workflow-planning)
 ;;; org-workflow-planning.el ends here

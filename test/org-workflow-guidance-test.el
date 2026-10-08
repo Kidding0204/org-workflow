@@ -7,7 +7,6 @@
   (let ((directory (make-temp-file "guidance-" t)))
     (unwind-protect
         (cl-letf (((symbol-function 'org-workflow--directory) (lambda () directory)))
-          (should-not (org-workflow-guidance-week-goals "2027-01-03"))
           (should-not (org-workflow-guidance-opening "2027-01-04"))
           (should (equal '("." "..") (directory-files directory)))
           (should (equal "2027-01-04" (org-workflow-week-start "2027-01-04"))))
@@ -29,7 +28,8 @@
                        (with-temp-file file (insert "* 周目标\n保留目标\n* 随记\n* 收集箱\n* 周回顾\n"))) file)))
           (org-workflow-guidance-edit-tomorrow)
           (should (equal answer (org-workflow-guidance-opening "2027-01-04")))
-          (should (equal "保留目标" (org-workflow-guidance-week-goals "2027-01-04")))
+          (with-current-buffer (find-file-noselect file)
+            (should (string-match-p "保留目标" (buffer-string))))
           (setq answer "")
           (org-workflow-guidance-edit-tomorrow)
           (should-not (org-workflow-guidance-opening "2027-01-04")))

@@ -10,9 +10,9 @@
 | 要做的事 | 文档 |
 | --- | --- |
 | 挑选、安排、重排、撤销任务；鼠标操作与双栏工作台 | [Sprint 安排工作台](agenda-planning-workbench.md) |
-| 周目标、随记、捕获与收集项归类 | [周日志与收集箱](daily-journal-inbox.md) |
+| 随记、捕获与收集项归类 | [周日志与收集箱](daily-journal-inbox.md) |
 | 理解 DIVE 范围与每日有效投入 | [DIVE 与每日尝试](dive-and-daily-attempts.md) |
-| 准备项目背景、任务边界、估时与周目标 | [规划辅助](workflow-planning.md) |
+| 准备项目背景、任务边界、估时与阶段目标 | [规划辅助](workflow-planning.md) |
 | 为当前任务收集截图 | [任务截图](screenshot-inbox.md) |
 | 记录请假或补录昨天的说明 | [请假条](workflow-leave.md) |
 | 查看原生月历、投入和日详情 | [历史面板](workflow-history-panel.md) |

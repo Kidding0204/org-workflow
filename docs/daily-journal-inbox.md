@@ -3,7 +3,7 @@
 [文档入口](README.md)（文中的默认快捷键需设置 `org-workflow-install-default-bindings` 为 t） · [Sprint 操作](agenda-planning-workbench.md)
 
 当前日志以周一日期命名，位于 Vulpea 笔记目录的 `journal/weekly/YYYY-MM-DD.org`。
-一周共用「周目标」「随记」「收集箱」「周回顾」；旧日日志和 inbox.org 保留原文，仍可回顾积压。
+一周共用「随记」「收集箱」「周回顾」。规划目标使用源项目的 DIVE + DEADLINE 阶段；旧周目标、旧日日志和 inbox.org 保留原文，仍可回顾积压。
 
 ## 日志与捕获入口
 

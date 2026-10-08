@@ -99,6 +99,9 @@ Sprint 右侧项目循环用 `org-workflow-agenda-previous-project` / `org-workf
 - `org-workflow-target-entry` 是共用条目，`kind` 区分 task／habit；items 库只读适配原文，
   不创建 ID。唯一当前项解析优先正在执行的计时周期（包含休息），再读取空闲提醒和普通队列。
   状态、capture、新 frame 和操作共用这个解析结果；mode-line 仅读缓存快照，不在重绘时扫描。
+- 阶段目标以 DIVE + DEADLINE 为唯一来源，替代旧周日志文本周目标；今天／明天 Sprint
+  顶部展示截止日期及原生进度，`W`／主菜单 `w` 访问源阶段。仅 TODO + DEADLINE 不列入。
+  新周日志不生成周目标节，已有日志原文保留；参见 [习惯与阶段目标](habit-system.md)。
 - 共用操作保留习惯的原生重复完成及仅当天跳过规则；推进、前置任务、延期和承诺属于普通
   任务的能力。普通队列准入不因当前项统一而扩大。任务／习惯共用直接 CLOCK 的每日读取，
   没有新增表、迁移历史快照或改写已结算事实。原文查询和定位在局部关闭 Org element cache。

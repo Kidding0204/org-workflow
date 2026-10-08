@@ -367,9 +367,9 @@
     (add-text-properties start (point) '(org-agenda-type todo))))
 
 (defun org-workflow-agenda--deadline-goals ()
-  "Return unfinished TODO deadline records in ascending date order.
+  "Return active DIVE deadline records in ascending date order.
 Records contain date, source file and heading position.  Parent milestones
-and inactive project stages are included; execution queue rules are unchanged."
+are included; execution queue rules are unchanged."
   (let (records)
     (dolist (file (org-agenda-files t))
       (setq records
@@ -382,7 +382,7 @@ and inactive project stages are included; execution queue rules are unchanged."
                         (let (found)
                           (org-map-entries
                            (lambda ()
-                             (when (and (equal (org-get-todo-state) "TODO")
+                             (when (and (equal (org-get-todo-state) "DIVE")
                                         (not (org-workflow--held-p))
                                         (not (equal (org-entry-get nil "STYLE") "habit")))
                                (when-let* ((date (org-workflow-target--timestamp-date
@@ -391,6 +391,30 @@ and inactive project stages are included; execution queue rules are unchanged."
                            nil 'file)
                           (nreverse found))))))))
     (cl-stable-sort records #'string< :key #'car)))
+
+(defun org-workflow-agenda-open-goals ()
+  "Choose and visit an active DIVE stage with a deadline, without writing."
+  (interactive)
+  (let ((records (org-workflow-agenda--deadline-goals)))
+    (unless records (user-error "暂无阶段目标；请为 DIVE 阶段设置 DEADLINE"))
+    (let* ((choices
+            (mapcar
+             (lambda (record)
+               (pcase-let ((`(,date ,file ,position) record))
+                 (cons (org-workflow-source-read
+                        file (lambda ()
+                               (goto-char position)
+                               (format "%s · %s · %s:%d" date
+                                       (org-link-display-format (org-get-heading t t t t))
+                                       (file-name-base file) (line-number-at-pos))))
+                       record))) records))
+           (record (if (= (length records) 1) (car records)
+                     (cdr (assoc (completing-read "阶段目标：" choices nil t) choices)))))
+      (find-file (nth 1 record))
+      (widen)
+      (goto-char (nth 2 record))
+      (org-show-context)
+      (org-show-entry))))
 
 (defun org-workflow-agenda-deadline-goals (_match)
   "Insert deadline milestones before Sprint's daily arrangements.
@@ -428,7 +452,6 @@ Use native Agenda markers for visiting, editing and TODO actions."
   (let ((role (or (bound-and-true-p org-workflow-agenda--pane-role) 'combined)))
     (when (memq role '(combined schedule))
       (org-workflow-agenda-deadline-goals nil)
-      (org-workflow-guidance-agenda nil)
       (org-workflow-evening-today nil))
     (when (eq role 'candidates)
       (org-workflow-agenda-candidates nil))

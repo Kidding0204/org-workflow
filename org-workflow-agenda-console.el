@@ -88,7 +88,7 @@
 (defconst org-workflow-agenda-console-bindings
   '(("E" "明日开工提示" org-workflow-guidance-edit-tomorrow)
     ("N" "下次从这里开始" org-workflow-guidance-edit-resume)
-    ("W" "访问／编辑周目标" org-workflow-guidance-open-goals)
+    ("W" "访问／编辑阶段目标" org-workflow-agenda-open-goals)
     ("U" "撤销上次安排" org-workflow-agenda-undo-plan)
     ("u" "上午" org-workflow-agenda-plan-morning)
     ("i" "下午" org-workflow-agenda-plan-afternoon)
