@@ -87,11 +87,6 @@ Covered reminders never resurface after the latest one is skipped or completed."
                                   (org-workflow-panel--habits today)))))
       (when (and row (not (eq t (plist-get row :done)))) row))))
 
-(defun org-workflow-panel--reminded-habit-marker ()
-  "Return the latest unfinished reminder's native source marker, or nil."
-  (when-let* ((habit (org-workflow-panel-current-habit)))
-    (cdr (assoc (plist-get habit :key) org-workflow-panel--habit-markers))))
-
 (defun org-workflow-panel--reminder-tick (&optional now)
   "Notify once for due habits at NOW; persist the newest reminder as current."
   (when org-workflow-store-enabled
@@ -159,7 +154,8 @@ Covered reminders never resurface after the latest one is skipped or completed."
       ('skip (org-workflow-panel-skip-habit))
       ('visit
        (org-workflow-panel--select-frame)
-       (org-workflow--visit-in-frame))
+       (pop-to-buffer (marker-buffer marker)) (goto-char marker)
+       (org-fold-show-context) (org-fold-show-entry))
       ((or 'start 'toggle) (org-with-point-at marker (org-workflow-habits-start)))
       ('complete (org-with-point-at marker (org-workflow-habits-complete)))
       (_ (user-error "未知习惯操作：%s" action)))
