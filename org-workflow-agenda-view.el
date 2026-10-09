@@ -229,8 +229,7 @@
        'org-workflow-agenda-day (car item)
        'action (lambda (button)
                  (org-workflow-agenda-set-day (button-get button 'org-workflow-agenda-day))))
-      (insert "  "))
-    (insert "\n\n")))
+      (insert "  "))))
 
 (defun org-workflow-agenda--candidate-group ()
   "Return identity and label of the current leaf's level-one ancestor."
@@ -417,31 +416,41 @@ are included; execution queue rules are unchanged."
       (org-show-entry))))
 
 (defun org-workflow-agenda-deadline-goals (_match)
-  "Insert deadline milestones before Sprint's daily arrangements.
-Use native Agenda markers for visiting, editing and TODO actions."
+  "Insert compact deadline stages before Sprint's daily arrangements.
+Use native Agenda markers and the existing parent progress renderer."
   (when-let* ((records (org-workflow-agenda--deadline-goals)))
     (let ((start (point))
-          (today (org-workflow-target--today-string)))
-      (insert (org-workflow-agenda--section-header "阶段目标 · 截止日期"))
+          (today (time-to-days (org-time-string-to-time (org-workflow-target--today-string)))))
       (dolist (record records)
         (pcase-let ((`(,date ,file ,position) record))
-          (let* ((line
+          (let* ((remaining (- (time-to-days (org-time-string-to-time date)) today))
+                 (urgent (<= remaining 3))
+                 (line
                   (with-current-buffer (find-file-noselect file)
                     (org-with-wide-buffer
                       (goto-char position)
-                      (org-workflow-agenda--stack-line
-                       (org-workflow-target-entry-create
-                        :marker (point-marker)
-                        :title (org-link-display-format (org-get-heading t t t t))
-                        :priority (org-workflow--effective-priority-at-point)) nil))))
+                      (let* ((title (substring-no-properties
+                                     (org-link-display-format (org-get-heading t t t t))))
+                             (native (org-workflow-agenda--stack-line
+                                      (org-workflow-target-entry-create
+                                       :marker (point-marker) :title title
+                                       :priority (org-workflow--effective-priority-at-point)) nil))
+                             (line (apply #'propertize (concat "      " title)
+                                          (text-properties-at 0 native))))
+                        (put-text-property 6 (length line) 'face
+                                           (if urgent 'error 'default) line)
+                        (put-text-property 0 (length line) 'org-workflow-agenda-stage-goal t line)
+                        (put-text-property 0 (length line) 'wrap-prefix "      " line)
+                        line))))
                  (marker (get-text-property 0 'org-hd-marker line))
-                 (label (concat date (cond ((string< date today) " · 已逾期")
-                                          ((equal date today) " · 今天截止")
-                                          (t "")))))
+                 (label (cond ((< remaining 0) (format "逾期 %d 天" (- remaining)))
+                              ((zerop remaining) "今天截止")
+                              (t (format "剩 %d 天" remaining)))))
             (insert line
                     (propertize (concat "  " label)
-                                'face (if (string< date today) 'org-warning
-                                        'org-workflow-agenda-meta)
+                                'face (if urgent 'error 'org-workflow-agenda-meta)
+                                'help-echo (concat "截止日期：" date)
+                                'display (concat "  " label) 'wrap-prefix "      "
                                 'org-marker marker 'org-hd-marker marker)
                     "\n"))))
       (insert "\n")
@@ -506,9 +515,10 @@ Use native Agenda markers for visiting, editing and TODO actions."
                               (equal target (org-workflow-target-entry-scheduled-date entry)))))
                    (org-workflow-target--ordered-entries (and tomorrow target))))
          (completed (org-workflow-agenda--completed-periods target)))
+    (insert (propertize "安排" 'face 'org-workflow-agenda-section
+                        'org-agenda-structural-header t) "    ")
     (org-workflow-agenda--insert-day-tabs)
-    (insert (org-workflow-agenda--section-header
-             (format "%s安排" (if tomorrow "明日" "今日"))))
+    (insert "\n")
     (dolist (letter '(?A ?B ?C))
       (let* ((priority (org-get-priority (format "[#%c]" letter)))
              (period-entries (seq-filter
@@ -675,7 +685,8 @@ Use native Agenda markers for visiting, editing and TODO actions."
       (save-excursion
         (goto-char (point-min))
         (while (not (eobp))
-          (when-let* ((marker (org-get-at-bol 'org-hd-marker)))
+          (when-let* ((marker (org-get-at-bol 'org-hd-marker))
+                      ((not (org-get-at-bol 'org-workflow-agenda-stage-goal))))
             (let* ((start (line-beginning-position))
                    (props (text-properties-at start))
                    (text (buffer-substring start (line-end-position)))
@@ -803,7 +814,7 @@ This changes only display.")
           (setq position next))))))
 
 (defun org-workflow-agenda--group-progress ()
-  "Display group progress using optional Org Modern colors and a local renderer."
+  "Display parent and stage progress with optional Org Modern colors."
   (when (and org-workflow-agenda--sprint-buffer-p
              (facep 'org-modern-progress-complete))
     (save-excursion
@@ -821,7 +832,8 @@ This changes only display.")
                                 (make-string (- width left (length label)) ?\s)))
                    (filled (if (zerop total) width
                              (min width (floor (* width (/ (float done) total)))))))
-              (when (get-text-property start 'org-workflow-agenda-group-header)
+              (when (or (get-text-property start 'org-workflow-agenda-group-header)
+                        (get-text-property start 'org-workflow-agenda-stage-goal))
                 (add-text-properties 0 filled '(face org-modern-progress-complete) bar)
                 (add-text-properties filled width '(face org-modern-progress-incomplete) bar)
                 (put-text-property start end 'face 'org-modern-label)
