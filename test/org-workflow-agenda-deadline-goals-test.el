@@ -82,3 +82,26 @@
     (should (equal "DIVE" (org-get-todo-state)))
     (should (equal "CMU Deep Learning Intro [1/28]" (org-get-heading t t t t)))
     (should-not (buffer-modified-p))))
+
+(ert-deftest org-workflow-stage-goals-render-parent-with-source-narrowed-to-child ()
+  (org-workflow-workbench-test-with-files
+      '("#+filetags: :project:\n#+TODO: TODO DIVE | DONE HOLD\n* DIVE CMU Deep Learning Intro [1/28]\nDEADLINE: <2026-10-10 Sat>\n** TODO Neural Nets :@flow:\nSCHEDULED: <2026-10-05 Mon>\n")
+    (let ((source (find-file-noselect (car files))) start end)
+      (with-current-buffer source
+        (goto-char (point-min)) (search-forward "** TODO Neural Nets")
+        (org-back-to-heading t) (org-narrow-to-subtree)
+        (setq start (point-min) end (point-max)))
+      (with-temp-buffer
+        (org-workflow-agenda-deadline-goals nil)
+        (should (string-match-p "CMU Deep Learning Intro \\[1/28\\]" (buffer-string)))
+        (should-not (string-match-p "Neural Nets" (buffer-string)))
+        (goto-char (point-min)) (search-forward "CMU Deep Learning Intro")
+        (let ((marker (org-get-at-bol 'org-hd-marker)))
+          (should (equal "DIVE" (org-with-point-at marker (org-get-todo-state))))
+          (should (equal "CMU Deep Learning Intro [1/28]"
+                         (org-with-point-at marker (org-get-heading t t t t))))))
+      (with-current-buffer source
+        (should (buffer-narrowed-p))
+        (should (= start (point-min)))
+        (should (= end (point-max)))
+        (should-not (buffer-modified-p))))))

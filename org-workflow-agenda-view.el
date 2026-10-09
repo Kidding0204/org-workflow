@@ -427,7 +427,7 @@ Use native Agenda markers for visiting, editing and TODO actions."
         (pcase-let ((`(,date ,file ,position) record))
           (let* ((line
                   (with-current-buffer (find-file-noselect file)
-                    (save-excursion
+                    (org-with-wide-buffer
                       (goto-char position)
                       (org-workflow-agenda--stack-line
                        (org-workflow-target-entry-create

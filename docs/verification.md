@@ -73,3 +73,16 @@ Org 源文件和 SQLite 全部七张表仍与操作前一致。
 CMU 阶段、原生进度及截止日期位于今日安排之前；W 路由核对成功。
 fixture 位于 /tmp，未修改真实 Org 数据；临时 frame 与缓冲区已清理。
 图形证据 `/tmp/workflow-stage-preview.png` 为临时验证产物，不是仓库文件。
+
+## 2026-10-09：阶段目标在收窄源缓冲区中的定位修复
+
+报告场景：源文件收窄到 TODO 子任务后，阶段目标行错误显示该子任务标题，
+却使用父 DIVE 的截止日期。扫描通过 source-read 展开全文取得父位置，渲染时
+未展开全文，goto-char 被夹到收窄起点；并非 TODO 被筛选为阶段目标。
+
+新增临时 fixture 先在旧代码复现相同的错误标题与父截止日期；渲染改用
+org-with-wide-buffer 后通过，marker 指向父 DIVE，源文件收窄范围与未修改状态保留。
+完整回归 `TZ=Pacific/Honolulu make test` 554/554（选择工作时段避开既知时间敏感旧测试）。
+实际 Emacs 编译并加载修复、刷新用户 Agenda，头部确认显示
+CMU Deep Learning Intro [1/28] 与 2026-10-10；章节 TODO 留在今日安排。
+未修改真实任务或展开用户源缓冲区。
