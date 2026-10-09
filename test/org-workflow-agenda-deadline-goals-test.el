@@ -36,6 +36,7 @@
       '("#+filetags: :project:\n#+TODO: TODO DIVE | DONE HOLD\n* Stage\n** DIVE Due today [1/3]\nDEADLINE: <2026-08-17 Mon>\n** DIVE Overdue\nDEADLINE: <2026-08-16 Sun>\n** DIVE Current\n*** TODO Work\nSCHEDULED: <2026-08-17 Mon>\n")
     (set-buffer (org-workflow-workbench-test-open))
     (let ((text (buffer-string)))
+      (should (string-prefix-p "目标\n" text))
       (should (< (string-match "Due today" text)
                  (string-match "安排" text)))
       (should-not (string-match-p "阶段目标 · 截止日期" text))

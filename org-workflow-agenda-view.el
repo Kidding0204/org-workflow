@@ -421,6 +421,7 @@ Use native Agenda markers and the existing parent progress renderer."
   (when-let* ((records (org-workflow-agenda--deadline-goals)))
     (let ((start (point))
           (today (time-to-days (org-time-string-to-time (org-workflow-target--today-string)))))
+      (insert (org-workflow-agenda--section-header "目标"))
       (dolist (record records)
         (pcase-let ((`(,date ,file ,position) record))
           (let* ((remaining (- (time-to-days (org-time-string-to-time date)) today))
