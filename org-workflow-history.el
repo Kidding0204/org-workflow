@@ -19,6 +19,7 @@
 (require 'org-workflow-store)
 
 (require 'org-workflow-habits)
+(require 'org-workflow-sources)
 
 (require 'org-workflow-journal)
 
@@ -110,12 +111,14 @@ Keep original due dates intact.  Leave records do not discharge commitments."
       (list date)))))
 
 (defun org-workflow-history--tasks (date)
-  "Read direct clocks and completed tasks on DATE, including refined containers."
+  "Read direct clocks and completed tasks on DATE, including refined containers.
+Use bounded cache-free reads, preserving live edits and source restrictions."
   (let ((org-clock-report-include-clocking-task nil) rows)
     (dolist (file (org-agenda-files t))
       (when (file-readable-p file)
-        (with-current-buffer (find-file-noselect file)
-          (org-with-wide-buffer
+        (org-workflow-source-read
+         file
+         (lambda ()
            (when (org-workflow--file-kind)
              (org-map-entries
               (lambda ()

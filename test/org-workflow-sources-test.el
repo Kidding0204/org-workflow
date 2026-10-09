@@ -112,3 +112,41 @@
      (should (re-search-forward "^\\*\\* TODO Exercise$" nil t)))))
 
 (provide 'org-workflow-sources-test)
+
+(ert-deftest workflow-source-history-tasks-bypasses-broken-live-cache ()
+  (workflow-source-test
+   (with-temp-file org-workflow-projects-file
+     (insert "#+filetags: :project:\n#+TODO: TODO DIVE | DONE HOLD\n* DIVE Stage\n** TODO Disk task\n:PROPERTIES:\n:ID: history-source-task\n:END:\n:LOGBOOK:\nCLOCK: [2026-10-06 Tue 09:00]--[2026-10-06 Tue 09:25] => 0:25\n:END:\n** TODO Habit\nSCHEDULED: <2026-10-07 Wed .+1d>\n:PROPERTIES:\n:STYLE: habit\n:ID: history-source-habit\n:END:\n:LOGBOOK:\nCLOCK: [2026-10-06 Tue 10:00]--[2026-10-06 Tue 10:10] => 0:10\n:END:\n"))
+   (let ((org-agenda-files (list org-workflow-projects-file))
+         (org-element-use-cache t)
+         (cache-map (symbol-function 'org-element-cache-map))
+         (calls 0))
+     (with-current-buffer (find-file-noselect org-workflow-projects-file)
+       (goto-char (point-min)) (search-forward "Disk task") (replace-match "Live task")
+       (org-back-to-heading t) (org-element-at-point) (org-narrow-to-subtree)
+       (let ((position (point)) (start (point-min)) (end (point-max)) (text (buffer-string)))
+         (cl-letf (((symbol-function 'org-element-cache-map)
+                    (lambda (&rest args)
+                      (if org-element-use-cache
+                          (progn (cl-incf calls)
+                                 (error "Invalid search bound (wrong side of point)"))
+                        (apply cache-map args)))))
+           (let ((rows (org-workflow-history--tasks "2026-10-06")))
+             (should (= 0 calls))
+             (should (= 1 (length rows)))
+             (should (equal "Live task" (plist-get (car rows) :task)))
+             (should (= 25 (plist-get (car rows) :focusMinutes)))))
+         (should (= position (point)))
+         (should (= start (point-min)))
+         (should (= end (point-max)))
+         (should (equal text (buffer-string)))
+         (should (buffer-modified-p)))))))
+
+(ert-deftest workflow-source-history-tasks-does-not-visit-closed-files ()
+  (workflow-source-test
+   (with-temp-file org-workflow-projects-file
+     (insert "#+filetags: :project:\n#+TODO: TODO | DONE\n* DONE Finished\nCLOSED: [2026-10-06 Tue 12:00]\n:PROPERTIES:\n:ID: closed-history-task\n:END:\n"))
+   (let ((org-agenda-files (list org-workflow-projects-file))
+         (org-mode-hook (list (lambda () (ert-fail "Background UI hook")))))
+     (should (equal "Finished" (plist-get (car (org-workflow-history--tasks "2026-10-06")) :task)))
+     (should-not (get-file-buffer org-workflow-projects-file)))))

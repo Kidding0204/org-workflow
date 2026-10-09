@@ -120,6 +120,8 @@ Sprint 右侧项目循环用 `org-workflow-agenda-previous-project` / `org-workf
 
 - `org-workflow-projects-file` 集中杂项；默认习惯位于“习惯”子树，指导位于“实践指导”子树。
   迁移保留原有 ID、重复日志及选择状态；程序不自动搬移用户文件。
+- history--tasks 的普通任务 CLOCK／完成事实读取也走 source-read；习惯完成后的桌面状态
+  刷新不能退回缓存式 org-map-entries 扫描，须保留现场未保存文本与收窄范围。
 - sources 库后台读取优先使用现场 buffer，否则使用禁止启动钩子、缓存和保存询问的临时
   只读 Org buffer。收集项先取得位置，只有实际显示的匹配才访问文件并生成存活 marker。
   修改、事务、计时、捕获和现存用户 buffer 的生命周期不变。

@@ -102,3 +102,18 @@ CMU Deep Learning Intro [1/28] 与 2026-10-10；章节 TODO 留在今日安排�
 窄窗口初检发现倒计时拆字，已改为原子 display；该最终调整自动测试通过，
 图形复验留给用户。重复临时 fixture 文件触发重新读取询问，验证客户端已停止，
 按用户要求不继续桌面控制或猜测窗口。后续截图／视觉验收由用户提供。
+
+## 2026-10-09：习惯完成后桌面状态刷新触发 Org parser 警告
+
+用户警告栈为 status-json → history-progress → responsibilities → history--tasks →
+org-map-entries → Org element cache，报 Invalid search bound。
+旧 history--tasks 直接 find-file-noselect 并用缓存扫描普通任务；改为复用 source-read，
+局部禁用缓存、保留未保存文本／point／收窄范围，并避免访问原本关闭的后台文件。
+不全局关闭缓存，不抑制警告，不变更 Org／SQLite 历史事实。
+
+两个新增回归检查：注入启用缓存时的同类扫描错误，仍读到未保存的任务及正确 CLOCK，
+排除习惯；原本关闭的源文件读取完成事实后仍关闭，且不运行 UI hooks。
+完整 `TZ=Asia/Shanghai make test` 558/558；编译成功（既有警告保留），diff 检查通过。
+实际 Emacs 已编译加载，status-json 返回正常；只读查询原警告日期 2026-10-06，
+捕获到的 Org parser 警告为 0。未执行真实习惯完成，也未操作桌面；快捷键／右键
+实际完成入口由用户日常使用复验。
