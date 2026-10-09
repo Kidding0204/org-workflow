@@ -436,12 +436,12 @@ Use native Agenda markers and the existing parent progress renderer."
                                       (org-workflow-target-entry-create
                                        :marker (point-marker) :title title
                                        :priority (org-workflow--effective-priority-at-point)) nil))
-                             (line (apply #'propertize (concat "      " title)
+                             (line (apply #'propertize (concat "    " title)
                                           (text-properties-at 0 native))))
-                        (put-text-property 6 (length line) 'face
+                        (put-text-property 4 (length line) 'face
                                            (if urgent 'error 'default) line)
                         (put-text-property 0 (length line) 'org-workflow-agenda-stage-goal t line)
-                        (put-text-property 0 (length line) 'wrap-prefix "      " line)
+                        (put-text-property 0 (length line) 'wrap-prefix "    " line)
                         line))))
                  (marker (get-text-property 0 'org-hd-marker line))
                  (label (cond ((< remaining 0) (format "逾期 %d 天" (- remaining)))
@@ -451,7 +451,7 @@ Use native Agenda markers and the existing parent progress renderer."
                     (propertize (concat "  " label)
                                 'face (if urgent 'error 'org-workflow-agenda-meta)
                                 'help-echo (concat "截止日期：" date)
-                                'display (concat "  " label) 'wrap-prefix "      "
+                                'display (concat "  " label) 'wrap-prefix "    "
                                 'org-marker marker 'org-hd-marker marker)
                     "\n"))))
       (insert "\n")
