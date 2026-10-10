@@ -118,7 +118,6 @@
 (defvar org-workflow-store-enabled)
 (defvar org-workflow-store-file)
 (defvar org-workflow-target-midnight-timer)
-(defvar org-workflow-target-modeline-max-width)
 (defvar org-workflow-target-selected-date)
 (defvar org-workflow-target-selected-marker)
 (defvar org-workflow-target-selection-history)

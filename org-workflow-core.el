@@ -801,8 +801,6 @@ Without THROUGH-DATE, use today as the upper scheduling boundary."
 
 (defvar org-workflow-target-midnight-timer nil "Timer refreshing the target stack after midnight.")
 
-(defcustom org-workflow-target-modeline-max-width 48 "Maximum target stack modeline width." :type 'integer :group 'org)
-
 (defvar org-workflow-target-selected-marker nil
   "Manually selected target for this Emacs session.")
 
@@ -1039,38 +1037,6 @@ is deferred, or the day changes.  Do not start timing automatically."
                (org-workflow-clock--clock-matches-p org-workflow-executing-marker))
       (org-workflow-clock--clock-stop))
     (setq org-workflow-executing-marker nil)))
-
-(defun org-workflow-target--progress (marker)
-  "Return (DONE . TOTAL) for descendant TODO entries under MARKER."
-  (org-with-point-at marker
-    (org-back-to-heading t)
-    (save-restriction
-      (org-narrow-to-subtree)
-      (let ((root (point))
-            (done 0)
-            (total 0))
-        (org-map-entries
-         (lambda ()
-           (when (/= (point) root)
-             (when-let* ((state (org-get-todo-state)))
-             (cl-incf total)
-             (when (member state org-done-keywords)
-               (cl-incf done)))))
-         nil 'tree)
-        (cons done total)))))
-
-(defun org-workflow-target--progress-suffix (progress)
-  "Return a plain Org-like statistics suffix for PROGRESS."
-  (format " [%d/%d]" (car progress) (cdr progress)))
-
-(defun org-workflow-target--entry-label (entry)
-  "Return ENTRY's title followed by its subtree progress."
-  (let ((title (org-workflow-target-entry-title entry))
-        (progress (org-workflow-target--progress
-                   (org-workflow-target-entry-marker entry))))
-    (if (zerop (cdr progress))
-        title
-      (concat title (org-workflow-target--progress-suffix progress)))))
 
 (defun org-workflow-target-refresh (&optional signal-errors)
   "Refresh the target stack, propagating errors when SIGNAL-ERRORS is non-nil."
@@ -1531,25 +1497,6 @@ alone when there is no current target."
     (org-workflow-target--reveal marker t)
     (org-workflow-target--step (org-workflow-target--read-executed-part) marker)))
 
-(defun org-workflow-target-modeline-text ()
-  "Present the cached common current item and its next ordinary recommendation."
-  (let* ((current org-workflow-current-item-cache)
-         (valid (and current (org-workflow-target--valid-entry-p current)))
-         (next (and valid (seq-find
-                          (lambda (entry) (and (org-workflow-target--valid-entry-p entry)
-                                               (not (org-workflow-target--same-marker-p
-                                                     (org-workflow-target-entry-marker current)
-                                                     (org-workflow-target-entry-marker entry)))))
-                          org-workflow-target-stack)))
-         (entries (if valid (delq nil (list current next))
-                    (seq-take (seq-filter #'org-workflow-target--valid-entry-p org-workflow-target-stack) 2)))
-         (text (mapconcat (lambda (entry)
-                            (if (eq (org-workflow-target-entry-kind entry) 'habit)
-                                (concat "↻ " (org-workflow-target-entry-title entry))
-                              (org-workflow-target--entry-label entry))) entries " -> ")))
-    (unless (string-empty-p text)
-      (truncate-string-to-width text org-workflow-target-modeline-max-width nil nil "…"))))
-
 (defun org-workflow--display-parent-data (marker)
   "Return (TITLE PROGRESS) for MARKER's display parent."
   (org-with-point-at marker
@@ -1630,14 +1577,7 @@ alone when there is no current target."
   (org-workflow--add-hook 'org-mode-hook #'org-workflow--org-buffer-setup)
   (org-workflow-commands-setup)
   (org-workflow-target-refresh nil)
-  (org-workflow-target--schedule-midnight-refresh)
-  (org-workflow--global-set-key "C-c o t" #'org-workflow-target-select)
-  (org-workflow--global-set-key "C-c o e" #'org-workflow-target-complete)
-  (org-workflow--global-set-key "C-c o w" #'org-workflow-target-step)
-  (org-workflow--global-set-key "C-c o b" #'org-workflow-target-prerequisite)
-  (org-workflow--global-set-key "C-c o v" #'org-workflow-target-visit)
-  (org-workflow--global-set-key "C-c o d" #'org-workflow-target-defer)
-  (org-workflow--global-set-key "C-c o D" #'org-workflow-target-defer-group))
+  (org-workflow-target--schedule-midnight-refresh))
 
 (provide 'org-workflow-core)
 ;;; org-workflow-core.el ends here

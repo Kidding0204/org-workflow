@@ -1,6 +1,6 @@
 # Sprint 安排工作台
 
-[文档入口](README.md)（文中的默认快捷键需设置 `org-workflow-install-default-bindings` 为 t） · [任务与历史模型](workflow-architecture.md)
+[文档入口](README.md)（全局快捷键由用户配置，文中的键位为示例） · [任务与历史模型](workflow-architecture.md)
 
 Sprint 用于挑选、安排和检查任务；Workflow 与 Focus Timer 管理当前任务和执行。
 普通 Sprint 保持单栏，双栏安排使用独立入口，窗口变宽不会自动拆分。

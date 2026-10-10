@@ -1,6 +1,6 @@
 # Workflow 历史面板
 
-[文档入口](README.md)（文中的默认快捷键需设置 `org-workflow-install-default-bindings` 为 t） · [任务与历史模型](workflow-architecture.md)
+[文档入口](README.md)（全局快捷键由用户配置，文中的键位为示例） · [任务与历史模型](workflow-architecture.md)
 
 `M-x org-workflow-history-panel` 打开原生 vui 历史工作台，直接读取当前历史后端；无需生成网页 JSON。面板仅浏览已结算历史，不编辑任务、CLOCK、周日志或历史事实。
 

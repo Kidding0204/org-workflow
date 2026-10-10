@@ -17,10 +17,11 @@
 | 记录请假或补录昨天的说明 | [请假条](workflow-leave.md) |
 | 查看原生月历、投入和日详情 | [历史面板](workflow-history-panel.md) |
 
-第一入口是 `M-x org-workflow-menu`；开启默认绑定后为 `C-c o m`。
+第一入口是 `M-x org-workflow-menu`；可在个人配置中自行绑定 `C-c o m`。
 菜单按工作台、规划与收集、执行、回顾、计时与习惯及设置分组。`h` 打开 Emacs 原生长期历史。
 
-快捷键说明以 `org-workflow-install-default-bindings` 为 t 为前提，默认关闭全局绑定。
+全局快捷键由用户配置定义，文中的 `C-c o m` 等键位是配置示例。
+`org-workflow-install-default-bindings` 只控制可选共享 Org／Agenda／Embark 绑定。
 命令始终可通过 `M-x` 调用。Sprint 中 `?` 查看当前界面按键。
 
 ## 维护

@@ -282,10 +282,6 @@ archive locations; save destinations before removing source entries on disk."
   "Mark the collected task TODO."
   (interactive) (org-workflow-inbox--state "TODO"))
 
-(defun org-workflow-inbox-state-ready ()
-  "Mark the collected task READY."
-  (interactive) (org-workflow-inbox--state "READY"))
-
 (defun org-workflow-inbox-state-done ()
   "Complete the collected task without moving it."
   (interactive) (org-workflow-inbox--state "DONE"))

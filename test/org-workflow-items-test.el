@@ -149,11 +149,4 @@
        (org-workflow-item-at-marker habit-marker))
      (should (equal before (org-with-point-at habit-marker (buffer-string)))))))
 
-(ert-deftest workflow-items-modeline-uses-common-snapshot-without-source-rescan ()
-  (workflow-items-test
-   (org-workflow-current-item)
-   (cl-letf (((symbol-function 'org-workflow-current-item)
-              (lambda () (ert-fail "Mode line must not rescan habit sources"))))
-     (should (string-prefix-p "↻ Habit -> Task" (org-workflow-target-modeline-text))))))
-
 (provide 'org-workflow-items-test)

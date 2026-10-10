@@ -100,8 +100,7 @@ With prefix CLIPBOARD, collect the PNG already on the Wayland clipboard."
                   (function org-workflow-screenshot--location)
                   (function org-workflow-screenshot--capture-body)
                   :immediate-finish t :empty-lines 1)
-            (assoc-delete-all "S" org-capture-templates)))
-  (org-workflow--global-set-key "C-c o S" #'org-workflow-screenshot-capture))
+            (assoc-delete-all "S" org-capture-templates))))
 
 (provide 'org-workflow-screenshot)
 ;;; org-workflow-screenshot.el ends here

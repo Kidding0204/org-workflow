@@ -44,18 +44,23 @@ For development, add this directory to `load-path` after installing the dependen
       org-agenda-files (list (expand-file-name "projects.org" org-directory))
       org-workflow-store-file
       (expand-file-name "org-workflow.sqlite" user-emacs-directory)
-      org-workflow-clock 'org-workflow-focus-timer
-      org-workflow-install-default-bindings t)
+      org-workflow-clock 'org-workflow-focus-timer)
 (org-workflow-mode 1)
 ```
 
-Create the notes directory and your Agenda files first. Tag task files with `#+filetags: :project:` or `:area:`. Configure Vulpea's database for your notes according to its own setup; Workflow reads those notes and manages weekly journal files beneath `org-workflow-directory`. The example opts into Workflow's global bindings and Focus Timer. Both are optional: global bindings default to disabled, and the default clock backend is ordinary `org-clock`. Use `M-x customize-group RET org-workflow RET` to inspect the options.
+Create the notes directory and your Agenda files first. Tag task files with `#+filetags: :project:` or `:area:`. Configure Vulpea's database for your notes according to its own setup; Workflow reads those notes and manages weekly journal files beneath `org-workflow-directory`. The example selects Focus Timer; the default clock backend is ordinary `org-clock`. Global keys belong to your configuration; the package never installs them. `org-workflow-install-default-bindings` optionally enables shared Org, Agenda and Embark bindings and defaults to nil. Use `M-x customize-group RET org-workflow RET` to inspect the options.
 
 Enabling the global minor mode installs Workflow's hooks and integrations. Loading the package alone does not start the workflow. Disable it with `(org-workflow-mode -1)`. This cancels Workflow timers and clears the Focus Timer phase; an active standard Org clock remains running and can be stopped with `org-clock-out`. Activation opens the store and performs recovery, but does not automatically import legacy journals. If upgrading legacy data, back up your sources and run `M-x org-workflow-migrate` explicitly before continuing normal work. Existing users should retain their existing notes, journal and database paths when switching from the configuration modules.
 
 ## Main entry point
 
-Use `M-x org-workflow-menu` (or `C-c o m` when default bindings are enabled).
+Use `M-x org-workflow-menu`, or bind it explicitly in your configuration:
+
+```elisp
+(global-set-key (kbd "C-c o m") #'org-workflow-menu)
+```
+
+The `C-c o m` sequences in the documentation assume this user binding.
 The Transient dispatch groups workbench navigation, planning/capture, execution,
 review, timers/habits and settings. It follows Projectile's grouped dispatch
 style and needs no Projectile dependency.

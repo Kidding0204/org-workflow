@@ -50,7 +50,7 @@ rg --files -g 'org-workflow*.el' -g '*-test.el'
 ## 3. 使用入口与初始化
 
 第一入口是 `M-x org-workflow-menu`，定义在 [周日志／菜单库](../org-workflow-weekly.el)。
-当前个人配置绑定 `C-c k`；包自身在默认绑定开启时提供 `C-c o m`。
+当前个人配置绑定 `C-c k` 和 `C-c o m`；所有全局键位由宿主配置拥有，包不定义。
 常用菜单项为 `a` Sprint、`A` 双栏工作台、`n` 捕获、`s` 开始任务、
 `h` 原生长期历史、`e` 晚间收尾、`C` 参数设置。
 计时项是多键序列 `f t / f f / f s / f r`，不是单个名为 ft 的键事件。
@@ -105,7 +105,7 @@ Sprint 右侧项目循环用 `org-workflow-agenda-previous-project` / `org-workf
   桌面及 Emacs 的 start/toggle/visit/complete 共用 items 库的当前项，普通任务选择保留。
 - `org-workflow-target-entry` 是共用条目，`kind` 区分 task／habit；items 库只读适配原文，
   不创建 ID。唯一当前项解析优先正在执行的计时周期（包含休息），再读取空闲提醒和普通队列。
-  状态、capture、新 frame 和操作共用这个解析结果；mode-line 仅读缓存快照，不在重绘时扫描。
+  状态、capture、新 frame 和操作共用这个解析结果；无人安装的旧任务 mode-line 展示已删除。
 - 桌面阶段进度 `org-workflow--stage-progress` 通过 `org-workflow-source-read` 读取 Agenda
   文件，局部绕过 Org element cache，复用未保存内容并保留 point／narrowing；未访问的文件
   用临时只读 buffer，不触发文件访问或 Org UI hooks。避免启动后的桌面轮询卡在旧解析缓存。
@@ -175,6 +175,9 @@ clock-continue／focus-timer-start-last 调用链也已移除。start/rest/finis
 快捷键和已退役 Ready；不再使用的 Status 快捷键也已删除，Cancel 标签明确为 Cancel Timer。
 Status 专用的 `org-workflow-focus-timer-notify-status` 和无人复用的 `--notify`
 已删除；`status-text` 仍供计时命令返回状态，`status-json` 仍供顶栏读取。
+旧任务 mode-line 格式函数、专用宽度选项及标签辅助函数已删除；Sprint 局部
+“安排：今天／明天”提示仍有用途并保留。未被 UI 使用的 inbox-state-ready 也已删除，
+迁移及旧历史读取中的 READY 处理保留，不因入口清理改写历史数据。
 
 每日统计按本地午夜分界，跨日 CLOCK 分摊；历史后端负责结算／补结算。
 已结算快照按既有规则读取，missing 不等于零，旧规则边界也不能随意重写。
@@ -189,7 +192,8 @@ Status 专用的 `org-workflow-focus-timer-notify-status` 和无人复用的 `--
 - 图形习惯周追踪可选使用 nerd-icons 的同系列方框图标；无该库或终端环境用 Unicode 方框，
   不增加包硬依赖。图标字体由 nerd-icons 的用户配置决定。
 - `org-workflow-install-default-bindings` 默认 nil，当前宿主设为 t。
-  它控制默认全局／共享绑定，不是 Evil 总开关；包内私有界面键表仍存在。
+  它仅控制可选共享 Org／Agenda／Embark 绑定，不是 Evil 总开关。包不安装任何全局键，
+  原有十个全局绑定已移至宿主 `modules/org-workflow-config.el`；包内私有界面键表保留。
 - 普通 Agenda 的 Normal 辅助绑定由生命周期工具管理；Sprint 复制局部 map，
   只在专用界面安装普通键及 Normal 键；历史面板适配 Normal/Motion，收集回顾适配 Normal。
 - 共享键停用时只恢复仍由包占用的值，保留用户后来改动。Evil 延迟加载也受模式状态保护。
@@ -247,3 +251,6 @@ GitHub CI、源码本地成功、真实 GUI 和物理鼠标验证也不能互相
 包构建只包含根目录 Lisp、生成的 metadata/autoloads 和许可证；文档与 extras 是仓库资料。
 当前 MELPA recipe 仍是候选；本地 tar 成功不等于远端 package-build 验证或 MELPA 接受。
 遇到问题先找对应模块及测试，用已有原生路径解决；不为假想未来需求加入抽象层。
+
+本轮减法审查和未处理候选见 [2026-10-11 精简审查](maintenance-audit-2026-10-11.md)。
+相关 87 项 ERT 通过；全套现存 11 项失败在改动前基线均可复现，未顺带修复。

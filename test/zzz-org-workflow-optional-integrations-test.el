@@ -18,6 +18,28 @@
          (org-agenda-mode-map (make-sparse-keymap)))
      (unwind-protect (progn ,@body) (org-workflow--remove-integrations))))
 
+(ert-deftest zzz-org-workflow-components-preserve-user-global-bindings ()
+  "Activation and integration removal leave user global keys unchanged."
+  (org-workflow-test--isolated-integrations
+    (let ((global-map (make-sparse-keymap))
+          (org-workflow-install-default-bindings t)
+          (org-capture-templates nil))
+      (keymap-set global-map "C-c o d" #'ignore)
+      (keymap-set global-map "C-c n j" #'forward-char)
+      (let ((before (copy-keymap global-map)))
+        (cl-letf (((symbol-function 'org-workflow-target-refresh) #'ignore)
+                  ((symbol-function 'org-workflow-target--schedule-midnight-refresh) #'ignore)
+                  ((symbol-function 'org-workflow-commands-setup) #'ignore)
+                  ((symbol-function 'org-workflow-week-detect) #'ignore)
+                  ((symbol-function 'org-workflow-week-file)
+                   (lambda () "/nonexistent/workflow-week.org")))
+          (org-workflow-core--enable)
+          (org-workflow-weekly-setup)
+          (org-workflow-screenshot--enable)
+          (should (equal before global-map))
+          (org-workflow--remove-integrations)
+          (should (equal before global-map)))))))
+
 (ert-deftest zzz-org-workflow-evil-bindings-respect-opt-in-and-restore ()
   "Real Evil state bindings are optional and restore previous definitions."
   (skip-unless (featurep 'evil))

@@ -1,6 +1,6 @@
 # 请假条
 
-[文档入口](README.md)（文中的默认快捷键需设置 `org-workflow-install-default-bindings` 为 t） · [任务与历史模型](workflow-architecture.md)
+[文档入口](README.md)（全局快捷键由用户配置，文中的键位为示例） · [任务与历史模型](workflow-architecture.md)
 
 运行 `M-x org-workflow-record-leave`，选择今天的时段（上午、下午、晚上、组合或全天），填写一行理由。
 

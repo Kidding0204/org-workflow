@@ -258,9 +258,7 @@ Use the timer key sequences to control Focus Timer independently."
   (transient-setup 'org-workflow-menu))
 
 (defun org-workflow-weekly-setup ()
-  "Install weekly navigation bindings, detection and capture integration."
-  (org-workflow--global-set-key "C-c n j" #'org-workflow-week-open)
-  (org-workflow--global-set-key "C-c o m" #'org-workflow-menu)
+  "Install weekly detection and capture integration."
   (org-workflow--add-hook 'find-file-hook #'org-workflow-week-detect)
   (dolist (buffer (buffer-list))
     (with-current-buffer buffer

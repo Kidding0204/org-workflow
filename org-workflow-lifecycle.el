@@ -20,7 +20,8 @@
   "Miscellaneous Org context containing Someday, habits and guidance."
   :type 'file :group 'org-workflow)
 (defcustom org-workflow-install-default-bindings nil
-  "Whether to install Workflow global prefixes and shared Org bindings."
+  "Whether to install optional shared Org, Agenda and Embark bindings.
+Global bindings belong to the user configuration."
   :type 'boolean :group 'org-workflow)
 (defcustom org-workflow-sidebar-function nil
   "Optional function opening a notes sidebar beside the weekly review."
@@ -55,7 +56,7 @@
 (defun org-workflow--keymap-set (map key definition &optional shared)
   "Bind KEY in MAP to DEFINITION, preserving shared-map bindings.
 SHARED marks optional integrations whose maps belong to another package."
-  (let ((shared (or shared (memq map (list (current-global-map) org-mode-map org-agenda-mode-map)))))
+  (let ((shared (or shared (memq map (list org-mode-map org-agenda-mode-map)))))
     (when (or (not shared) org-workflow-install-default-bindings)
       (when (and shared (or org-workflow-mode org-workflow--activating)
                  (not (seq-some (lambda (item) (and (eq (nth 0 item) map)
@@ -76,9 +77,6 @@ Removal preserves entries supplied or subsequently replaced by the user."
     (set variable (cons entry (symbol-value variable)))
     (when (or org-workflow-mode org-workflow--activating)
       (push (list variable entry (copy-tree entry)) org-workflow--list-entries))))
-(defun org-workflow--global-set-key (key definition)
-  "Optionally bind global KEY to DEFINITION while the mode is enabled."
-  (org-workflow--keymap-set (current-global-map) key definition))
 (defun org-workflow--defer (feature forms)
   "Run integration FORMS once FEATURE is available and Workflow is enabled."
   (if (featurep feature)

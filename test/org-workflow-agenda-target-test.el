@@ -531,11 +531,10 @@ SCHEDULED: <2026-08-17 Mon>
                   (lambda () (encode-time 0 0 20 17 8 2026))))
          ,@body))))
 
-(ert-deftest org-workflow-target-cache-accessors-and-modeline ()
+(ert-deftest org-workflow-target-cache-accessors ()
   (org-workflow-target-test-with-current
     (should (equal (org-with-point-at (org-workflow-target-current-marker)
-                     (org-get-heading t t t t)) "Current"))
-    (should (equal (org-workflow-target-modeline-text) "Current [1/2] -> Next [0/1]"))))
+                     (org-get-heading t t t t)) "Current"))))
 
 (ert-deftest org-workflow-target-refresh-keeps-clock-on-reordered-top ()
   (let ((refresh (symbol-function 'org-workflow-target-refresh)))
@@ -1339,18 +1338,6 @@ SCHEDULED: <2026-08-17 Mon>
                   (alist-get "Unscheduled" priorities nil nil #'equal)))
        (should (= (org-get-priority "[#A]")
                   (alist-get "Other" priorities nil nil #'equal)))))))
-
-(ert-deftest org-workflow-target-defer-bindings-distinguish-leaf-and-group ()
-  (should (eq (key-binding (kbd "C-c o d")) #'org-workflow-target-defer))
-  (should (eq (key-binding (kbd "C-c o D")) #'org-workflow-target-defer-group)))
-
-(ert-deftest org-workflow-global-bindings-do-not-own-timer-operations ()
-  "The Org Workflow prefix must not advertise Focus Timer wrappers."
-  (dolist (key '("C-c o s" "C-c o r" "C-c o g" "C-c o k"))
-    (should-not
-     (memq (lookup-key global-map (kbd key))
-           '(org-workflow-target-start org-workflow-target-rest
-             org-workflow-target-cancel)))))
 
 (ert-deftest org-workflow-dispatch-routes-desktop-toggle-through-integration ()
   "The validated desktop boundary must expose the unified timer action."
