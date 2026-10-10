@@ -59,6 +59,9 @@ Sprint 原生 org-agenda-todo 完成后，延迟刷新优先定位到操作前�
 无下一项时选上一项；没有剩余任务则留在原列表附近，不跟随完成项跳入今日已完成。
 普通刷新、改期及优先级修改仍按原任务 marker 定位；动作库负责完成定位，布局库不改队列。
 
+全天可选中的习惯、收集项和待安排分组统一使用 `org-workflow-agenda-meta`。
+已完成任务与队列任务一样移除源 Org 标题的字体属性，保留原生 Agenda marker 和 DONE 状态。
+
 Sprint 右侧项目循环用 `org-workflow-agenda-previous-project` / `org-workflow-agenda-next-project`
 （`H` / `L`），独立于 tab-line 切换命令；tab-line 只呈现可点击的项目标签。
 右栏局部重映射 Evil 的 buffer 前后切换命令，以兼容宿主 H/L intercept 绑定。

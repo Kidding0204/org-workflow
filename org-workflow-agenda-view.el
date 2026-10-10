@@ -504,7 +504,7 @@ Use native Agenda markers and the existing parent progress renderer."
          previous-parent)
     (insert "\n" (org-workflow-agenda--section-header "全天可选"))
     (when habits
-      (insert (propertize "  习惯\n" 'face 'org-workflow-agenda-habit
+      (insert (propertize "  习惯\n" 'face 'org-workflow-agenda-meta
                           'org-agenda-structural-header t 'org-workflow-agenda-create-context 'habit))
       (dolist (row habits) (insert (cdr row))))
     (when collected

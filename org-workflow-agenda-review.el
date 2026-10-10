@@ -144,7 +144,7 @@ This is only a candidate filter; Org still validates matching entries."
           (when (and org-workflow-agenda-review-start (not (equal category previous-category)))
             (insert (propertize (concat "  " category "\n") 'face 'org-super-agenda-header))
             (setq previous-category category))
-          (let ((line (concat "    " title
+          (let ((line (concat "    " (substring-no-properties title)
                               (propertize (if org-workflow-agenda-review-start "" (concat "  " (org-workflow-agenda--clock-summary-text summary)))
                                           'face 'org-workflow-agenda-meta)
                               (org-workflow-agenda--visible-tags tags))))
