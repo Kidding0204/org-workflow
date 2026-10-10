@@ -8,17 +8,16 @@
 (ert-deftest note-gtd-sprint-creates-task-from-empty-period ()
   (let* ((directory (make-temp-file "sprint-create-" t))
          (file (expand-file-name "2026-09-21.org" directory))
+         (org-workflow-projects-file file)
          (org-agenda-files (list file))
          (org-agenda-buffer-name "*Sprint create test*")
          (org-workflow-agenda-columns-enabled nil))
     (unwind-protect
         (progn
           (with-temp-file file
-            (insert "#+filetags: :area:\n* 收集箱\n:PROPERTIES:\n:JOURNAL_INBOX: 2026-09-21\n:END:\n"))
+            (insert "#+filetags: :area:\n* Inbox\n:PROPERTIES:\n:JOURNAL_INBOX: 2026-09-21\n:END:\n"))
           (cl-letf (((symbol-function 'org-workflow-target--today-string)
                      (lambda () "2026-09-23"))
-                    ((symbol-function 'org-workflow-week-ensure)
-                     (lambda (&optional _) file))
                     ((symbol-function 'read-string)
                      (lambda (&rest _) "新增练习")))
             (org-agenda nil "d")
@@ -80,6 +79,8 @@
                    (lambda () "2026-09-23"))
                   ((symbol-function 'read-string)
                    (lambda (&rest _) "每日复习")))
+          (with-temp-file org-workflow-habit-file
+            (insert "#+TODO: TODO | DONE\n* TODO Existing habit\nSCHEDULED: <2026-09-23 Wed .+1d>\n:PROPERTIES:\n:STYLE: habit\n:END:\n"))
           (org-agenda nil "d")
           (with-current-buffer org-agenda-buffer-name
             (goto-char (point-min))
@@ -100,6 +101,7 @@
 (ert-deftest note-gtd-sprint-creates-task-in-future-period ()
   (let* ((directory (make-temp-file "sprint-future-create-" t))
          (file (expand-file-name "2026-09-21.org" directory))
+         (org-workflow-projects-file file)
          (org-agenda-files (list file))
          (org-agenda-buffer-name "*Sprint future create test*")
          (org-workflow-agenda-columns-enabled nil)
@@ -107,11 +109,9 @@
     (unwind-protect
         (progn
           (with-temp-file file
-            (insert "#+filetags: :area:\n* 收集箱\n** TODO [#B] Existing\nSCHEDULED: <2026-09-24 Thu>\n"))
+            (insert "#+filetags: :area:\n* Inbox\n** TODO [#B] Existing\nSCHEDULED: <2026-09-24 Thu>\n"))
           (cl-letf (((symbol-function 'org-workflow-target--today-string)
                      (lambda () "2026-09-23"))
-                    ((symbol-function 'org-workflow-week-ensure)
-                     (lambda (&optional _) file))
                     ((symbol-function 'read-string)
                      (lambda (&rest _) "未来任务")))
             (org-agenda nil "d")

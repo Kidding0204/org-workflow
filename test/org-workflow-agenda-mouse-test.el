@@ -410,8 +410,8 @@
               (should-not org-workflow-agenda-last-plan)
               (should (member "First" (org-workflow-workbench-test-titles candidate)))
               (should (member "Second" (org-workflow-workbench-test-titles candidate)))
-              (should-not (member "First" (org-workflow-workbench-test-titles primary)))
-              (should-not (member "Second" (org-workflow-workbench-test-titles primary)))))
+              (should (member "First" (org-workflow-workbench-test-titles primary)))
+              (should (member "Second" (org-workflow-workbench-test-titles primary)))))
         (when (and org-workflow-store--connection
                    (org-workflow-store--live-p org-workflow-store--connection))
           (sqlite-close org-workflow-store--connection))

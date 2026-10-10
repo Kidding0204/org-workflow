@@ -15,7 +15,7 @@
 | `org-workflow-agenda-view.el` / `org-workflow-agenda-layout.el` | 分组渲染、双栏工作台、窗口与同步刷新 |
 | `org-workflow-agenda-actions.el` / `org-workflow-agenda-plan-undo.el` | 日期、时段、排序、批量事务与安排撤销 |
 | `org-workflow-agenda-console.el` / `org-workflow-agenda-mouse.el` | Sprint 键盘、帮助与鼠标交互 |
-| `org-workflow-agenda-inbox.el` / `org-workflow-agenda-review.el` | 周收集箱归类、积压与回顾 |
+| `org-workflow-agenda-inbox.el` / `org-workflow-agenda-review.el` | 统一 Inbox 捕获／归类、积压与回顾 |
 | `org-workflow-commands.el` / `org-workflow-store.el` | 共用变更边界、SQLite 事实及 Org 恢复事务 |
 | `org-workflow-history.el` / `org-workflow-journal.el` | 兑现、结算、重算、历史兼容与 CLOCK 辅助 |
 | `org-workflow-migrate.el` / `org-workflow-cleanup.el` | 有备份的旧模型迁移与显式属性清理 |

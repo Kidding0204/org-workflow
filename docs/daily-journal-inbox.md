@@ -3,7 +3,7 @@
 [文档入口](README.md)（文中的默认快捷键需设置 `org-workflow-install-default-bindings` 为 t） · [Sprint 操作](agenda-planning-workbench.md)
 
 当前日志以周一日期命名，位于 Vulpea 笔记目录的 `journal/weekly/YYYY-MM-DD.org`。
-一周共用「随记」「收集箱」「周回顾」。规划目标使用源项目的 DIVE + DEADLINE 阶段；旧周目标、旧日日志和 inbox.org 保留原文，仍可回顾积压。
+一周共用「随记」「周回顾」。任务统一捕获到 projects.org 一级 Inbox；规划目标使用源项目的 DIVE + DEADLINE 阶段。旧日志的随记、回顾和旧周目标文字保留。
 
 ## 日志与捕获入口
 
@@ -12,17 +12,17 @@
 | `C-c n j` 或 `C-c o m j` | 访问本周日志 |
 | `C-c o m r` | 左侧 Sprint 与周日志；足够宽时显示 Vulpea 侧栏 |
 | `C-c o m [` / `C-c o m ]` | 前一周／后一周 |
-| `C-c o I` | 访问本周收集箱 |
+| `C-c o I` | 访问 projects.org/Inbox |
 | `C-c o U` 或 `C-c o m i` | 查看全部日期的未处理收集项 |
 
 Org Capture 的 `t`（TODO）、`p`（可编辑网页摘录）、`L`（立即保存网页链接）
-进入当前周收集箱。每次捕获重新确定目标周，缺少时只创建该周日志；重复捕获复用小节。
+进入 projects.org 的一级 Inbox，缺少时创建一次；CAPTURED_ON 保留捕获日期，捕获不创建周日志。
 `n` 和 `c` 将笔记正文及上下文链接追加到当前 Workflow 任务，不生成额外 SEED 条目。
 
-收集箱由 `JOURNAL_INBOX` 属性识别，标题可改名。归属周不等于安排日期，
+新收集箱按 projects.org 一级 `Inbox` 标题识别，不需要 JOURNAL_INBOX 属性。
 收集项不会自动进入执行队列或变成承诺。
 周日志具有 journal-week/area 标签：当前及未来周纳入 Agenda，过去周退出普通 Agenda 列表；
-全部积压回顾仍读取旧来源。任务直接新增见 [Sprint 的 I 入口](agenda-planning-workbench.md)。
+全部积压回顾只读统一 Inbox。任务直接新增见 [Sprint 的 I 入口](agenda-planning-workbench.md)。
 
 ## 归类
 
@@ -37,7 +37,7 @@ Org Capture 的 `t`（TODO）、`p`（可编辑网页摘录）、`L`（立即保
 | `t / d / h` | TODO／DONE／HOLD，并保存源文件 |
 | `RET / q` | 查看原文／暂不处理 |
 
-READY 已退役，当前归类菜单不提供该状态。tiny 任务实际完成后可标 DONE，内容仍留在原日志。
+READY 已退役，当前归类菜单不提供该状态。tiny 任务实际完成后可标 DONE，内容仍留在 Inbox。
 不要为了清空列表而把未执行的任务标 DONE；无保留价值的内容可以明确删除。
 
 成功 refile 后先保存目标，再保存源；不顺带保存其他 Agenda 文件。
@@ -47,7 +47,9 @@ READY 已退役，当前归类菜单不提供该状态。tiny 任务实际完成
 ## 全部积压回顾
 
 列表按日期从旧到新，直接子条目各占一行，嵌套正文随父条目处理。
-以是否仍位于 JOURNAL_INBOX 小节下判断未分类，不复制到当前周，不自动清空或搬运旧文件。
+以是否仍位于 projects.org/Inbox 下判断未分类，不复制到当前周。
+2026-10-10 经授权把旧周日志与 inbox.org 的 52 个任务原样迁入，SEED 笔记留在旧文件；
+这是一次迁移，日常查询不会再扫描旧日志或自动搬运其他文件。
 已完成条目、日志正文、结算小节和空收集箱不作为待处理项。
 
 `RET` 访问；`r` 归类；`g` 刷新；`q` 关闭。

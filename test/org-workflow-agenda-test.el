@@ -61,22 +61,18 @@
   "An unselected Firefox capture becomes a saved Inbox TODO without editing."
   (let* ((directory (make-temp-file "note-gtd-protocol-test-" t))
          (inbox (expand-file-name "inbox.org" directory))
-         (org-workflow-inbox-file inbox)
+         (org-workflow-projects-file inbox)
          (org-capture-mode-hook nil)
          (org-capture-after-finalize-hook nil))
     (unwind-protect
         (progn
-          (with-temp-file inbox (insert "#+title: Test journal\n* 收集箱\n"))
+          (with-temp-file inbox (insert "#+title: Test projects\n* Inbox\n"))
           (should (assoc "L" org-capture-templates))
-          (cl-letf (((symbol-function 'org-workflow-week-capture-target)
-                     (lambda (&optional _date)
-                       (set-buffer (org-capture-target-buffer inbox))
-                       (goto-char (point-min)) (search-forward "* 收集箱") (beginning-of-line))))
-           (org-protocol-capture
+          (org-protocol-capture
            '(:template "L"
              :url "https://example.com/path?a=1"
              :title "Example Page"
-             :body "")))
+             :body ""))
           (should-not (bound-and-true-p org-capture-mode))
           (with-temp-buffer
             (insert-file-contents inbox)
@@ -94,22 +90,18 @@
   "A selected Firefox capture keeps its link and selection open for editing."
   (let* ((directory (make-temp-file "note-gtd-protocol-test-" t))
          (inbox (expand-file-name "inbox.org" directory))
-         (org-workflow-inbox-file inbox)
+         (org-workflow-projects-file inbox)
          (org-capture-mode-hook nil)
          (org-capture-after-finalize-hook nil))
     (unwind-protect
         (progn
-          (with-temp-file inbox (insert "#+title: Test journal\n* 收集箱\n"))
+          (with-temp-file inbox (insert "#+title: Test projects\n* Inbox\n"))
           (should (assoc "p" org-capture-templates))
-          (cl-letf (((symbol-function 'org-workflow-week-capture-target)
-                     (lambda (&optional _date)
-                       (set-buffer (org-capture-target-buffer inbox))
-                       (goto-char (point-min)) (search-forward "* 收集箱") (beginning-of-line))))
-           (org-protocol-capture
+          (org-protocol-capture
            '(:template "p"
              :url "https://example.com/article"
              :title "Article Title"
-             :body "Selected passage")))
+             :body "Selected passage"))
           (should (bound-and-true-p org-capture-mode))
           (should
            (string-match-p

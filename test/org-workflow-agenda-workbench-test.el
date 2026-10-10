@@ -246,7 +246,7 @@
               (should (buffer-live-p candidate))
               (should-not org-workflow-agenda-last-plan)
               (should (member "First" (org-workflow-workbench-test-titles candidate)))
-              (should-not (member "First" (org-workflow-workbench-test-titles primary)))
+              (should (member "First" (org-workflow-workbench-test-titles primary)))
               (with-current-buffer (find-file-noselect (car files))
                 (goto-char (point-min)) (search-forward "First") (org-back-to-heading)
                 (should-not (nth 3 (org-heading-components)))

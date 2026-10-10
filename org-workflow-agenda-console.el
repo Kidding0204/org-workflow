@@ -36,17 +36,15 @@
 
 (autoload 'org-workflow-evening-stop-clock "org-workflow-evening" nil t)
 
-(autoload 'org-workflow-week-ensure "org-workflow-weekly")
+(require 'org-workflow-sources)
 
 (defun org-workflow-agenda-create-task (title date period)
-  "Create TITLE in DATE's weekly inbox, scheduled for PERIOD."
-  (let ((file (org-workflow-week-ensure date)))
+  "Create TITLE in the projects Inbox for DATE and PERIOD."
+  (let ((file (expand-file-name org-workflow-projects-file)))
+    (make-directory (file-name-directory file) t)
     (with-current-buffer (find-file-noselect file)
       (org-with-wide-buffer
-       (goto-char (point-min))
-       (unless (re-search-forward "^\\* 收集箱[ \t]*$" nil t)
-         (user-error "周日志缺少收集箱标题"))
-       (beginning-of-line)
+       (goto-char (org-workflow-source-section "Inbox" t))
        (org-end-of-subtree t t)
        (unless (bolp) (insert "\n"))
        (let ((stamp (format-time-string "%Y-%m-%d %a"

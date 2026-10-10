@@ -59,13 +59,14 @@
        (should (equal org-workflow-projects-file (buffer-file-name (marker-buffer (nth 2 (car rows)))))))
      (should-not (get-file-buffer empty)))))
 
-(ert-deftest workflow-source-sealed-note-excluded-before-reading ()
+(ert-deftest workflow-source-inbox-does-not-query-journal-indexes ()
   (workflow-source-test
-   (let ((closed (make-vulpea-note :path "/absent/closed.org" :tags '("journal-week" "workflow-closed")))
-         (active (make-vulpea-note :path "/absent/active.org" :tags '("journal-week"))))
-     (cl-letf (((symbol-function 'vulpea-db-query-by-tags-every)
-                (lambda (tags) (and (equal tags '("journal-week")) (list closed active)))))
-       (should (equal '("/absent/active.org") (org-workflow-collection-inbox--review-files)))))))
+   (with-temp-file org-workflow-projects-file (insert "* Inbox\n"))
+   (cl-letf (((symbol-function 'vulpea-db-query-by-tags-every)
+              (lambda (&rest _) (ert-fail "Inbox queried journal indexes"))))
+     (should (equal (list org-workflow-projects-file)
+                    (org-workflow-collection-inbox--review-files)))
+     (should-not (get-file-buffer org-workflow-projects-file)))))
 
 (ert-deftest workflow-source-seal-rejects-pending-and-current-weeks ()
   (workflow-source-test

@@ -107,7 +107,8 @@ Today's pending occurrence does not break the ongoing streak."
                          'org-category (org-get-category) 'todo-state (org-get-todo-state)
                          'tags tags 'priority (org-workflow-target-entry-priority item)
                          'type "todo" 'org-heading t 'mouse-face 'highlight
-                         'org-workflow-agenda-create-context 'habit)
+                         'org-workflow-agenda-create-context 'habit
+                         'org-workflow-agenda-habit-done (org-workflow-target-entry-done item))
           (push (cons (org-workflow-target-entry-habit-position item) line) rows))))
     (nreverse rows)))
 
@@ -122,22 +123,11 @@ Today's pending occurrence does not break the ongoing streak."
     (dolist (row selected) (insert (cdr row)))))
 
 (defun org-workflow-evening-today (_match)
-  "Render the queue with placed habits and an unassigned habit section."
+  "Render the timed queue; free habits appear in the all-day optional section."
   (let* ((tomorrow (org-workflow-agenda--setting 'org-workflow-agenda-plan-tomorrow))
          (rows (unless tomorrow
                  (org-workflow-evening--habit-rows (org-workflow-agenda-target-date)))))
-    (org-workflow-agenda-task-stack nil rows)
-    (unless tomorrow
-      (let ((start (point))
-            (unassigned (seq-filter (lambda (row) (null (car row))) rows)))
-        (when (or unassigned (null rows))
-          (insert (propertize "  习惯\n" 'face 'org-workflow-agenda-habit
-                              'org-agenda-structural-header t))
-          (if unassigned (mapc (lambda (row) (insert (cdr row))) unassigned)
-            (insert (propertize "      今天没有待做习惯\n" 'face 'shadow)))
-          (insert "\n")
-          (add-text-properties start (point) '(org-agenda-type todo
-                                              org-workflow-agenda-create-context habit)))))))
+    (org-workflow-agenda-task-stack nil rows)))
 
 (defun org-workflow-evening-open ()
   "Open the default task and habit console."

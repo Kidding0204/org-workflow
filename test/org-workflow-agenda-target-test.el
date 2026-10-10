@@ -1617,7 +1617,7 @@ SCHEDULED: <2026-08-17 Mon>
      (let* ((text (note-gtd-target-test--workbench-text))
             (stack (string-match "安排" text))
             (task (string-match "Agenda View Customization" text))
-            (planning (string-match "待安排" text)))
+            (planning (string-match "全天可选" text)))
        (should stack)
        (should task)
        (should planning)
@@ -2097,7 +2097,9 @@ SCHEDULED: <2026-08-18 Tue>
 ** TODO Foreign leaf
 ")
    (org-agenda nil "d")
-   (with-current-buffer org-agenda-buffer-name
+   (with-current-buffer (org-workflow-agenda--make-candidates
+                         (with-current-buffer org-agenda-buffer-name
+                           (org-workflow-agenda--ensure-workbench)))
      (should-not (string-match-p "Backlog leaf" (buffer-string)))
      (note-gtd-target-test--goto-agenda-title "Current leaf")
      (org-agenda-bulk-mark)
@@ -2146,7 +2148,7 @@ SCHEDULED: <2026-08-18 Tue>
               (should-not (string-match-p "Scheduled" (buffer-string))))
             (note-gtd-target-test--goto-agenda-title "Scheduled")
             (should (org-get-at-bol 'org-hd-marker))
-            (should-not (string-match-p "Candidate" (buffer-string))))
+            (should (string-match-p "Candidate" (buffer-string))))
           (should (= 3 (length (window-list))))
           (org-workflow-agenda--apply-columns)
           (should (= 3 (length (window-list))))
@@ -2169,8 +2171,8 @@ SCHEDULED: <2026-08-18 Tue>
          (org-agenda-redo)
          (should (= 1 (length (window-list))))
          (should (eq 'combined org-workflow-agenda--pane-role))
-         (should-not (string-match-p "待安排\\|未来 7 天" (buffer-string)))
-         (should (string-match-p "收集箱" (buffer-string)))
+         (should-not (string-match-p "未来 7 天" (buffer-string)))
+         (should (string-match-p "全天可选" (buffer-string)))
          (should (string-match-p "安排" (buffer-string))))))))
 
 (provide 'org-workflow-agenda-target-test)

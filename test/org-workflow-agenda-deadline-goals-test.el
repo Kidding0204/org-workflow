@@ -69,7 +69,9 @@
       '("#+filetags: :project:\n#+TODO: TODO DIVE | DONE HOLD\n* DIVE CMU Deep Learning Intro [1/28]\nDEADLINE: <2026-10-10 Sat>\n** TODO Neural Nets\nDEADLINE: <2026-10-09 Fri>\n")
     (set-buffer (org-workflow-workbench-test-open))
     (should (string-match-p "CMU Deep Learning Intro \\[1/28\\]" (buffer-string)))
-    (should-not (string-match-p "Neural Nets" (buffer-string)))
+    (should-not (string-match-p "Neural Nets"
+                                (buffer-substring (point-min)
+                                                  (save-excursion (goto-char (point-min)) (search-forward "安排")))))
     (should-not (string-match-p "周目标" (buffer-string)))
     (should (eq (lookup-key (current-local-map) (kbd "W")) #'org-workflow-agenda-open-goals))
     (org-workflow-agenda-console-toggle-day)

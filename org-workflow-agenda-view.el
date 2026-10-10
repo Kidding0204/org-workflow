@@ -238,9 +238,11 @@
     (list (list (or buffer-file-name (buffer-name)) (copy-marker (point)))
           (substring-no-properties (org-get-heading t t t t)))))
 
-(defun org-workflow-agenda--candidate-entries ()
-  "Collect unscheduled leaves in source order with their project groups."
-  (let ((all (org-workflow-agenda--setting 'org-workflow-agenda-planning-all)) rows)
+(defun org-workflow-agenda--candidate-entries (&optional current-only)
+  "Collect unscheduled leaves in source order with their project groups.
+CURRENT-ONLY limits entries to the current DIVE stages."
+  (let ((all (and (not current-only)
+                  (org-workflow-agenda--setting 'org-workflow-agenda-planning-all))) rows)
     (dolist (file (org-agenda-files t))
       (when (file-readable-p file)
         (with-current-buffer (find-file-noselect file)
@@ -465,42 +467,76 @@ Use native Agenda markers and the existing parent progress renderer."
       (org-workflow-evening-today nil))
     (when (eq role 'candidates)
       (org-workflow-agenda-candidates nil))
-    (when (eq role 'combined)
+    (when (memq role '(combined schedule))
       (org-workflow-agenda-inbox nil))
     (when (memq role '(combined schedule))
       (unless (org-workflow-agenda--setting 'org-workflow-agenda-plan-tomorrow)
         (org-workflow-agenda-completed nil)))))
 
+(defun org-workflow-agenda--optional-candidates ()
+  "Return the first two unscheduled tasks of each direct DIVE parent."
+  (let ((counts (make-hash-table :test #'equal)) result)
+    (dolist (row (org-workflow-agenda--candidate-entries t))
+      (let* ((entry (car row))
+             (parent (org-workflow-target-entry-group-marker entry))
+             (key (list (org-workflow-target-entry-file entry) (marker-position parent)))
+             (count (gethash key counts 0)))
+        (when (< count 2)
+          (puthash key (1+ count) counts)
+          (push entry result))))
+    (nreverse result)))
+
 (defun org-workflow-agenda-inbox (_match)
-  "Render all dates' unscheduled collected items using native Agenda markers."
+  "Render all-day choices: free habits, collected tasks, then stage candidates."
   (require 'org-workflow-agenda-inbox)
   (goto-char (point-max))
-  (let ((start (point)) (inhibit-read-only t) previous-date)
-    (insert "\n" (org-workflow-agenda--section-header "收集箱"))
-    (dolist (record (org-workflow-collection-inbox--pending
+  (let* ((start (point)) (inhibit-read-only t)
+         (tomorrow (org-workflow-agenda--setting 'org-workflow-agenda-plan-tomorrow))
+         (habits (unless tomorrow
+                   (seq-filter
+                    (lambda (row) (and (null (car row))
+                                       (not (get-text-property 0 'org-workflow-agenda-habit-done (cdr row)))))
+                    (org-workflow-evening--habit-rows (org-workflow-agenda-target-date)))))
+         (collected (org-workflow-collection-inbox--pending
                      (org-workflow-collection-inbox--review-files) t t))
-      (let ((date (car record)) (original-title (cadr record)) (marker (nth 2 record)))
-        (unwind-protect
-            (when-let* ((line
-                         (org-with-point-at marker
-                           (unless (or (org-entry-get nil "SCHEDULED")
-                                       (org-entry-get nil "DEADLINE")
-                                       (org-entry-is-done-p)
-                                       (org-workflow--held-p)
-                                       (equal (org-entry-get nil "STYLE") "habit"))
-                             (org-workflow-agenda--stack-line
-                              (org-workflow-target-entry-create
-                               :marker marker :title (org-link-display-format (org-get-heading t t t t))
-                               :priority (org-workflow--effective-priority-at-point)) nil)))))
-              (unless (equal date previous-date)
-                (setq previous-date date)
-                (insert (propertize (concat "  " date "\n") 'face 'org-workflow-agenda-meta
-                                    'org-agenda-structural-header t)))
-              (insert (propertize (concat line "\n")
-                                  'org-workflow-agenda-inbox-entry t
-                                  'org-workflow-collection-review-title original-title)))
+         (candidates (org-workflow-agenda--optional-candidates))
+         (seen (make-hash-table :test #'equal))
+         previous-parent)
+    (insert "\n" (org-workflow-agenda--section-header "全天可选"))
+    (when habits
+      (insert (propertize "  习惯\n" 'face 'org-workflow-agenda-habit
+                          'org-agenda-structural-header t 'org-workflow-agenda-create-context 'habit))
+      (dolist (row habits) (insert (cdr row))))
+    (when collected
+      (insert (propertize "  收集项\n" 'face 'org-workflow-agenda-meta
+                          'org-agenda-structural-header t))
+      (dolist (record collected)
+        (let ((original-title (cadr record)) (marker (nth 2 record)))
+          (org-with-point-at marker
+            (puthash (list buffer-file-name (point)) t seen))
+          (let ((line (org-with-point-at marker
+                        (org-workflow-agenda--stack-line
+                         (org-workflow-target-entry-create
+                          :marker marker :title (org-link-display-format (org-get-heading t t t t))
+                          :priority (org-workflow--effective-priority-at-point)) nil))))
+            (insert (propertize (concat line "\n")
+                                'org-workflow-agenda-inbox-entry t
+                                'org-workflow-collection-review-title original-title)))
           (set-marker marker nil))))
-    (unless previous-date (insert (propertize "    暂无收集项\n" 'face 'shadow)))
+    (when candidates
+      (insert (propertize "  待安排\n" 'face 'org-workflow-agenda-meta
+                          'org-agenda-structural-header t))
+      (dolist (entry candidates)
+        (let ((marker (org-workflow-target-entry-marker entry))
+              (parent (org-workflow-target-entry-group-marker entry)))
+          (unless (gethash (list (org-workflow-target-entry-file entry) (marker-position marker)) seen)
+            (unless (equal parent previous-parent)
+              (setq previous-parent parent)
+              (insert (propertize (concat "    " (org-workflow-agenda--entry-group-title entry) "\n")
+                                  'org-agenda-structural-header t)))
+            (insert (org-workflow-agenda--stack-line entry nil) "\n")))))
+    (unless (or habits collected candidates)
+      (insert (propertize "    暂无全天可选任务\n" 'face 'shadow)))
     (insert "\n")
     (add-text-properties start (point) '(org-agenda-type todo))))
 

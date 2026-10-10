@@ -62,21 +62,32 @@
          (list "Someday" file nil position))))))
 
 (defun org-workflow-collection-inbox-capture-target ()
-  "Locate the current week's unified inbox."
-  (require 'org-workflow-weekly)
-  (org-workflow-week-capture-target))
+  "Locate or create the level-one Inbox in the projects file."
+  (let ((file (expand-file-name org-workflow-projects-file)))
+    (make-directory (file-name-directory file) t)
+    (set-buffer (org-capture-target-buffer file))
+    (widen)
+    (goto-char (org-workflow-source-section "Inbox" t))))
+
+(defun org-workflow-collection-inbox--heading-p ()
+  "Return non-nil for the unified Inbox or a legacy collection heading."
+  (or (org-entry-get nil "JOURNAL_INBOX")
+      (and (= (org-outline-level) 1)
+           (string= (org-get-heading t t t t) "Inbox")
+           (org-workflow-inbox--same-file-p
+            buffer-file-name org-workflow-projects-file))))
 
 (defun org-workflow-collection-inbox-entry-p ()
-  "Return non-nil when point is below a daily collection heading."
+  "Return non-nil below the projects Inbox or a legacy collection heading."
   (save-excursion
     (org-back-to-heading t)
     (catch 'inbox
       (while (org-up-heading-safe)
-        (when (org-entry-get nil "JOURNAL_INBOX") (throw 'inbox t)))
+        (when (org-workflow-collection-inbox--heading-p) (throw 'inbox t)))
       nil)))
 
 (defun org-workflow-collection-inbox-visit ()
-  "Visit today's collection section without opening a capture session."
+  "Visit the projects Inbox without opening a capture session."
   (interactive)
   (let ((buffer (current-buffer)) marker)
     (unwind-protect
@@ -101,7 +112,7 @@
       (unless (and (not (org-entry-get nil "JOURNAL_INBOX"))
                    (or (org-workflow-inbox--same-file-p buffer-file-name org-workflow-inbox-file)
                        (org-workflow-collection-inbox-entry-p)))
-        (user-error "请选择旧 inbox 或日记收集箱内的条目"))
+        (user-error "请选择 Inbox 或旧日记收集箱内的条目"))
       (point-marker))))
 
 (defun org-workflow-inbox--project-files ()
@@ -263,20 +274,16 @@ from the source.  Navigation, cancellation and failed moves save no buffers."
 (defvar-local org-workflow-collection-review-all nil)
 
 (defun org-workflow-collection-inbox--review-files ()
-  "Find existing journal files through Vulpea without creating notes."
-  (require 'vulpea-journal)
-  (delete-dups
-   (delq nil (mapcar (lambda (note)
-                       (unless (member "workflow-closed" (vulpea-note-tags note))
-                         (vulpea-note-path note)))
-                     (append (vulpea-db-query-by-tags-every (list vulpea-journal-tag))
-                             (vulpea-db-query-by-tags-every '("journal-week")))))))
+  "Return the unified projects Inbox source without querying journal indexes."
+  (when (file-readable-p org-workflow-projects-file)
+    (list (expand-file-name org-workflow-projects-file))))
 
 (defun org-workflow-collection-inbox--pending (files &optional all unscheduled)
   "Return date/title/marker records still in collection headings in FILES.
-Include the last seven calendar days unless ALL; nested child headings are
-part of their containing captured item, never duplicate pending entries.
-UNSCHEDULED selects only Sprint inbox rows before visiting any source."
+Include items captured in the last seven calendar days unless ALL.
+Undated unified Inbox items remain visible.  Nested headings belong to their
+containing captured item.  UNSCHEDULED selects only optional Sprint items
+before visiting any source."
   (let ((today (format-time-string "%Y-%m-%d"))
         (cutoff (format-time-string
                  "%Y-%m-%d" (time-subtract (current-time) (days-to-time 6))))
@@ -288,27 +295,31 @@ UNSCHEDULED selects only Sprint inbox rows before visiting any source."
                 file
                 (lambda ()
                   (let (locations)
-		    (org-map-entries
-		     (lambda ()
-		       (when-let* ((date (org-entry-get nil "JOURNAL_INBOX")))
-			 (when (or all (and (not (string< date cutoff))
-					    (not (string< today date))))
-			   (let ((level (1+ (org-outline-level)))
-				 (end (save-excursion (org-end-of-subtree t t))))
-			     (save-excursion
-			       (forward-line 1)
-			       (while (re-search-forward org-heading-regexp end t)
-				 (when (and (= level (org-outline-level))
-					    (not (equal (org-get-todo-state) "DONE"))
-					    (or (not unscheduled)
-						(not (or (org-entry-get nil "SCHEDULED")
-							 (org-entry-get nil "DEADLINE")
-							 (org-entry-is-done-p)
-							 (org-workflow--held-p)
-							 (org-workflow-habit-p)))))
-				   (push (list (or (org-entry-get nil "CAPTURED_ON") date) (substring-no-properties (org-get-heading t nil t t))
-					       (line-beginning-position)) locations))))))))
-		     nil 'file)
+                    (org-map-entries
+                     (lambda ()
+                       (when (org-workflow-collection-inbox--heading-p)
+                         (let ((date (org-entry-get nil "JOURNAL_INBOX"))
+                               (level (1+ (org-outline-level)))
+                               (end (save-excursion (org-end-of-subtree t t))))
+                           (save-excursion
+                             (forward-line 1)
+                             (while (re-search-forward org-heading-regexp end t)
+                               (let ((captured (or (org-entry-get nil "CAPTURED_ON") date)))
+                                 (when (and (= level (org-outline-level))
+                                            (or all (not captured)
+                                                (and (not (string< captured cutoff))
+                                                     (not (string< today captured))))
+                                            (not (equal (org-get-todo-state) "DONE"))
+                                            (or (not unscheduled)
+                                                (not (or (org-entry-get nil "SCHEDULED")
+                                                         (org-entry-get nil "DEADLINE")
+                                                         (org-entry-is-done-p)
+                                                         (org-workflow--held-p)
+                                                         (org-workflow-habit-p)))))
+                                   (push (list (or captured "")
+                                               (substring-no-properties (org-get-heading t nil t t))
+                                               (line-beginning-position)) locations))))))))
+                     nil 'file)
                     (nreverse locations))))))
           (when matches
             (with-current-buffer (find-file-noselect file)
@@ -414,7 +425,7 @@ UNSCHEDULED selects only Sprint inbox rows before visiting any source."
     (dolist (entry entries)
       (unless (equal previous-date (car entry))
         (setq previous-date (car entry))
-        (insert (propertize (concat previous-date "\n") 'face 'org-workflow-agenda-group)))
+        (insert (propertize (concat (if (string-empty-p previous-date) "未记录捕获日期" previous-date) "\n") 'face 'org-workflow-agenda-group)))
       (push (point) positions)
       (when (equal old-marker (nth 2 entry)) (setq matching-position (point)))
       (insert (propertize (concat "  " (cadr entry) "\n")
@@ -435,16 +446,16 @@ UNSCHEDULED selects only Sprint inbox rows before visiting any source."
   (org-workflow-collection-review-refresh))
 
 (defun org-workflow-install-inbox-capture-templates ()
-  "Route task captures to the journal and note capture to the current task."
+  "Route task captures to projects Inbox and notes to the current task."
   (require 'org-capture)
   (dolist (template
-           '(("t" "TODO → 本周日志" entry (function org-workflow-collection-inbox-capture-target)
+           '(("t" "TODO → Inbox" entry (function org-workflow-collection-inbox-capture-target)
               "** TODO %?\n:PROPERTIES:\n:CAPTURED_ON: %<%Y-%m-%d>\n:END:\n %i\n %a")
              ("n" "笔记 → 当前任务" plain (function org-workflow-target-capture-location)
               "- [ ] %?\n  %a" :empty-lines 1)
-             ("p" "网页摘录 → 本周日志" entry (function org-workflow-collection-inbox-capture-target)
+             ("p" "网页摘录 → Inbox" entry (function org-workflow-collection-inbox-capture-target)
               "** TODO %:annotation\n:PROPERTIES:\n:CAPTURED_ON: %<%Y-%m-%d>\n:END:\n%i\n%?" :empty-lines 1)
-             ("L" "网页链接 → 本周日志" entry (function org-workflow-collection-inbox-capture-target)
+             ("L" "网页链接 → Inbox" entry (function org-workflow-collection-inbox-capture-target)
               "** TODO %:annotation\n:PROPERTIES:\n:CAPTURED_ON: %<%Y-%m-%d>\n:END:\n" :immediate-finish t :empty-lines 1)))
     (if-let* ((existing (assoc (car template) org-capture-templates)))
         (setcdr existing (copy-tree (cdr template)))

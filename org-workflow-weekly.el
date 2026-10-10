@@ -96,8 +96,7 @@
       (make-directory (file-name-directory file) t)
       (vulpea-create (format "%s — %s" week (org-workflow-history-add-days week 6)) file
                      :tags '("journal-week" "area") :properties `(("WORKFLOW_WEEK" . ,week))
-                     :body (concat "* 随记\n\n* 收集箱\n:PROPERTIES:\n:JOURNAL_INBOX: "
-                                   week "\n:END:\n\n* 周回顾\n")))
+                     :body "* 随记\n\n* 周回顾\n"))
     (org-workflow-week--ensure-area file)
     (org-workflow-week-sync-agenda file)
     file))
@@ -170,13 +169,6 @@ On wide frames, also open the Vulpea sidebar using its usual note check."
 (defun org-workflow-week-next ()
   "Visit the next weekly journal."
   (interactive) (org-workflow-week-open (org-workflow-history-add-days (or org-workflow-week (org-workflow-week-start)) 7)))
-
-(defun org-workflow-week-capture-target ()
-  "Prepare the current week's inbox heading as an Org capture target."
-  (set-buffer (org-capture-target-buffer (org-workflow-week-ensure)))
-  (widen) (goto-char (point-min))
-  (unless (re-search-forward "^\\* 收集箱$" nil t) (user-error "周日志缺少收集箱标题"))
-  (beginning-of-line))
 
 (defun org-workflow-week-show-sprint (&rest _)
   "Reuse the review layout; never run while creating a capture."

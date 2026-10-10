@@ -5,36 +5,34 @@
 (require 'vulpea-journal)
 (require 'org-workflow-weekly)
 
-(ert-deftest note-gtd-journal-captures-into-week-and-keeps-daily-date ()
-  (let* ((directory (make-temp-file "weekly-inbox-" t))
+(ert-deftest note-gtd-inbox-captures-stay-in-projects-across-weeks ()
+  (let* ((directory (make-temp-file "projects-inbox-" t))
+         (org-workflow-projects-file (expand-file-name "projects.org" directory))
          (org-capture-mode-hook nil) (org-capture-after-finalize-hook nil)
          (date (encode-time 0 0 20 8 9 2026)))
     (unwind-protect
-        (cl-letf (((symbol-function 'current-time) (lambda () date))
-                  ((symbol-function 'org-workflow-target--today-string) (lambda () (format-time-string "%F" date)))
-                  ((symbol-function 'org-workflow-week-ensure)
-                   (lambda (&optional _) (let ((file (expand-file-name
-                                  (concat (org-workflow-week-start) ".org") directory)))
-                     (unless (file-exists-p file)
-                       (with-temp-file file (insert "#+title: Week\n* 周目标\nKeep me\n* 收集箱\n:PROPERTIES:\n:JOURNAL_INBOX: "
-                                                   (org-workflow-week-start) "\n:END:\n"))) file))))
-          (org-capture nil "t") (insert "Task one") (org-capture-finalize)
-          (setq date (encode-time 0 1 0 9 9 2026))
-          (org-capture nil "t") (insert "Next day") (org-capture-finalize)
-          (with-temp-buffer
-            (insert-file-contents (expand-file-name "2026-09-07.org" directory))
-            (should (string-match-p "Task one" (buffer-string)))
-            (should (string-match-p "Next day" (buffer-string)))
-            (should (string-match-p "CAPTURED_ON: 2026-09-08" (buffer-string)))
-            (should (string-match-p "CAPTURED_ON: 2026-09-09" (buffer-string)))
-            (should (string-match-p "Keep me" (buffer-string))))
-          (setq date (encode-time 0 0 10 14 9 2026))
-          (org-capture nil "t") (insert "Next week") (org-capture-finalize)
-          (should (file-exists-p (expand-file-name "2026-09-14.org" directory))))
+        (progn
+          (with-temp-file org-workflow-projects-file
+            (insert "* Existing\nKeep me\n"))
+          (cl-letf (((symbol-function 'current-time) (lambda () date))
+                    ((symbol-function 'org-workflow-week-ensure)
+                     (lambda (&optional _) (ert-fail "Capture must not create weekly journals"))))
+            (org-capture nil "t") (insert "Task one") (org-capture-finalize)
+            (setq date (encode-time 0 1 0 9 9 2026))
+            (org-capture nil "t") (insert "Next day") (org-capture-finalize)
+            (setq date (encode-time 0 0 10 14 9 2026))
+            (org-capture nil "t") (insert "Next week") (org-capture-finalize)
+            (with-temp-buffer
+              (insert-file-contents org-workflow-projects-file)
+              (dolist (text '("Task one" "Next day" "Next week" "Keep me"
+                              "CAPTURED_ON: 2026-09-08" "CAPTURED_ON: 2026-09-09"
+                              "CAPTURED_ON: 2026-09-14"))
+                (should (string-match-p text (buffer-string))))
+              (should (= 1 (how-many "^\\* Inbox$" (point-min) (point-max)))))
+            (should (= 1 (length (directory-files directory nil "\\.org$"))))))
       (when (bound-and-true-p org-capture-mode) (org-capture-kill))
-      (dolist (buffer (buffer-list))
-        (when (and (buffer-file-name buffer) (string-prefix-p directory (buffer-file-name buffer)))
-          (with-current-buffer buffer (set-buffer-modified-p nil)) (kill-buffer buffer)))
+      (when-let* ((buffer (get-file-buffer org-workflow-projects-file)))
+        (with-current-buffer buffer (set-buffer-modified-p nil)) (kill-buffer buffer))
       (delete-directory directory t))))
 
 (ert-deftest note-gtd-week-boundaries-cross-year ()

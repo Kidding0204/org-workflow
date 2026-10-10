@@ -139,21 +139,21 @@
     (should (string-match-p "连续 0 天"
                             (org-workflow-evening--week done (+ sat 2))))))
 
-(ert-deftest workflow-habit-today-includes-completed-not-future-and-is-readonly ()
+(ert-deftest workflow-habit-optional-hides-completed-and-future-and-is-readonly ()
   (workflow-habit-test
    (with-temp-file org-workflow-habit-file
      (insert "#+TODO: TODO | DONE\n* TODO Completed\nSCHEDULED: <2026-09-20 Sun .+1d>\n:PROPERTIES:\n:STYLE: habit\n:END:\n:LOGBOOK:\n- State \"DONE\" from \"TODO\" [2026-09-19 Sat 20:00]\n:END:\n* TODO Future\nSCHEDULED: <2026-09-21 Mon .+1d>\n:PROPERTIES:\n:STYLE: habit\n:END:\n"))
    (let* ((source (find-file-noselect org-workflow-habit-file))
           (before (with-current-buffer source (buffer-string))))
      (cl-letf (((symbol-function 'org-workflow-target--today-string) (lambda () "2026-09-19"))
-               ((symbol-function 'org-workflow-target--ordered-entries) (lambda (&rest _) nil)))
+               ((symbol-function 'org-workflow-target--ordered-entries) (lambda (&rest _) nil))
+               ((symbol-function 'org-workflow-collection-inbox--review-files) (lambda () nil)))
        (with-temp-buffer
-         (org-workflow-evening-today nil)
-         (goto-char (point-min)) (search-forward "Completed")
-         (should (markerp (org-get-at-bol 'org-hd-marker)))
-         (should (eq 'todo (get-text-property (point) 'org-agenda-type)))
+         (org-workflow-agenda-inbox nil)
+         (should-not (string-match-p "Completed" (buffer-string)))
          (should-not (string-match-p "Future" (buffer-string)))
-         (should (string-match-p "六 ☑" (buffer-string)))))
+         (should (org-workflow-target-entry-done
+                  (car (org-workflow-habits-items "2026-09-19"))))))
      (should (equal before (with-current-buffer source (buffer-string))))
      (should-not (buffer-modified-p source)))))
 
