@@ -98,6 +98,7 @@ Validate every row first, and roll back source buffers if an operation fails."
         (org-agenda-redo)))))
 
 (defvar-local org-workflow-agenda--native-edit-marker nil)
+(defvar-local org-workflow-agenda--completion-line nil)
 
 (defun org-workflow-agenda--refresh-failed-plan (original &rest args)
   "Call ORIGINAL with ARGS and refresh Sprint after a transaction rollback."
@@ -115,24 +116,67 @@ Validate every row first, and roll back source buffers if an operation fails."
 (defun org-workflow-agenda--refresh-native-edit ()
   "Rebuild Sprint once after a native editing command has fully finished."
   (remove-hook 'post-command-hook #'org-workflow-agenda--refresh-native-edit t)
-  (let ((marker org-workflow-agenda--native-edit-marker))
-    (setq org-workflow-agenda--native-edit-marker nil)
+  (let ((marker org-workflow-agenda--native-edit-marker)
+        (completion-line org-workflow-agenda--completion-line))
+    (setq org-workflow-agenda--native-edit-marker nil
+          org-workflow-agenda--completion-line nil)
     (when marker
       (unwind-protect
           (when (and (derived-mode-p 'org-agenda-mode)
                      org-workflow-agenda--sprint-buffer-p)
             (org-agenda-redo)
             (when (marker-buffer marker)
-              (org-workflow-agenda--goto-task marker)))
+              (org-workflow-agenda--goto-task marker))
+            (when completion-line
+              (let ((line completion-line)
+                    (end (or (text-property-any (point-min) (point-max)
+                                                'org-workflow-agenda-completed-header t)
+                             (point-max))))
+                (goto-char (point-min))
+                (forward-line (1- line))
+                (when (>= (point) end)
+                  (goto-char end) (forward-line -1)))))
         (set-marker marker nil)))))
 
 (defun org-workflow-agenda--queue-native-refresh (marker)
   "Refresh Sprint after the current command, anchored at MARKER."
-  (setq org-workflow-agenda--sprint-buffer-p t)
+  (setq org-workflow-agenda--sprint-buffer-p t
+        org-workflow-agenda--completion-line nil)
   (when (markerp org-workflow-agenda--native-edit-marker)
     (set-marker org-workflow-agenda--native-edit-marker nil))
   (setq org-workflow-agenda--native-edit-marker (copy-marker marker))
   (org-workflow--add-hook 'post-command-hook #'org-workflow-agenda--refresh-native-edit nil t))
+
+(defun org-workflow-agenda--completion-neighbor (current direction)
+  "Find a visible unfinished row beside CURRENT in DIRECTION."
+  (save-excursion
+    (catch 'found
+      (while (= (forward-line direction) 0)
+        (when-let* ((marker (org-get-at-bol 'org-hd-marker))
+                    ((not (equal marker current)))
+                    ((not (invisible-p (point))))
+                    ((org-with-point-at marker (not (org-entry-is-done-p)))))
+          (throw 'found (copy-marker marker)))))))
+
+(defun org-workflow-agenda--track-native-todo (original &rest args)
+  "Call ORIGINAL with ARGS, moving completed Sprint rows to their next item."
+  (if (not (bound-and-true-p org-workflow-agenda--sprint-buffer-p))
+      (apply original args)
+    (let* ((current (org-get-at-bol 'org-hd-marker))
+           (unfinished (and current (org-with-point-at current (not (org-entry-is-done-p)))))
+           (line (line-number-at-pos))
+           (neighbor (and current
+                          (or (org-workflow-agenda--completion-neighbor current 1)
+                              (org-workflow-agenda--completion-neighbor current -1)))))
+      (unwind-protect
+          (prog1 (apply original args)
+            (when (and unfinished current (marker-buffer current)
+                       (org-with-point-at current (org-entry-is-done-p)))
+              (if neighbor
+                  (org-workflow-agenda--queue-native-refresh neighbor)
+                (org-workflow-agenda--queue-native-refresh current)
+                (setq org-workflow-agenda--completion-line line))))
+        (when neighbor (set-marker neighbor nil))))))
 
 (defun org-workflow-agenda--track-native-edit (original &rest args)
   "Call ORIGINAL with ARGS and defer Sprint refresh until line updates finish.
@@ -447,6 +491,7 @@ Inherited tags remain owned by their parent headings or file."
   (org-workflow--advice-add 'org-agenda-refile :around #'org-workflow-agenda--refile-to-agenda-files)
   (org-workflow--advice-add 'org-workflow-agenda--apply-planning :around
             #'org-workflow-agenda--refresh-failed-plan '((depth . -100)))
+  (org-workflow--advice-add 'org-agenda-todo :around #'org-workflow-agenda--track-native-todo)
   (org-workflow--advice-add 'org-agenda-change-all-lines :around #'org-workflow-agenda--track-native-edit)
   (org-workflow--advice-add 'org-agenda-schedule :around #'org-workflow-agenda--track-native-schedule))
 

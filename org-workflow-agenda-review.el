@@ -133,7 +133,7 @@ This is only a candidate filter; Org still validates matching entries."
      'face 'org-workflow-agenda-section 'follow-link t
      'keymap org-workflow-agenda-future-header-map
      'action #'org-workflow-agenda-toggle-completed
-     'org-agenda-structural-header t)
+     'org-agenda-structural-header t 'org-workflow-agenda-completed-header t)
     (insert "\n")
     (when org-workflow-agenda-review-start
       (setq entries (cl-stable-sort entries #'string< :key (lambda (item) (nth 3 item)))))

@@ -55,6 +55,10 @@ rg --files -g 'org-workflow*.el' -g '*-test.el'
 `h` 原生长期历史、`e` 晚间收尾、`C` 参数设置。
 计时项是多键序列 `f t / f f / f s / f r`，不是单个名为 ft 的键事件。
 
+Sprint 原生 org-agenda-todo 完成后，延迟刷新优先定位到操作前下一项可见未完成任务，
+无下一项时选上一项；没有剩余任务则留在原列表附近，不跟随完成项跳入今日已完成。
+普通刷新、改期及优先级修改仍按原任务 marker 定位；动作库负责完成定位，布局库不改队列。
+
 Sprint 右侧项目循环用 `org-workflow-agenda-previous-project` / `org-workflow-agenda-next-project`
 （`H` / `L`），独立于 tab-line 切换命令；tab-line 只呈现可点击的项目标签。
 右栏局部重映射 Evil 的 buffer 前后切换命令，以兼容宿主 H/L intercept 绑定。
@@ -222,4 +226,3 @@ GitHub CI、源码本地成功、真实 GUI 和物理鼠标验证也不能互相
 包构建只包含根目录 Lisp、生成的 metadata/autoloads 和许可证；文档与 extras 是仓库资料。
 当前 MELPA recipe 仍是候选；本地 tar 成功不等于远端 package-build 验证或 MELPA 接受。
 遇到问题先找对应模块及测试，用已有原生路径解决；不为假想未来需求加入抽象层。
-需要 GSD 时选择适合当前范围的流程，不把一次局部维护扩成未授权的新里程碑。
