@@ -84,8 +84,10 @@ Sprint 右侧项目循环用 `org-workflow-agenda-previous-project` / `org-workf
 
 默认 `org-workflow-clock` 为 `org-clock`；当前宿主选择 `org-workflow-focus-timer`。
 路径默认值与所有最低版本看源码的 `defcustom` 和 `Package-Requires`，不要复制个人绝对路径。
-[declarations 库](../org-workflow-declarations.el) 只声明跨模块变量，保证字节编译时动态绑定正确；
-不要把重复声明直接当成冗余初始化删除。
+无初始值的 defvar 声明只影响所在文件，且会被字节编译消除。已删除无实际跨模块
+作用的 declarations 库；使用跨模块变量作 let 绑定的模块须保留自己的 defvar，
+或在编译时加载其定义库。不要把这些本地声明误删为冗余，也不要用 nil 初始化
+覆盖所属模块的默认值。
 
 ## 4. 数据和行为约束
 
@@ -127,6 +129,16 @@ Sprint 右侧项目循环用 `org-workflow-agenda-previous-project` / `org-workf
 涉及这类行为必须同时看相关 core/store/history 测试。
 
 ### 源文件与缓冲区生命周期
+
+- Org element cache 的绕过只属于有界的只读扫描。不要在完成、归档、保存、文件访问
+  或刷新通知外层绑定 `org-element-use-cache` 为 nil：Org 的修改钩子也受此变量控制，
+  会导致正文已变而原生查询仍返回旧 TODO、属性或日程。core/habits 在访问文件之后
+  才局部关闭扫描缓存；items 的源适配器继续只读绕过，写操作保留原生变更追踪。
+- 不全局关闭或每次强制重置 Org 缓存。缓存回归须先预热原生解析，再执行真实操作，
+  验证后续原生查询；只断言 Workflow 自己的无缓存读取不足以证明一致性。
+- 模式仅拥有自己新增的 hook，停用保留预先注册的同一函数；buffer-local hook 在
+  原所属 buffer 清理。停用同时释放 panel 的习惯 marker 和展示缓存，重启重新读取。
+  旧 `org-workflow-current-item-cache` 无消费者，已删除；当前项始终走共用解析入口。
 
 - `org-workflow-projects-file` 集中杂项；统一任务捕获位于一级 Inbox，习惯位于“习惯”子树，
   指导位于“实践指导”子树。t/p/L 捕获和 Sprint I 新增安排任务均不再写入周日志。
@@ -225,6 +237,7 @@ make package         # dist/org-workflow-<Version>.tar
 [test runner](../test/run-tests.el) 使用临时 notes/store/profile。
 [build 脚本](../scripts/build-package.el) 的 test 分支先复制源码，避开宿主 User Lisp
 字节码与隔离依赖中 Org 版本不同的干扰；测试时间 locale 为 C，导出时间 fixture 指定上海时区。
+compile 分支先暂存全部源码，优先从暂存目录加载较新源码，避免宿主旧字节码干扰编译。
 bootstrap 安装 Evil 等开发测试工具，不等于把它们写入运行时依赖。
 
 User Lisp 会递归处理仓库。宿主 early-init 必须排除 `.ci`、`dist`、`test`、`scripts`、

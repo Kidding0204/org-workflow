@@ -28,6 +28,8 @@
 (require 'tab-line)
 (require 'org-workflow-sources)
 
+(defvar org-workflow-agenda-planning-all)
+
 (defface org-workflow-agenda-section
   '((t (:inherit default :foreground "#193668" :height 1.15 :weight semibold)))
   "Compact face for the two top-level Sprint sections."

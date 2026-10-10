@@ -15,6 +15,7 @@
 ;; A component of org-workflow.  Activation is coordinated by its global mode.
 ;;; Code:
 (require 'org-workflow-lifecycle)
+(require 'org-archive)
 (require 'org-workflow-sources)
 ;;; org-workflow-agenda-inbox.el --- Capture classification and continuous collection review -*- lexical-binding: t; -*-
 ;;; Commentary:
@@ -82,7 +83,6 @@
   "Archive direct DONE Inbox items through settled DATE, preserving full trees.
 Newer CLOSED entries remain until their day is settled.  Follow native Org
 archive locations; save destinations before removing source entries on disk."
-  (require 'org-archive)
   (let ((file (expand-file-name org-workflow-projects-file)) positions)
     (when (file-readable-p file)
       (org-workflow-source-read
@@ -117,8 +117,7 @@ archive locations; save destinations before removing source entries on disk."
                   (setq changes (mapcan #'prepare-change-group (delete-dups (cons source destinations))))
                   (activate-change-group changes)
                   (let ((org-archive-subtree-save-file-p nil)
-                        (org-workflow-store-enabled nil)
-                        (org-element-use-cache nil))
+                        (org-workflow-store-enabled nil))
                     (dolist (marker markers)
                       (org-with-point-at marker (org-archive-subtree)))
                     (dolist (buffer destinations) (with-current-buffer buffer (save-buffer)))

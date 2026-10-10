@@ -585,7 +585,8 @@ REPLACEMENT is newly created by `org-workflow-target-step'."
       (when (file-readable-p file)
         (with-current-buffer (find-file-noselect file)
           (org-with-wide-buffer
-           (let ((kind (cond
+           (let ((org-element-use-cache nil)
+                 (kind (cond
                         ((member "project" org-file-tags) 'project)
                         ((member "area" org-file-tags) 'area))))
              (when kind
@@ -758,26 +759,26 @@ Without THROUGH-DATE, use today as the upper scheduling boundary."
 
 (defun org-workflow-target--selection-entries ()
   "Return (SECTION . ENTRY) pairs, with today's queue before other DIVE children."
-  (let* ((org-element-use-cache nil)
-         (stack (org-workflow-target--ordered-entries))
+  (let* ((stack (org-workflow-target--ordered-entries))
          extra)
     (dolist (file (org-agenda-files t))
       (when (file-readable-p file)
         (with-current-buffer (find-file-noselect file)
           (org-with-wide-buffer
            (when-let* ((kind (org-workflow--file-kind)))
-             (org-map-entries
-              (lambda ()
-                (when (and (org-workflow-target--unfinished-leaf-p)
-                           (org-workflow-target--eligible-leaf-p kind nil)
-                           (org-workflow--dive-child-p)
-                           (not (seq-some
-                                 (lambda (entry)
-                                   (org-workflow-target--same-marker-p
-                                    (point-marker) (org-workflow-target-entry-marker entry)))
-                                 stack)))
-                  (push (org-workflow-target--entry-at-point) extra)))
-              nil 'file))))))
+             (let ((org-element-use-cache nil))
+               (org-map-entries
+                (lambda ()
+                  (when (and (org-workflow-target--unfinished-leaf-p)
+                             (org-workflow-target--eligible-leaf-p kind nil)
+                             (org-workflow--dive-child-p)
+                             (not (seq-some
+                                   (lambda (entry)
+                                     (org-workflow-target--same-marker-p
+                                      (point-marker) (org-workflow-target-entry-marker entry)))
+                                   stack)))
+                    (push (org-workflow-target--entry-at-point) extra)))
+                nil 'file)))))))
     (append (mapcar (lambda (entry) (cons "今日任务栈" entry)) stack)
             (mapcar (lambda (entry) (cons "栈外 DIVE" entry))
                     (cl-stable-sort (nreverse extra) #'>
@@ -984,11 +985,9 @@ is deferred, or the day changes.  Do not start timing automatically."
 
 (defun org-workflow-target-refresh (&optional signal-errors)
   "Refresh the target stack, propagating errors when SIGNAL-ERRORS is non-nil."
-  ;; A refresh opens and scans several Org files while daemon startup is still
-  ;; initializing their element caches.  Bypass the cache for this bounded
-  ;; scan: a stale/incomplete cache can otherwise loop in `org-element--parse-to'.
-  (let ((org-element-use-cache nil)
-        (old-stack org-workflow-target-stack)
+  ;; Only source scans bypass the parser cache.  File visits and notification
+  ;; hooks must retain Org's change tracking when they modify source buffers.
+  (let ((old-stack org-workflow-target-stack)
         (old-current (org-workflow-target-current-marker))
         (was-nonempty (seq-some #'org-workflow-target--valid-entry-p
                                 org-workflow-target-stack)))

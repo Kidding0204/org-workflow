@@ -59,11 +59,11 @@ An explicit file keeps the dedicated habit document behavior."
 
 (defun org-workflow-habits--map (function)
   "Call FUNCTION on each native habit with bounded, cache-free source reads."
-  (let ((org-element-use-cache nil))
-    (dolist (file (org-workflow-habits-files))
-      (when (file-exists-p file)
-        (unless (file-readable-p file) (error "Unreadable habit source: %s" file))
-        (with-current-buffer (find-file-noselect file)
+  (dolist (file (org-workflow-habits-files))
+    (when (file-exists-p file)
+      (unless (file-readable-p file) (error "Unreadable habit source: %s" file))
+      (with-current-buffer (find-file-noselect file)
+        (let ((org-element-use-cache nil))
           (org-with-wide-buffer
            (org-map-entries
             (lambda () (when (org-workflow-habit-p) (funcall function))) nil 'file)))))))

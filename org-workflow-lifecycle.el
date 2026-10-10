@@ -7,7 +7,6 @@
 ;; Track integrations installed by the explicit global Workflow mode.
 ;;; Code:
 (require 'org)
-(require 'org-workflow-declarations)
 (require 'cl-lib)
 (require 'seq)
 (declare-function evil-get-auxiliary-keymap "evil-core" (map state &optional create ignore-parent))
@@ -39,10 +38,21 @@ Global bindings belong to the user configuration."
   "Return the configured notes directory without using private note APIs."
   (file-name-as-directory (expand-file-name (or org-workflow-directory org-directory))))
 (defun org-workflow--add-hook (hook function &optional depth local)
-  "Add FUNCTION to HOOK at DEPTH, recording LOCAL ownership when enabled."
-  (when (or org-workflow-mode org-workflow--activating)
-    (cl-pushnew (list hook function local (and local (current-buffer))) org-workflow--hooks :test #'equal))
-  (add-hook hook function depth local))
+  "Add FUNCTION to HOOK at DEPTH, owning only newly added LOCAL entries."
+  ;; Match `add-hook': a manually localized hook without t stays local.
+  (let* ((local (or local
+                    (and (local-variable-if-set-p hook) (boundp hook)
+                         (not (and (consp (symbol-value hook))
+                                   (memq t (symbol-value hook)))))))
+         (before (if local
+                     (and (local-variable-p hook) (symbol-value hook))
+                   (and (default-boundp hook) (default-value hook)))))
+    (add-hook hook function depth local)
+    (when (and (or org-workflow-mode org-workflow--activating)
+               (not (or (equal function before)
+                        (and (listp before) (member function before)))))
+      (cl-pushnew (list hook function local (and local (current-buffer)))
+                  org-workflow--hooks :test #'equal))))
 (defun org-workflow--advice-add (symbol where function &optional props)
   "Advise SYMBOL at WHERE with FUNCTION and PROPS, recording ownership."
   (when (and (or org-workflow-mode org-workflow--activating)

@@ -23,6 +23,9 @@
 
 (require 'org-agenda)
 
+(defvar org-workflow-agenda-sprint-view)
+(defvar org-workflow-agenda--laying-out-columns)
+
 (defun org-workflow-agenda--refile-to-agenda-files (original &rest args)
   "Call ORIGINAL with ARGS using unfinished Agenda headings as refile targets."
   (let* ((verify org-refile-target-verify-function)

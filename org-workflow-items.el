@@ -31,8 +31,6 @@
 (declare-function org-workflow-journal-direct-clock-minutes "org-workflow-journal" (marker start end))
 (defvar org-workflow-focus-timer-task-marker)
 (defvar org-workflow-executing-marker)
-(defvar org-workflow-current-item-cache nil
-  "Last resolved item for lightweight consumers such as the mode line.")
 
 (cl-defstruct (org-workflow-target-entry
                (:constructor org-workflow-target-entry-create))
@@ -69,22 +67,20 @@ This bounded source read bypasses the Org element cache and never creates IDs."
 
 (defun org-workflow-current-item ()
   "Return the one current item shared by UI, commands and source navigation."
-  (let* ((org-element-use-cache nil)
-         (ordinary (org-workflow-target--ordinary-marker))
+  (let* ((ordinary (org-workflow-target--ordinary-marker))
          (active (org-workflow-focus-timer-active-p))
          (timer-marker (and active org-workflow-focus-timer-task-marker))
          (clock-marker (and (org-clocking-p) org-clock-marker)))
-    (setq org-workflow-current-item-cache
-          (cond
-           ((and timer-marker (marker-buffer timer-marker))
-            (org-workflow-item-at-marker timer-marker))
-           ((and clock-marker
-                 (or (org-with-point-at clock-marker (equal (org-entry-get nil "STYLE") "habit"))
-                     (and ordinary (equal clock-marker ordinary))))
-            (org-workflow-item-at-marker clock-marker))
-           ((or active clock-marker) (and ordinary (org-workflow-item-at-marker ordinary)))
-           (t (or (org-workflow-habits-current-item)
-                  (and ordinary (org-workflow-item-at-marker ordinary))))))))
+    (cond
+     ((and timer-marker (marker-buffer timer-marker))
+      (org-workflow-item-at-marker timer-marker))
+     ((and clock-marker
+           (or (org-with-point-at clock-marker (equal (org-entry-get nil "STYLE") "habit"))
+               (and ordinary (equal clock-marker ordinary))))
+      (org-workflow-item-at-marker clock-marker))
+     ((or active clock-marker) (and ordinary (org-workflow-item-at-marker ordinary)))
+     (t (or (org-workflow-habits-current-item)
+            (and ordinary (org-workflow-item-at-marker ordinary)))))))
 
 (defun org-workflow-item-supports-p (item action)
   "Whether ITEM supports ACTION without changing its domain semantics."
@@ -124,8 +120,7 @@ This bounded source read bypasses the Org element cache and never creates IDs."
 (defun org-workflow-item-complete (item)
   "Complete ITEM, recording only this occurrence for a repeated habit."
   (let ((marker (org-workflow-target-entry-marker item))
-        (habit (eq (org-workflow-target-entry-kind item) 'habit))
-        (org-element-use-cache nil))
+        (habit (eq (org-workflow-target-entry-kind item) 'habit)))
     (when habit
       (org-with-point-at marker (org-workflow-habits-check-completion)))
     (when (and (org-clocking-p) (not (org-workflow-clock--clock-matches-p marker)))

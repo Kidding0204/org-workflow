@@ -25,6 +25,9 @@
 
 (require 'tab-bar)
 
+(defvar org-workflow-agenda-plan-tomorrow)
+(defvar org-workflow-agenda-planning-all)
+
 (defvar org-workflow-agenda-columns-enabled nil)
 
 (defvar org-workflow-agenda-selected-group nil)

@@ -81,10 +81,11 @@ Today's pending occurrence does not break the ongoing streak."
 (defun org-workflow-evening--habit-rows (date)
   "Render shared habit items for DATE with native week tracking."
   (let ((today (time-to-days (org-time-string-to-time (concat date " 12:00"))))
-        (org-element-use-cache nil) rows)
+        rows)
     (dolist (item (org-workflow-habits-items date))
       (org-with-point-at (org-workflow-target-entry-marker item)
-        (let* ((habit (org-workflow-habits--parse))
+        (let* ((org-element-use-cache nil)
+               (habit (org-workflow-habits--parse))
                (done (org-habit-done-dates habit))
                (marker (org-agenda-new-marker (point)))
                (tags (org-workflow-display-tags))

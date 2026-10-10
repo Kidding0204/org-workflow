@@ -111,7 +111,11 @@
 (defun org-workflow--cancel-background-work ()
   "Cancel package timers without changing an existing Org clock record."
   (org-workflow-focus-timer--clear-state)
-  (setq org-workflow-current-item-cache nil)
+  (org-workflow-panel-invalidate)
+  (setq org-workflow-panel--cache nil)
+  (dolist (entry org-workflow-panel--habit-markers)
+    (set-marker (cdr entry) nil))
+  (setq org-workflow-panel--habit-markers nil)
   (dolist (variable '(org-workflow-target-midnight-timer org-workflow-history-timer
                       org-workflow-history--refresh-timer org-workflow-journal-seal-timer
                       org-workflow-leave--startup-timer org-workflow-panel--reminder-timer))
@@ -120,6 +124,7 @@
 (defun org-workflow--enable ()
   "Activate current task semantics and owned integrations explicitly."
   (unless org-workflow--settings-before
+    (org-workflow-panel-invalidate)
     (setq org-workflow--settings-before (org-workflow--snapshot-settings))
     (let ((org-workflow--activating t))
     (condition-case err

@@ -10,7 +10,6 @@
            (org-clock-marker (make-marker))
            (org-workflow-current-changed-hook nil)
            (org-workflow-stack-empty-hook nil)
-           (org-workflow-current-item-cache nil)
            (org-workflow-panel--key nil)
            (org-workflow-panel--cache nil)
            (org-workflow-target-selected-date nil)

@@ -84,10 +84,14 @@
      (let ((directory (expand-file-name "dist/compile")))
        (make-directory directory t)
        (dolist (source (org-workflow-build--sources))
-         (let ((copy (expand-file-name (file-name-nondirectory source) directory)))
-           (copy-file source copy t)
-           (unless (byte-compile-file copy)
-             (error "Compilation failed: %s" source))))))
+         (copy-file source (expand-file-name (file-name-nondirectory source) directory) t))
+       ;; Compile against the staged sources, not the host's stale bytecode.
+       (let ((load-path (cons directory load-path))
+             (load-prefer-newer t))
+         (dolist (source (org-workflow-build--sources))
+           (let ((copy (expand-file-name (file-name-nondirectory source) directory)))
+             (unless (byte-compile-file copy)
+               (error "Compilation failed: %s" source)))))))
     ("test"
      (org-workflow-build--initialize)
      ;; User Lisp bytecode may have been compiled against the user's newer Org.

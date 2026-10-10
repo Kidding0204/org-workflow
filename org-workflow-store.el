@@ -78,8 +78,8 @@
   (prin1-to-string value))
 
 (defun org-workflow-store--decode (value)
-  "Read stored VALUE with evaluation disabled, or return nil for nil."
-  (when value (let ((read-eval nil)) (read value))))
+  "Deserialize stored VALUE, or return nil for nil."
+  (when value (read value)))
 
 (defun org-workflow-store-leaves (date)
   "Read explicit activity explanations for DATE, separate from work totals."
