@@ -69,6 +69,76 @@
     (widen)
     (goto-char (org-workflow-source-section "Inbox" t))))
 
+(defun org-workflow-inbox--archive-buffer (file)
+  "Visit FILE for automatic archiving only when its live text is safe to save."
+  (let ((buffer (or (get-file-buffer file) (find-file-noselect file))))
+    (with-current-buffer buffer
+      (when (or buffer-read-only (buffer-modified-p)
+                (not (verify-visited-file-modtime buffer)))
+        (user-error "Inbox 归档暂缓，请先保存或重新读取 %s" file)))
+    buffer))
+
+(defun org-workflow-inbox-archive-done (date)
+  "Archive direct DONE Inbox items through settled DATE, preserving full trees.
+Newer CLOSED entries remain until their day is settled.  Follow native Org
+archive locations; save destinations before removing source entries on disk."
+  (require 'org-archive)
+  (let ((file (expand-file-name org-workflow-projects-file)) positions)
+    (when (file-readable-p file)
+      (org-workflow-source-read
+       file
+       (lambda ()
+         (when-let* ((position (org-workflow-source-section "Inbox")))
+           (goto-char position)
+           (org-map-entries
+            (lambda ()
+              (when (and (= 2 (org-outline-level))
+                         (equal "DONE" (org-get-todo-state)))
+                (let ((closed (org-workflow-target--timestamp-date (org-entry-get nil "CLOSED"))))
+                  (when (or (null closed) (not (string< date closed)))
+                    (push (point) positions))))) nil 'tree)))))
+    (when positions
+      (condition-case error-data
+	  (let* ((source (org-workflow-inbox--archive-buffer file))
+		 (markers (mapcar (lambda (position) (with-current-buffer source (copy-marker position))) positions))
+		 destinations id-targets changes destination-saved accepted)
+            (unwind-protect
+		(progn
+                  (dolist (marker markers)
+                    (org-with-point-at marker
+				       (let* ((location (org-archive--compute-location
+							 (or (org-entry-get nil "ARCHIVE" 'inherit) org-archive-location)))
+					      (target (org-workflow-inbox--archive-buffer (car location))))
+					 (cl-pushnew target destinations)
+					 (push (cons (buffer-file-name target)
+						     (delq nil (org-map-entries
+								(lambda () (org-entry-get nil "ID")) nil 'tree)))
+					       id-targets))))
+                  (setq changes (mapcan #'prepare-change-group (delete-dups (cons source destinations))))
+                  (activate-change-group changes)
+                  (let ((org-archive-subtree-save-file-p nil)
+                        (org-workflow-store-enabled nil)
+                        (org-element-use-cache nil))
+                    (dolist (marker markers)
+                      (org-with-point-at marker (org-archive-subtree)))
+                    (dolist (buffer destinations) (with-current-buffer buffer (save-buffer)))
+                    (setq destination-saved t)
+                    (dolist (target id-targets)
+                      (dolist (id (cdr target)) (org-id-add-location id (car target))))
+                    (with-current-buffer source (save-buffer)))
+                  (accept-change-group changes)
+                  (setq accepted t)
+                  (org-id-locations-save)
+                  (length positions))
+              (when (and changes (not accepted))
+		;; A persisted archive is already a recoverable copy.  Keep an
+		;; unsaved source edit after source-save failure rather than undoing
+		;; only buffers while leaving a contradictory archive on disk.
+		(if destination-saved (accept-change-group changes)
+		  (cancel-change-group changes)))
+              (dolist (marker markers) (set-marker marker nil))))
+	(user-error (message "%s" (error-message-string error-data)) 0)))))
+
 (defun org-workflow-collection-inbox--heading-p ()
   "Return non-nil for the unified Inbox or a legacy collection heading."
   (or (org-entry-get nil "JOURNAL_INBOX")

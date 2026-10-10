@@ -20,6 +20,7 @@
 
 (require 'org-workflow-habits)
 (require 'org-workflow-sources)
+(autoload 'org-workflow-inbox-archive-done "org-workflow-agenda-inbox")
 
 (require 'org-workflow-journal)
 
@@ -216,7 +217,8 @@ RECOMPUTE changes statistics without changing commitments."
         (today (org-workflow-target--today-string)))
     (while (string< date today)
       (org-workflow-history-finalize date)
-      (setq date (org-workflow-history-add-days date 1)))))
+      (setq date (org-workflow-history-add-days date 1)))
+    (org-workflow-inbox-archive-done (org-workflow-history-add-days today -1))))
 
 (defun org-workflow-history-streak (date daily)
   "Return the fulfilled-day streak ending at DATE, using current DAILY progress."

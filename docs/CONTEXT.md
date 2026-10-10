@@ -129,6 +129,10 @@ Sprint 右侧项目循环用 `org-workflow-agenda-previous-project` / `org-workf
 - Sprint 全天可选区按自由习惯、未安排收集项、每个直接 DIVE 父组最前两项呈现，单栏和
   双栏主面板均显示。候选按原文顺序、独立于右栏项目选择与全部范围开关，不变更执行队列。
   原生访问／完成不要求启动专注，不创建承诺；计时仍可选。
+- Inbox 自动清理接在 history-catch-up 的全部旧日结算之后（当前午夜日结／启动补结算）。
+  仅原生 DONE 的直属任务，CLOSED 超出截止日则留待下次；缺少 CLOSED 的旧 DONE 可归档。
+  沿用 Org ARCHIVE／org-archive-location，先保存档案再保存源，维护 ID 定位；有未保存编辑
+  或外部改动时暂缓，不保存用户其他编辑。不会全局关闭 Org 缓存或改写历史快照。
 - history--tasks 的普通任务 CLOCK／完成事实读取也走 source-read；习惯完成后的桌面状态
   刷新不能退回缓存式 org-map-entries 扫描，须保留现场未保存文本与收窄范围。
 - sources 库后台读取优先使用现场 buffer，否则使用禁止启动钩子、缓存和保存询问的临时
