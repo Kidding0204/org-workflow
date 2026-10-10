@@ -502,7 +502,7 @@ Use native Agenda markers and the existing parent progress renderer."
          (candidates (org-workflow-agenda--optional-candidates))
          (seen (make-hash-table :test #'equal))
          previous-parent)
-    (insert "\n" (org-workflow-agenda--section-header "全天可选"))
+    (insert "\n" (org-workflow-agenda--section-header "可选"))
     (when habits
       (insert (propertize "  习惯\n" 'face 'org-workflow-agenda-meta
                           'org-agenda-structural-header t 'org-workflow-agenda-create-context 'habit))
@@ -536,7 +536,7 @@ Use native Agenda markers and the existing parent progress renderer."
                                   'org-agenda-structural-header t)))
             (insert (org-workflow-agenda--stack-line entry nil) "\n")))))
     (unless (or habits collected candidates)
-      (insert (propertize "    暂无全天可选任务\n" 'face 'shadow)))
+      (insert (propertize "    暂无可选任务\n" 'face 'shadow)))
     (insert "\n")
     (add-text-properties start (point) '(org-agenda-type todo))))
 

@@ -59,7 +59,7 @@ Sprint 原生 org-agenda-todo 完成后，延迟刷新优先定位到操作前�
 无下一项时选上一项；没有剩余任务则留在原列表附近，不跟随完成项跳入今日已完成。
 普通刷新、改期及优先级修改仍按原任务 marker 定位；动作库负责完成定位，布局库不改队列。
 
-全天可选中的习惯、收集项和待安排分组统一使用 `org-workflow-agenda-meta`。
+“可选”中的习惯、收集项和待安排分组统一使用 `org-workflow-agenda-meta`。
 已完成任务与队列任务一样移除源 Org 标题的字体属性，保留原生 Agenda marker 和 DONE 状态。
 
 Sprint 右侧项目循环用 `org-workflow-agenda-previous-project` / `org-workflow-agenda-next-project`
@@ -130,7 +130,7 @@ Sprint 右侧项目循环用 `org-workflow-agenda-previous-project` / `org-workf
   t/p/L 标题捕获显式使用 `:empty-lines 0`，不沿用附近空行自动补分隔；正文列表模板不变。
   收集项日常查询只读 projects，不依赖 Vulpea 周日志索引。新周日志仅随记／周回顾。
   本次已授权迁移 52 个旧收集任务，备份与记录见 verification；程序不自动搬移其他文件。
-- Sprint 全天可选区按自由习惯、未安排收集项、每个直接 DIVE 父组最前两项呈现，单栏和
+- Sprint “可选”区按自由习惯、未安排收集项、每个直接 DIVE 父组最前两项呈现，单栏和
   双栏主面板均显示。候选按原文顺序、独立于右栏项目选择与全部范围开关，不变更执行队列。
   原生访问／完成不要求启动专注，不创建承诺；计时仍可选。
 - Inbox 自动清理接在 history-catch-up 的全部旧日结算之后（当前午夜日结／启动补结算）。
