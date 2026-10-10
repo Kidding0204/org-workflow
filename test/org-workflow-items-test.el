@@ -14,6 +14,11 @@
            (org-workflow-panel--key nil)
            (org-workflow-panel--cache nil)
            (org-workflow-target-selected-date nil)
+           ;; These shared-item tests need the morning task at any wall time.
+           (org-workflow-work-periods
+            '((morning "00:00" "12:00")
+              (afternoon "12:00" "18:00")
+              (evening "18:00" "23:59")))
            (task-file (expand-file-name "tasks.org" directory))
            (date (org-workflow-target--today-string)))
       (with-temp-file task-file

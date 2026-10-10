@@ -21,7 +21,9 @@
                       (lambda (&rest _) (ert-fail "Optional completion started focus"))))
              (org-agenda nil "d")
              (let* ((text (buffer-string))
-                    (optional (substring text (string-match "全天可选" text))))
+                    (optional-start (string-match "\n可选\n" text))
+                    (optional (substring text (or optional-start
+                                                  (ert-fail "Optional section is missing")))))
                (should (< (string-match "Free reading" optional)
                           (string-match "Collected task" optional)
                           (string-match "First one" optional)))
