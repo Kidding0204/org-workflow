@@ -173,6 +173,8 @@ Focus Timer 通过标准 Org Clock 记录；自身停止时默认不足五分钟
 clock-continue／focus-timer-start-last 调用链也已移除。start/rest/finish/stop
 等底层入口保留显式控制用途。宿主 GNOME 移除已禁用的 Finish／Stop／Continue／Rest
 快捷键和已退役 Ready；不再使用的 Status 快捷键也已删除，Cancel 标签明确为 Cancel Timer。
+Status 专用的 `org-workflow-focus-timer-notify-status` 和无人复用的 `--notify`
+已删除；`status-text` 仍供计时命令返回状态，`status-json` 仍供顶栏读取。
 
 每日统计按本地午夜分界，跨日 CLOCK 分摊；历史后端负责结算／补结算。
 已结算快照按既有规则读取，missing 不等于零，旧规则边界也不能随意重写。

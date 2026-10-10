@@ -475,24 +475,6 @@ a break, and finish either break state into the next Focus."
         (file-missing
          (message "Focus Timer sound player is unavailable"))))))
 
-(defun org-workflow-focus-timer--notify (title body)
-  "Notify with TITLE and BODY, falling back to the echo area."
-  (condition-case nil
-      (if (require 'notifications nil t)
-          (notifications-notify :title title
-                                :body body
-                                :app-name "Emacs Focus Timer")
-        (message "%s: %s" title body))
-    (error (message "%s: %s" title body))))
-
-;;;###autoload
-(defun org-workflow-focus-timer-notify-status ()
-  "Notify and return the current minute-based Focus Timer status."
-  (interactive)
-  (let ((status (org-workflow-focus-timer-status-text)))
-    (org-workflow-focus-timer--notify "Focus Timer" status)
-    status))
-
 (defun org-workflow-focus-timer--enable ()
   "Install this component while Workflow is being enabled."
   (org-workflow--add-hook 'org-clock-out-hook #'org-workflow-focus-timer--after-external-clock-out)

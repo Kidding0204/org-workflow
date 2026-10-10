@@ -180,8 +180,7 @@
        (let ((task-marker (copy-marker (point))))
          (unwind-protect
              (cl-letf (((symbol-function 'force-mode-line-update) #'ignore)
-                       ((symbol-function 'org-agenda-maybe-redo) #'ignore)
-                       ((symbol-function 'org-workflow-focus-timer--notify) #'ignore))
+                       ((symbol-function 'org-agenda-maybe-redo) #'ignore))
                ,@body)
            (when (org-clocking-p)
              (let ((org-workflow-focus-timer--clock-operation t))
@@ -538,28 +537,6 @@
                                  :object-type 'plist)
               '(:phase "focus" :elapsed 7 :target 25
                 :completed 2 :expired :false))))))
-
-(ert-deftest org-workflow-focus-timer-notify-status-uses-printable-status ()
-  "The emacsclient status command must return what it notifies."
-  (let (notification)
-    (cl-letf (((symbol-function 'org-workflow-focus-timer-status-text)
-               (lambda () "F +10m"))
-              ((symbol-function 'org-workflow-focus-timer--notify)
-               (lambda (title body) (setq notification (list title body)))))
-      (should (equal (org-workflow-focus-timer-notify-status) "F +10m"))
-      (should (equal notification '("Focus Timer" "F +10m"))))))
-
-(ert-deftest org-workflow-focus-timer-notify-falls-back-to-message ()
-  "Desktop notification failure must still surface the same information."
-  (let (fallback)
-    (cl-letf (((symbol-function 'notifications-notify)
-               (lambda (&rest _arguments) (error "No desktop bus")))
-              ((symbol-function 'message)
-               (lambda (format-string &rest arguments)
-                 (setq fallback (apply #'format format-string arguments)))))
-      (provide 'notifications)
-      (org-workflow-focus-timer--notify "Focus target" "Continue naturally.")
-      (should (equal fallback "Focus target: Continue naturally.")))))
 
 (provide 'org-workflow-focus-timer-test)
 ;;; org-workflow-focus-timer-test.el ends here
