@@ -83,6 +83,7 @@ Only direct task children count.  Nil disables automatic lookahead."
     (rest . org-workflow-target-rest)
     (continue . org-workflow-target-continue)
     (cancel . org-workflow-target-cancel)
+    (record-last-pomodoro . org-workflow--record-last-pomodoro)
     (visit . org-workflow--visit-in-frame)
     (agenda . org-workflow-open-agenda)
     (week . org-workflow-week-open))
@@ -1315,11 +1316,6 @@ state change inside them.  Modified Org buffers remain available for saving."
   (org-workflow--advance-curr-after-state-change)
   (org-workflow-target--refresh-after-change))
 
-(defun org-workflow-target-ready ()
-  "Retired READY entry point; use a planning subtask instead."
-  (interactive)
-  (user-error "READY 已退役；请推进为一个规划子任务并完成它"))
-
 (defun org-workflow-target--read-executed-part ()
   "Read the optional label for the current target's executed effort."
   (read-string "Executed Part: "))
@@ -1478,6 +1474,14 @@ pass MARKER after arranging their own UI, or omit it for a pure transformation."
 (defun org-workflow-target-continue () "Resume the most recently timed Org entry." (interactive) (org-workflow-clock--clock-continue))
 
 (defun org-workflow-target-cancel () "Cancel the active timing interval." (interactive) (org-workflow-clock--clock-cancel))
+
+(defun org-workflow--record-last-pomodoro ()
+  "Record a past Pomodoro on the shared current desktop item."
+  (interactive)
+  (require 'org-workflow-focus-timer)
+  (org-workflow-focus-timer-record-last-pomodoro
+   (org-workflow-target--require-current))
+  (org-workflow-target-refresh t))
 
 (defun org-workflow-target-capture-location ()
   "Move point to today's current target for `org-capture'."

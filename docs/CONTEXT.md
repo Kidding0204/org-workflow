@@ -166,6 +166,12 @@ checkpoint 按文件退役已保存的恢复映像，不能一次丢弃其他未
 Focus Timer 通过标准 Org Clock 记录；自身停止时默认不足五分钟的片段取消，
 普通手动 Org Clock 不因这条规则被接管。计时状态机在 [focus-timer](../org-workflow-focus-timer.el)。
 
+顶栏右键菜单只保留独立计时入口“取消计时”和“补记上一番茄钟”；左键／Super+s
+负责智能切换。桌面补记显式传入共用当前项 marker，不使用 Emacs 当前 buffer 的条目。
+任务菜单加入现有 step 操作，它将父任务已有投入分配给命名 TODO 子步骤。
+`org-workflow-target-ready` 已删除；`target-continue` 仍可恢复最近计时条目，
+它可能不同于当前队列任务。start/rest/finish/stop 等底层入口保留显式控制用途。
+
 每日统计按本地午夜分界，跨日 CLOCK 分摊；历史后端负责结算／补结算。
 已结算快照按既有规则读取，missing 不等于零，旧规则边界也不能随意重写。
 [history-read](../org-workflow-history.el) 和视图／图表层只读；界面不能重算承诺或写源文件。

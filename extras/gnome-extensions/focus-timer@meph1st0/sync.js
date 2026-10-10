@@ -11,18 +11,15 @@ export const WORKFLOW_DBUS_OBJECT_PATH = '/io/github/meph1st0/OrgWorkflow';
 export const WORKFLOW_DBUS_INTERFACE = 'io.github.meph1st0.OrgWorkflow';
 
 export const WORKFLOW_MENU_ACTIONS = [
-    {id: 'start', label: '开始当前任务'},
+    {id: 'step', label: '添加步骤…'},
     {id: 'prerequisite', label: '添加前置任务…'},
     {id: 'defer', label: '移至晚间'},
     {id: 'defer-group', label: '整组移至晚间'},
     {id: 'complete', label: '标记完成'},
-    {id: 'rest', label: '休息'},
-    {id: 'continue', label: '继续'},
-    {id: 'cancel', label: '取消当前任务'},
 ];
 
 const WORKFLOW_ACTION_IDS = new Set([
-    'visit', 'toggle', 'agenda', 'week',
+    'visit', 'toggle', 'agenda', 'week', 'start', 'cancel', 'record-last-pomodoro',
     ...WORKFLOW_MENU_ACTIONS.map(action => action.id),
 ]);
 const WORKFLOW_CLIENT = GLib.build_filenamev([

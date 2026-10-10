@@ -36,8 +36,6 @@ import {
 
 const TIMER_STATUS_EXPRESSION = '(org-workflow-focus-timer-status-json)';
 const WORKFLOW_STATUS_EXPRESSION = '(org-workflow-status-json)';
-const FINISH_EXPRESSION = '(progn (org-workflow-focus-timer-finish-phase) (org-workflow-focus-timer-status-json))';
-const STOP_EXPRESSION = '(progn (org-workflow-focus-timer-stop) (org-workflow-focus-timer-status-json))';
 
 function makeProgress(styleClass) {
     const bar = new St.BoxLayout({
@@ -192,12 +190,10 @@ export default class FocusTimerExtension extends Extension {
             this._reminderMenuItem.menu.addAction(label, () => this._runWorkflowAction(action));
         this._indicator.menu.addMenuItem(this._reminderMenuItem);
         this._indicator.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem('计时'));
-        this._indicator.menu.addAction('切换计时（Super+s）',
-            () => this._runWorkflowAction('toggle'));
-        this._indicator.menu.addAction('完成当前计时阶段',
-            () => this._runCommand(FINISH_EXPRESSION));
-        this._indicator.menu.addAction('停止计时',
-            () => this._runCommand(STOP_EXPRESSION));
+        this._indicator.menu.addAction('取消计时',
+            () => this._runWorkflowAction('cancel'));
+        this._indicator.menu.addAction('补记上一番茄钟',
+            () => this._runWorkflowAction('record-last-pomodoro'));
         this._indicator.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem('状态与习惯'));
         this._indicator.menu.addMenuItem(this._habitMenu);
         this._skipHabitItem = this._indicator.menu.addAction('跳过当前习惯（仅今天）',

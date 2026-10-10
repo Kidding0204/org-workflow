@@ -644,12 +644,6 @@ SCHEDULED: <2026-08-17 Mon>
    (should (equal "DONE" (org-get-todo-state)))
    (should (org-entry-get nil "CLOSED"))))
 
-(ert-deftest org-workflow-target-ready-is-retired-without-mutation ()
-  (org-workflow-test-with-leaf
-   (let ((before (buffer-string)))
-     (should-error (org-workflow-target-ready) :type 'user-error)
-     (should (equal before (buffer-string))))))
-
 (ert-deftest org-workflow-manual-ready-records-ready-fact-on-scheduled-leaf ()
   "A direct TODO-to-READY change records its date and clears its schedule."
   (org-workflow-target-test-with-files
@@ -1371,6 +1365,20 @@ SCHEDULED: <2026-08-17 Mon>
       (should (equal '(:ok t :action toggle)
                      (org-workflow-dispatch 'toggle)))
       (should called))))
+
+(ert-deftest org-workflow-desktop-record-pomodoro-uses-current-item ()
+  "Desktop recording must ignore the selected buffer's Org context."
+  (let ((target (make-marker)) recorded refreshed)
+    (cl-letf (((symbol-function 'org-workflow-target--require-current)
+               (lambda (&rest _) target))
+              ((symbol-function 'org-workflow-focus-timer-record-last-pomodoro)
+               (lambda (marker) (setq recorded marker)))
+              ((symbol-function 'org-workflow-target-refresh)
+               (lambda (&rest _) (setq refreshed t))))
+      (should (equal '(:ok t :action record-last-pomodoro)
+                     (org-workflow-dispatch 'record-last-pomodoro)))
+      (should (eq recorded target))
+      (should refreshed))))
 
 (ert-deftest org-workflow-dispatch-invokes-registered-action-interactively ()
   "External actions must honor their interactive parameter readers."

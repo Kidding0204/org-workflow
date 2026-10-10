@@ -203,3 +203,13 @@ Start/toggle/visit/complete target the displayed habit. After skip or completion
 older reminders do not resurface. Reloading Shell does not repeat notifications.
 Updated JS needs a new GNOME Wayland login; installing files alone does not
 prove the live Shell loaded v22.
+
+## Simplified context menu
+
+Left click and Super+s switch timer state. The task submenu offers adding a
+step or prerequisite, deferring a task or group, and completion. The timer
+section offers cancellation (discard the active interval) and recording a past
+Pomodoro ending now on the shared current item. Recording requires an inactive
+timer and Org clock. Adding a step uses the existing operation that moves the
+parent task's recorded effort to a named TODO child. Low-level finish, stop and
+resume-last commands remain available in Emacs for explicit timing control.

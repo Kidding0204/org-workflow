@@ -34,10 +34,10 @@ if (source.includes('_habitButton'))
 
 assertContains(source, "const TIMER_STATUS_EXPRESSION = '(org-workflow-focus-timer-status-json)'",
     'timer status uses the standalone package API');
-assertContains(source, "const FINISH_EXPRESSION = '(progn (org-workflow-focus-timer-finish-phase) (org-workflow-focus-timer-status-json))'",
-    'finish action uses the standalone package API');
-assertContains(source, "const STOP_EXPRESSION = '(progn (org-workflow-focus-timer-stop) (org-workflow-focus-timer-status-json))'",
-    'stop action uses the standalone package API');
+assertContains(source, "this._runWorkflowAction('cancel')",
+    'cancel uses the configured clock backend');
+assertContains(source, "this._runWorkflowAction('record-last-pomodoro')",
+    'retrospective recording resolves the shared current item');
 for (const oldName of ['focus-timer-status-json', 'focus-timer-finish-phase', 'focus-timer-stop']) {
     if (source.includes(`(${oldName}`))
         throw new Error(`legacy Emacs interface remains: ${oldName}`);

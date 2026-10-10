@@ -6,7 +6,7 @@ script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 emacs_client="$script_dir/emacs-systemd-client"
 
 case "$action" in
-    select|start|toggle|step|prerequisite|defer|defer-group|complete|rest|continue|cancel|visit|agenda|week)
+    select|start|toggle|step|prerequisite|defer|defer-group|complete|rest|continue|cancel|record-last-pomodoro|visit|agenda|week)
         ;;
     *)
         printf 'Unknown Org Workflow action: %s\n' "$action" >&2
