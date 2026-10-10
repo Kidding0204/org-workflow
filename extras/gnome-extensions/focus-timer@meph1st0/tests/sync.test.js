@@ -67,7 +67,6 @@ function testWorkflowMenuExposesExistingDesktopActions() {
         {id: 'prerequisite', label: '添加前置任务…'},
         {id: 'defer', label: '移至晚间'},
         {id: 'defer-group', label: '整组移至晚间'},
-        {id: 'complete', label: '标记完成'},
     ], 'keeps the title-bar menu aligned with global workflow shortcuts');
 }
 

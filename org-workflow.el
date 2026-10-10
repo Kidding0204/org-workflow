@@ -151,7 +151,8 @@
   "Release package-owned integration without discarding source or history."
   (org-workflow--cancel-background-work)
   (org-workflow--remove-integrations)
-  (setq org-workflow-store-enabled nil)
+  (setq org-workflow-store-enabled nil
+        org-workflow-habit-selection nil)
   (when org-workflow--settings-before (org-workflow--restore-settings))
   (dolist (buffer (buffer-list))
     (with-current-buffer buffer

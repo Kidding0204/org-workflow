@@ -6,7 +6,7 @@ script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 emacs_client="$script_dir/emacs-systemd-client"
 
 case "$action" in
-    select|start|toggle|step|prerequisite|defer|defer-group|complete|rest|cancel|record-last-pomodoro|visit|agenda|week)
+    select|start|toggle|step|prerequisite|defer|defer-group|complete|rest|cancel|record-last-pomodoro|visit|agenda|week|history)
         ;;
     *)
         printf 'Unknown Org Workflow action: %s\n' "$action" >&2
@@ -18,7 +18,7 @@ case "$action" in
     select)
         exec "$emacs_client" --eval '(org-workflow-select-in-new-frame)'
         ;;
-    visit|step|prerequisite|agenda|week)
+    visit|step|prerequisite|agenda|week|history)
         "$emacs_client" --no-wait --reuse-frame
         exec "$emacs_client" --eval \
             "(org-workflow-dispatch-in-frame (quote $action))"

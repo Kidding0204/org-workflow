@@ -44,6 +44,10 @@
   "Convert shared habit ITEM to the desktop presentation contract."
   (list :key (org-workflow-item-key item) :title (org-workflow-target-entry-title item)
         :done (if (org-workflow-target-entry-done item) t :false)
+        :selected (if (and (equal (car org-workflow-habit-selection)
+                                 (org-workflow-target--today-string))
+                          (equal (cdr org-workflow-habit-selection) (org-workflow-item-key item)))
+                      t :false)
         :reminderTime (org-workflow-target-entry-reminder-time item)))
 
 (defun org-workflow-panel--habits (today)
@@ -245,6 +249,29 @@
     (org-workflow-panel--select-frame)
     (pop-to-buffer (marker-buffer marker)) (goto-char marker)
     (org-fold-show-context) (org-fold-show-entry)))
+
+(defun org-workflow-panel-toggle-habit (key)
+  "Temporarily select habit KEY, or restore the ordinary task queue."
+  (interactive "s习惯引用：")
+  (let* ((today (org-workflow-target--today-string))
+         (item (seq-find
+               (lambda (candidate) (equal key (org-workflow-item-key candidate)))
+               (org-workflow-habits-items today)))
+         (current (org-workflow-current-item))
+         (ordinary (org-workflow-target--ordinary-marker))
+         (restore (and current (eq (org-workflow-target-entry-kind current) 'habit)
+                       (equal key (org-workflow-item-key current)))))
+    (unless item (user-error "习惯已变化，请刷新"))
+    (when (org-workflow-target-entry-done item) (user-error "本次习惯已完成"))
+    (when (and (org-clocking-p) (not (org-workflow-clock--clock-active-p)))
+      (user-error "请先停止手动 Org 计时"))
+    (when (org-workflow-clock--clock-active-p) (org-workflow-clock--clock-stop))
+    (when ordinary
+      (setq org-workflow-target-selected-marker (copy-marker ordinary)
+            org-workflow-target-selected-date today))
+    (org-workflow--release-execution)
+    (setq org-workflow-habit-selection (cons today (unless restore key)))
+    (org-workflow-item-changed)))
 
 (defun org-workflow-panel--enable ()
   "Install this component while Workflow is being enabled."

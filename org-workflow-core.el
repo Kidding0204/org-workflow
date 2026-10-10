@@ -85,7 +85,8 @@ Only direct task children count.  Nil disables automatic lookahead."
     (record-last-pomodoro . org-workflow--record-last-pomodoro)
     (visit . org-workflow--visit-in-frame)
     (agenda . org-workflow-open-agenda)
-    (week . org-workflow-week-open))
+    (week . org-workflow-week-open)
+    (history . org-workflow-history-panel))
   "Allowed desktop ACTION to interactive Org Workflow command mappings.")
 
 (defconst org-workflow-gnome-sync-object-path
@@ -842,7 +843,8 @@ is deferred, or the day changes.  Do not start timing automatically."
                                     'org-workflow-target-selection-history))
            (marker (cdr (assoc choice candidates)))
            (old-marker org-workflow-target-selected-marker)
-           (old-date org-workflow-target-selected-date))
+           (old-date org-workflow-target-selected-date)
+           (old-habit-selection org-workflow-habit-selection))
       (setq org-workflow-target-selected-marker (copy-marker marker)
             org-workflow-target-selected-date (org-workflow-target--today-string))
       (condition-case err
@@ -850,10 +852,12 @@ is deferred, or the day changes.  Do not start timing automatically."
             (unless (org-workflow-target--selected-entry)
               (user-error "任务已不在可选范围，请重新选择"))
             (org-workflow--release-execution)
+            (setq org-workflow-habit-selection (cons (org-workflow-target--today-string) nil))
             (setq org-workflow-executing-marker (copy-marker marker))
             (org-workflow-target-refresh t))
         (error (setq org-workflow-target-selected-marker old-marker
-                     org-workflow-target-selected-date old-date)
+                     org-workflow-target-selected-date old-date
+                     org-workflow-habit-selection old-habit-selection)
                (signal (car err) (cdr err))))
       (message "当前任务：%s" (org-with-point-at marker (org-workflow-target--entry-title))))))
 

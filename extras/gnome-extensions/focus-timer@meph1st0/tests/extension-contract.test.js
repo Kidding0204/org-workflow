@@ -42,3 +42,16 @@ for (const oldName of ['focus-timer-status-json', 'focus-timer-finish-phase', 'f
     if (source.includes(`(${oldName}`))
         throw new Error(`legacy Emacs interface remains: ${oldName}`);
 }
+
+const directLabels = ['打开当前任务', '完成当前任务', '取消计时', '补记番茄钟', '任务操作'];
+const positions = directLabels.map(label => source.indexOf(`'${label}'`));
+if (positions.some((position, index) => position < 0 || (index > 0 && position <= positions[index - 1])))
+    throw new Error('direct actions precede the task submenu in the requested order');
+if (source.includes("PopupSeparatorMenuItem('计时')") || source.includes("PopupSubMenuMenuItem('今日习惯')"))
+    throw new Error('timer header and habit submenu must not remain');
+assertContains(source, 'new PopupMenu.PopupMenuSection()', 'habit rows are exposed directly');
+assertContains(source, '(org-workflow-panel-toggle-habit ', 'habit rows toggle their current-item selection');
+assertContains(source, 'item.setSensitive(!habit.done)', 'completed habits cannot be selected');
+assertContains(source, "this._runWorkflowAction('history')", 'right menu opens native history');
+if (source.includes("menu.addAction('打开 Sprint'"))
+    throw new Error('Sprint remains a left-click action, not a duplicate menu entry');

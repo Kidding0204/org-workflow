@@ -51,5 +51,12 @@
 	(delete-directory directory t)))
     (org-workflow-mode 1)))
 
+(ert-deftest org-workflow-dispatch-opens-the-requested-native-history-panel ()
+  (let (opened)
+    (cl-letf (((symbol-function 'org-workflow-history-panel)
+               (lambda (&optional _) (interactive) (setq opened t))))
+      (should (equal '(:ok t :action history) (org-workflow-dispatch 'history)))
+      (should opened))))
+
 (provide 'org-workflow-dispatch-test)
 ;;; org-workflow-dispatch-test.el ends here

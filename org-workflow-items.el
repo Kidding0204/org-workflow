@@ -9,6 +9,9 @@
 (require 'org-clock)
 (require 'org-id)
 
+(defvar org-workflow-habit-selection nil
+  "Session habit override as (DATE . KEY); nil KEY restores ordinary tasks.")
+
 (declare-function org-workflow-target--direct-parent-marker "org-workflow-core" ())
 (declare-function org-workflow-target--entry-title "org-workflow-core" ())
 (declare-function org-workflow--effective-priority-at-point "org-workflow-core" ())
@@ -67,6 +70,8 @@ This bounded source read bypasses the Org element cache and never creates IDs."
 
 (defun org-workflow-current-item ()
   "Return the one current item shared by UI, commands and source navigation."
+  (unless (equal (car org-workflow-habit-selection) (org-workflow-target--today-string))
+    (setq org-workflow-habit-selection nil))
   (let* ((ordinary (org-workflow-target--ordinary-marker))
          (active (org-workflow-focus-timer-active-p))
          (timer-marker (and active org-workflow-focus-timer-task-marker))
@@ -79,7 +84,16 @@ This bounded source read bypasses the Org element cache and never creates IDs."
                (and ordinary (equal clock-marker ordinary))))
       (org-workflow-item-at-marker clock-marker))
      ((or active clock-marker) (and ordinary (org-workflow-item-at-marker ordinary)))
-     (t (or (org-workflow-habits-current-item)
+     (t (or (if org-workflow-habit-selection
+                (let ((item (seq-find
+                             (lambda (candidate)
+                               (and (equal (org-workflow-item-key candidate)
+                                           (cdr org-workflow-habit-selection))
+                                    (not (org-workflow-target-entry-done candidate))))
+                             (org-workflow-habits-items (org-workflow-target--today-string)))))
+                  (unless item (setcdr org-workflow-habit-selection nil))
+                  item)
+              (org-workflow-habits-current-item))
             (and ordinary (org-workflow-item-at-marker ordinary)))))))
 
 (defun org-workflow-item-supports-p (item action)
@@ -143,6 +157,9 @@ This bounded source read bypasses the Org element cache and never creates IDs."
   (unless (org-workflow-item-supports-p item 'skip)
     (user-error "当前项不支持跳过习惯提醒"))
   (org-workflow-habits-skip-item item)
+  (when (and org-workflow-habit-selection
+             (equal (cdr org-workflow-habit-selection) (org-workflow-item-key item)))
+    (setcdr org-workflow-habit-selection nil))
   (org-workflow-item-changed))
 
 (defun org-workflow-item-skip-current ()

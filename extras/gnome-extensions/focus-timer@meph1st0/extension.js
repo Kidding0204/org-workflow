@@ -163,13 +163,13 @@ export default class FocusTimerExtension extends Extension {
         this._rightBody.label.clutter_text.line_wrap = true;
         this._rightBody.label.add_style_class_name('org-workflow-body');
         this._rightIndicator.menu.addMenuItem(this._rightBody);
-        this._rightIndicator.menu.addAction('打开 Sprint', () => this._runWorkflowAction('agenda'));
+        this._rightIndicator.menu.addAction('打开长期状态追踪', () => this._runWorkflowAction('history'));
         this._rightIndicator.menu.addAction('打开周日志', () => this._runWorkflowAction('week'));
         Main.panel.addToStatusArea(`${this.uuid}-guidance`, this._rightIndicator, 0, 'right');
         this._releaseRightPlacement = keepFirstInRightPanel(Main.panel, this._rightIndicator);
         this._bindPanelClicks(this._indicator, 'toggle');
         this._bindPanelClicks(this._rightIndicator, 'agenda');
-        this._habitMenu = new PopupMenu.PopupSubMenuMenuItem('今日习惯');
+        this._habitMenu = new PopupMenu.PopupMenuSection();
 
 
         this._bodyItem = new PopupMenu.PopupMenuItem('', {
@@ -180,20 +180,17 @@ export default class FocusTimerExtension extends Extension {
 
         this._indicator.menu.addAction('打开当前任务',
             () => this._runWorkflowAction('visit'));
+        this._indicator.menu.addAction('完成当前任务',
+            () => this._runWorkflowAction('complete'));
+        this._indicator.menu.addAction('取消计时',
+            () => this._runWorkflowAction('cancel'));
+        this._indicator.menu.addAction('补记番茄钟',
+            () => this._runWorkflowAction('record-last-pomodoro'));
         this._workflowMenuItem = new PopupMenu.PopupSubMenuMenuItem('任务操作');
         for (const action of WORKFLOW_MENU_ACTIONS)
             this._workflowMenuItem.menu.addAction(action.label,
                 () => this._runWorkflowAction(action.id));
         this._indicator.menu.addMenuItem(this._workflowMenuItem);
-        this._reminderMenuItem = new PopupMenu.PopupSubMenuMenuItem('当前习惯');
-        for (const [action, label] of [['start', '开始习惯'], ['complete', '完成本次习惯'], ['visit', '打开习惯']])
-            this._reminderMenuItem.menu.addAction(label, () => this._runWorkflowAction(action));
-        this._indicator.menu.addMenuItem(this._reminderMenuItem);
-        this._indicator.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem('计时'));
-        this._indicator.menu.addAction('取消计时',
-            () => this._runWorkflowAction('cancel'));
-        this._indicator.menu.addAction('补记上一番茄钟',
-            () => this._runWorkflowAction('record-last-pomodoro'));
         this._indicator.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem('状态与习惯'));
         this._indicator.menu.addMenuItem(this._habitMenu);
         this._skipHabitItem = this._indicator.menu.addAction('跳过当前习惯（仅今天）',
@@ -345,7 +342,6 @@ export default class FocusTimerExtension extends Extension {
             Boolean(title.parent);
         const reminder = currentHabitReminder(this._workflowStatus, this._timerStatus);
         this._skipHabitItem.visible = Boolean(reminder);
-        this._reminderMenuItem.visible = Boolean(reminder);
         this._workflowMenuItem.visible = !reminder;
         if (reminder)
             this._bodyItem.label.set_text(`习惯：${reminder.title}\n已提醒；可完成或跳过今天。`);
@@ -370,10 +366,11 @@ export default class FocusTimerExtension extends Extension {
         const signature = JSON.stringify(panel?.habits ?? []);
         if (signature !== this._habitMenuSignature) {
             this._habitMenuSignature = signature;
-            this._habitMenu.menu.removeAll();
-            (panel?.habits ?? []).forEach((habit, index) => {
-                this._habitMenu.menu.addAction(`${habit.done ? '✓' : '○'} ${habit.title}`,
-                    () => this._runCommand(`(org-workflow-panel-visit-habit ${JSON.stringify(habit.key)})`));
+            this._habitMenu.removeAll();
+            (panel?.habits ?? []).forEach(habit => {
+                const item = this._habitMenu.addAction(`${habit.selected ? '▶ ' : ''}${habit.done ? '✓' : '○'} ${habit.title}`,
+                    () => this._runCommand(`(org-workflow-panel-toggle-habit ${JSON.stringify(habit.key)})`));
+                item.setSensitive(!habit.done);
             });
         }
     }
