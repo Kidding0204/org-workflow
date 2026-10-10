@@ -88,7 +88,7 @@ This bounded source read bypasses the Org element cache and never creates IDs."
 
 (defun org-workflow-item-supports-p (item action)
   "Whether ITEM supports ACTION without changing its domain semantics."
-  (or (memq action '(visit start toggle complete stop continue cancel note save))
+  (or (memq action '(visit start toggle complete stop cancel note save))
       (if (eq (org-workflow-target-entry-kind item) 'habit)
           (eq action 'skip)
         (memq action '(step prerequisite defer defer-group commitment)))))

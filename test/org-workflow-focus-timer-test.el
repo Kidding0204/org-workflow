@@ -490,28 +490,6 @@
       (should-not selected)
       (should (eq org-workflow-focus-timer-phase 'focus)))))
 
-(ert-deftest org-workflow-focus-timer-start-last-uses-org-clock-history ()
-  "Continue must delegate selection semantics to `org-clock-in-last'."
-  (let ((org-workflow-focus-timer-phase nil)
-        received-prefix)
-    (with-temp-buffer
-      (org-mode)
-      (insert "* TODO Last task\n")
-      (goto-char (point-min))
-      (cl-letf (((symbol-function 'org-clock-in-last)
-                 (lambda (&optional prefix)
-                   (setq received-prefix prefix
-                         org-clock-hd-marker (copy-marker (point)))))
-                ((symbol-function 'org-workflow-focus-timer--enter-phase)
-                 (lambda (phase)
-                   (setq org-workflow-focus-timer-phase phase
-                         org-workflow-focus-timer-phase-start-time (current-time)
-                         org-workflow-focus-timer-target-minutes 25))))
-        (org-workflow-focus-timer-start-last '(4))
-        (should (equal received-prefix '(4)))
-        (should (eq org-workflow-focus-timer-phase 'focus))
-        (should (= (marker-position org-workflow-focus-timer-task-marker) (point-min)))))))
-
 (ert-deftest org-workflow-focus-timer-external-clock-out-clears-focus-state ()
   "Raw Org clock termination must not leave a detached Focus phase."
   (let ((org-workflow-focus-timer-phase 'focus)

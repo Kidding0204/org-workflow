@@ -569,9 +569,8 @@ SCHEDULED: <2026-08-17 Mon>
 (ert-deftest org-workflow-target-clock-commands-delegate-correctly ()
   (org-workflow-target-test-with-current
     (let ((org-workflow-clock 'org-clock)
-          started continued cancelled rested)
+          started cancelled rested)
       (cl-letf (((symbol-function 'org-clock-in) (lambda () (setq started (point))))
-                ((symbol-function 'org-clock-in-last) (lambda () (interactive) (setq continued t)))
                 ((symbol-function 'org-clock-cancel) (lambda () (interactive) (setq cancelled t)))
                 ((symbol-function 'org-clock-is-active) (lambda () t))
                 ((symbol-function 'org-clock-out) (lambda () (setq rested t))))
@@ -580,21 +579,18 @@ SCHEDULED: <2026-08-17 Mon>
         (setq org-clock-marker (org-workflow-target-current-marker))
         (setq org-clock-hd-marker (org-workflow-target-current-marker))
         (org-workflow-target-rest)
-        (org-workflow-target-continue)
         (org-workflow-target-cancel)
-        (should (and rested continued cancelled))))))
+        (should (and rested cancelled))))))
 
 (ert-deftest org-workflow-target-clock-commands-use-focus-timer-backend ()
   "The target stack owns policy while Focus Timer owns time operations."
   (org-workflow-target-test-with-current
     (let ((org-workflow-clock 'org-workflow-focus-timer)
-          started stopped continued cancelled active)
+          started stopped cancelled active)
       (cl-letf (((symbol-function 'org-workflow-focus-timer-start)
                  (lambda (&optional marker _select) (setq started marker active t)))
                 ((symbol-function 'org-workflow-focus-timer-stop)
                  (lambda () (setq stopped t active nil)))
-                ((symbol-function 'org-workflow-focus-timer-start-last)
-                 (lambda () (interactive) (setq continued t)))
                 ((symbol-function 'org-workflow-focus-timer-cancel)
                  (lambda () (interactive) (setq cancelled t)))
                 ((symbol-function 'org-workflow-focus-timer-active-p) (lambda () active))
@@ -602,10 +598,9 @@ SCHEDULED: <2026-08-17 Mon>
                  (lambda (_marker) t)))
         (org-workflow-target-start)
         (org-workflow-target-rest)
-        (org-workflow-target-continue)
         (org-workflow-target-cancel)
         (should (markerp started))
-        (should (and stopped continued cancelled))))))
+        (should (and stopped cancelled))))))
 
 (ert-deftest org-workflow-focus-toggle-gives-inactive-desktop-call-current-target ()
   "GNOME must not ask Focus Timer to infer an unavailable buffer context."
@@ -1355,7 +1350,7 @@ SCHEDULED: <2026-08-17 Mon>
     (should-not
      (memq (lookup-key global-map (kbd key))
            '(org-workflow-target-start org-workflow-target-rest
-             org-workflow-target-continue org-workflow-target-cancel)))))
+             org-workflow-target-cancel)))))
 
 (ert-deftest org-workflow-dispatch-routes-desktop-toggle-through-integration ()
   "The validated desktop boundary must expose the unified timer action."

@@ -81,7 +81,6 @@ Only direct task children count.  Nil disables automatic lookahead."
     (defer-group . org-workflow-target-defer-group)
     (complete . org-workflow-target-complete)
     (rest . org-workflow-target-rest)
-    (continue . org-workflow-target-continue)
     (cancel . org-workflow-target-cancel)
     (record-last-pomodoro . org-workflow--record-last-pomodoro)
     (visit . org-workflow--visit-in-frame)
@@ -979,15 +978,6 @@ is deferred, or the day changes.  Do not start timing automatically."
      (call-interactively #'org-workflow-focus-timer-cancel))
     (_ (org-workflow-clock--unsupported-clock))))
 
-(defun org-workflow-clock--clock-continue ()
-  "Resume a recent task using the selected clock backend."
-  (pcase org-workflow-clock
-    ('org-clock (call-interactively #'org-clock-in-last))
-    ('org-workflow-focus-timer
-     (require 'org-workflow-focus-timer)
-     (call-interactively #'org-workflow-focus-timer-start-last))
-    (_ (org-workflow-clock--unsupported-clock))))
-
 (defun org-workflow-clock--clock-active-p ()
   "Return non-nil when the selected clock backend is active."
   (pcase org-workflow-clock
@@ -1470,8 +1460,6 @@ pass MARKER after arranging their own UI, or omit it for a pure transformation."
   (org-workflow--release-execution)
   (setq org-workflow-target-selected-marker nil)
   (org-workflow-target-refresh t)))
-
-(defun org-workflow-target-continue () "Resume the most recently timed Org entry." (interactive) (org-workflow-clock--clock-continue))
 
 (defun org-workflow-target-cancel () "Cancel the active timing interval." (interactive) (org-workflow-clock--clock-cancel))
 

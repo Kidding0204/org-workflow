@@ -395,30 +395,6 @@ SELECT carries useful `org-clock-in' prefix behavior."
          (signal (car error-data) (cdr error-data)))))))
 
 ;;;###autoload
-(defun org-workflow-focus-timer-start-last (&optional select)
-  "Clock into an Org history task and start a Focus phase.
-Pass SELECT to `org-clock-in-last' so its prefix behavior remains available."
-  (interactive "P")
-  (if (not (org-workflow-focus-timer--prepare-start))
-      (org-workflow-focus-timer-status-text)
-    (condition-case error-data
-        (progn
-          (let ((org-workflow-focus-timer--clock-operation t))
-            (org-clock-in-last select))
-          (unless (and (markerp org-clock-hd-marker)
-                       (marker-buffer org-clock-hd-marker))
-            (user-error "No recent Org clock task is available"))
-          (setq org-workflow-focus-timer-task-marker (copy-marker org-clock-hd-marker))
-          (org-workflow-focus-timer--enter-phase 'focus)
-          (org-workflow-focus-timer-status-text))
-      (error
-       (when (org-clocking-p)
-         (let ((org-workflow-focus-timer--clock-operation t))
-           (org-clock-out nil t)))
-       (org-workflow-focus-timer--clear-state)
-       (signal (car error-data) (cdr error-data))))))
-
-;;;###autoload
 (defun org-workflow-focus-timer-finish-phase ()
   "Finish the current phase and immediately start the conventional next one."
   (interactive)

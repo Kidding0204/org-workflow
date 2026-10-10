@@ -169,8 +169,10 @@ Focus Timer 通过标准 Org Clock 记录；自身停止时默认不足五分钟
 顶栏右键菜单只保留独立计时入口“取消计时”和“补记上一番茄钟”；左键／Super+s
 负责智能切换。桌面补记显式传入共用当前项 marker，不使用 Emacs 当前 buffer 的条目。
 任务菜单加入现有 step 操作，它将父任务已有投入分配给命名 TODO 子步骤。
-`org-workflow-target-ready` 已删除；`target-continue` 仍可恢复最近计时条目，
-它可能不同于当前队列任务。start/rest/finish/stop 等底层入口保留显式控制用途。
+`org-workflow-target-ready` 及 `target-continue` 已删除；恢复最近条目的专用
+clock-continue／focus-timer-start-last 调用链也已移除。start/rest/finish/stop
+等底层入口保留显式控制用途。宿主 GNOME 移除已禁用的 Finish／Stop／Continue／Rest
+快捷键和已退役 Ready；Status 使用当前包命令，Cancel 标签明确为 Cancel Timer。
 
 每日统计按本地午夜分界，跨日 CLOCK 分摊；历史后端负责结算／补结算。
 已结算快照按既有规则读取，missing 不等于零，旧规则边界也不能随意重写。
