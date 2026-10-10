@@ -114,6 +114,43 @@
 
 (provide 'org-workflow-sources-test)
 
+(ert-deftest workflow-source-stage-progress-bypasses-broken-live-cache ()
+  (workflow-source-test
+   (with-temp-file org-workflow-projects-file
+     (insert "#+filetags: :project:\n* Stage\n** TODO [#A] Task\nSCHEDULED: <2026-10-06 Tue>\n"))
+   (let ((org-agenda-files (list org-workflow-projects-file))
+         (org-element-use-cache t)
+         (cache-map (symbol-function 'org-element-cache-map)))
+     (with-current-buffer (find-file-noselect org-workflow-projects-file)
+       (goto-char (point-min)) (search-forward "TODO") (replace-match "DONE")
+       (forward-line 1) (insert "CLOSED: [2026-10-06 Tue 10:00] ")
+       (org-back-to-heading t) (org-narrow-to-subtree)
+       (let ((position (point)) (start (point-min)) (end (point-max))
+             (text (buffer-string)))
+         (cl-letf (((symbol-function 'org-element-cache-map)
+                    (lambda (&rest args)
+                      (when org-element-use-cache (error "Broken live Org cache"))
+                      (apply cache-map args))))
+           (should (equal '(:stageSatisfied 1 :stageTotal 1)
+                          (org-workflow--stage-progress
+                           "2026-10-06" (encode-time 0 0 10 6 10 2026)))))
+         (should (= position (point)))
+         (should (= start (point-min)))
+         (should (= end (point-max)))
+         (should (equal text (buffer-string)))
+         (should (buffer-modified-p)))))))
+
+(ert-deftest workflow-source-stage-progress-does-not-visit-closed-files ()
+  (workflow-source-test
+   (with-temp-file org-workflow-projects-file
+     (insert "#+filetags: :project:\n* Stage\n** TODO [#A] Pending\nSCHEDULED: <2026-10-06 Tue>\n"))
+   (let ((org-agenda-files (list org-workflow-projects-file))
+         (org-mode-hook (list (lambda () (ert-fail "Background UI hook")))))
+     (should (equal '(:stageSatisfied 0 :stageTotal 1)
+                    (org-workflow--stage-progress
+                     "2026-10-06" (encode-time 0 0 10 6 10 2026))))
+     (should-not (get-file-buffer org-workflow-projects-file)))))
+
 (ert-deftest workflow-source-history-tasks-bypasses-broken-live-cache ()
   (workflow-source-test
    (with-temp-file org-workflow-projects-file

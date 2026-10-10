@@ -1,6 +1,6 @@
 # org-workflow：项目会话上下文
 
-核对日期：2026-10-10。面向需要研究、修改或排查本包的会话。
+核对日期：2026-10-11。面向需要研究、修改或排查本包的会话。
 本文是当前代码的阅读地图与维护边界；行为事实以对应源码为准。
 修改入口、数据规则、依赖或验证方法时同步本页，避免继续使用历史方案。
 
@@ -106,6 +106,9 @@ Sprint 右侧项目循环用 `org-workflow-agenda-previous-project` / `org-workf
 - `org-workflow-target-entry` 是共用条目，`kind` 区分 task／habit；items 库只读适配原文，
   不创建 ID。唯一当前项解析优先正在执行的计时周期（包含休息），再读取空闲提醒和普通队列。
   状态、capture、新 frame 和操作共用这个解析结果；mode-line 仅读缓存快照，不在重绘时扫描。
+- 桌面阶段进度 `org-workflow--stage-progress` 通过 `org-workflow-source-read` 读取 Agenda
+  文件，局部绕过 Org element cache，复用未保存内容并保留 point／narrowing；未访问的文件
+  用临时只读 buffer，不触发文件访问或 Org UI hooks。避免启动后的桌面轮询卡在旧解析缓存。
 - 阶段目标以 DIVE + DEADLINE 为唯一来源，替代旧周日志文本周目标；今天／明天 Sprint
   顶部展示截止日期及原生进度，`W`／主菜单 `w` 访问源阶段。仅 TODO + DEADLINE 不列入。
   新周日志不生成周目标节，已有日志原文保留；参见 [习惯与阶段目标](habit-system.md)。

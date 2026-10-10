@@ -38,6 +38,7 @@
 (require 'org-workflow-commands)
 (require 'org-workflow-periods)
 (require 'org-workflow-items)
+(require 'org-workflow-sources)
 
 (defcustom org-workflow-clock 'org-clock
   "Clock backend used by current-target workflow commands."
@@ -608,9 +609,10 @@ REPLACEMENT is newly created by `org-workflow-target-step'."
         (total 0))
     (dolist (file (org-agenda-files t))
       (when (file-readable-p file)
-        (with-current-buffer (find-file-noselect file)
-          (org-with-wide-buffer
-           (when-let* ((kind (org-workflow--file-kind)))
+        (org-workflow-source-read
+         file
+         (lambda ()
+           (when (org-workflow--file-kind)
              (org-map-entries
               (lambda ()
                 (when (and (>= (org-outline-level) 2)
@@ -624,7 +626,7 @@ REPLACEMENT is newly created by `org-workflow-target-step'."
                                    (not (and (fboundp 'org-workflow-history-attempt-enabled-p)
                                              (org-workflow-history-attempt-enabled-p date)))))
                       (cl-incf satisfied)))))
-              nil 'file))))))
+              nil nil))))))
     (list :stageSatisfied satisfied :stageTotal total)))
 
 (defun org-workflow-target--collect (&optional through-date)
