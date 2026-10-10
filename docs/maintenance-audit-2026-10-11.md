@@ -21,18 +21,18 @@ lighter 表示模式启用。三者与已删除的任务堆栈展示职责不同
 READY 的迁移和旧历史读取仍有消费者；planning JSON 是外部只读接口。
 本轮未改写这些规则，也未删除公共 marker accessor。
 
-## 后续候选
+## 第二轮已清理
 
-以下是静态调用审查发现的候选，本轮只记录，未改变其行为。
+下面的第一轮候选已进一步核对调用关系并删除。
 
 | 模块 | 候选 | 依据与下一步 |
 | --- | --- | --- |
-| core | `target--ancestor-marker-at-level`、`--clean-body` | 无生产调用者的内部辅助函数，可进一步清理 |
-| core | `--normalize-discovered-containers`、`--normalize-current-buffer-before-save` | 无直接调用或 hook 注册；单条 normalize 操作仍在使用，须保持其行为 |
-| migrate | `system-setup` | 无调用，重复旧初始化／自动迁移步骤；当前入口是显式 mode 生命周期，需单独确认退役范围 |
-| agenda-actions | `agenda-selection-label` | 无菜单或其他消费者 |
-| agenda-view | `agenda-direct-parent-breadcrumb`、`agenda-skip-nonplannable-current-leaf`、`agenda-category-parent-group` | 无生产消费者，属于旧 Agenda 路径候选 |
-| agenda-view | `agenda-future` | 旧 renderer 只有专用测试调用；共享按钮 map 仍被新 renderer 使用，不能整组删除 |
+| core | `target--ancestor-marker-at-level`、`--clean-body` | 无生产调用者，已删除 |
+| core | `--normalize-discovered-containers`、`--normalize-current-buffer-before-save` | 无直接调用或 hook 注册，已删除；单条 normalize 操作保留 |
+| migrate | `system-setup` | 无调用，已删除；显式 mode 生命周期和手动迁移入口保留 |
+| agenda-actions | `agenda-selection-label` | 无菜单或其他消费者，已删除 |
+| agenda-view | `agenda-direct-parent-breadcrumb`、`agenda-skip-nonplannable-current-leaf`、`agenda-category-parent-group` | 无生产消费者，已删除 |
+| agenda-view | `agenda-future` | 已删除旧 renderer 及专用查询；批量回滚测试改用共享 native row renderer |
 
 ## 验证
 
@@ -42,3 +42,17 @@ READY 的迁移和旧历史读取仍有消费者；planning JSON 是外部只读
   现存失败集合一致，差异是已移除的旧 mode-line 测试，不宣称全套通过。
 - 运行中包拥有的全局键位由 10 项降为 0，现有全局键值保持一致；
   旧 mode-line 和 inbox READY 函数已清除，未重启 Workflow 或计时。
+
+第二轮同时删除旧 future-expanded 状态、toggle-future 命令及废弃习惯 face；
+共享按钮 map 改名为 `org-workflow-agenda-header-button-map`，继续用于今天／明天
+切换和完成回顾。宿主删除旧 face 的主题配置。七天排序范围和日期辅助函数保留。
+
+### 第二轮测试清理与最终验证
+
+既有 11 个失败并非 11 个无用测试。旧“全天可选”标题和习惯区 face、旧 future
+collection 以及通知 hook 次数的断言已移除或改为当前契约；items 和 completion
+fixture 明确上午任务可见的条件，不依赖实际运行钟点。批量回滚、排序、习惯完成、
+共享当前项和标准 CLOCK 等有效验证继续保留。
+
+最终 `make test`：568／568 通过。`make compile` 成功，仍有既有编译警告。
+本轮没有通过跳过或整项删除有效业务测试来消除失败，也没有改写真实任务或历史。

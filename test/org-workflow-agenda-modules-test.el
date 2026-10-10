@@ -13,7 +13,6 @@
 (ert-deftest note-gtd-modules-reload-preserves-state-and-does-not-duplicate-hooks ()
   "Reloading implementation modules preserves session choices and user capture."
   (let* ((org-capture-templates (copy-tree org-capture-templates))
-         (org-workflow-agenda-future-expanded t)
          (org-workflow-agenda-planning-all t)
          (org-workflow-agenda-columns-enabled nil)
          (template '("c" "Custom current capture" plain (function ignore) "Keep me")))
@@ -33,6 +32,5 @@
                            window-size-change-functions
                            (note-gtd-modules-test--advice-counts))))
       (should (equal template (assoc "c" org-capture-templates)))
-      (should org-workflow-agenda-future-expanded)
       (should org-workflow-agenda-planning-all)
       (should-not org-workflow-agenda-columns-enabled))))

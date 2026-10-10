@@ -178,15 +178,6 @@ the minibuffer, so other clients such as the GNOME status reader stay usable."
      (org-workflow-target--timestamp-date (org-entry-get nil "SCHEDULED"))
      date)))
 
-(defun org-workflow-target--ancestor-marker-at-level (level)
-  "Return a marker for the current heading's ancestor at LEVEL."
-  (save-excursion
-    (org-back-to-heading t)
-    (while (and (> (org-outline-level) level)
-                (org-up-heading-safe)))
-    (when (= (org-outline-level) level)
-      (copy-marker (point)))))
-
 (defun org-workflow-target--unfinished-p ()
   "Return non-nil when the current heading has an unfinished TODO state."
   (member (org-get-todo-state) org-not-done-keywords))
@@ -337,53 +328,6 @@ DIVE is not inherited through intermediate headings or by a leaf itself."
               (org-remove-timestamp-with-keyword org-scheduled-string)))
           (org-workflow--request-gnome-refresh)
           leaves)))))
-
-(defun org-workflow--normalize-discovered-containers ()
-  "Normalize scheduled eligible containers found in agenda files."
-  (unless org-workflow--normalizing
-    (let ((org-workflow--normalizing t))
-      (dolist (file (org-agenda-files t))
-        (when (file-readable-p file)
-          (with-current-buffer (find-file-noselect file)
-            (org-with-wide-buffer
-             (when-let* ((kind (org-workflow--file-kind)))
-               (let (containers)
-                 (org-map-entries
-                  (lambda ()
-                    (when-let* ((scheduled (org-entry-get nil "SCHEDULED"))
-                                (date (org-workflow-target--timestamp-date scheduled)))
-                      (when (and (org-workflow-target--unfinished-p)
-                                 (not (org-workflow--held-p))
-                                 (not (org-workflow-target--unfinished-leaf-p))
-                                 (org-workflow--eligible-heading-p kind date))
-                        (push (copy-marker (point)) containers))))
-                  nil 'file)
-                 (dolist (container (nreverse containers))
-                   (org-workflow-normalize-heading container)))))))))))
-
-(defun org-workflow--normalize-current-buffer-before-save ()
-  "Normalize scheduled containers in the current scoped agenda buffer."
-  (when (and (derived-mode-p 'org-mode)
-             buffer-file-name
-             (member (file-truename buffer-file-name)
-                     (mapcar #'file-truename (org-agenda-files t)))
-             (not org-workflow--normalizing))
-    (let ((org-workflow--normalizing t))
-      (org-with-wide-buffer
-       (when-let* ((kind (org-workflow--file-kind)))
-         (let (containers)
-           (org-map-entries
-            (lambda ()
-              (when-let* ((scheduled (org-entry-get nil "SCHEDULED"))
-                          (date (org-workflow-target--timestamp-date scheduled)))
-                (when (and (org-workflow-target--unfinished-p)
-                           (not (org-workflow--held-p))
-                           (not (org-workflow-target--unfinished-leaf-p))
-                           (org-workflow--eligible-heading-p kind date))
-                  (push (copy-marker (point)) containers))))
-            nil 'file)
-           (dolist (container (nreverse containers))
-             (org-workflow-normalize-heading container))))))))
 
 (defun org-workflow--stage-priorities (&optional time)
   "Return priority characters visible in the stage containing TIME."
@@ -1517,10 +1461,6 @@ alone when there is no current target."
                        (replace-regexp-in-string
                         "[[:space:]]*\\[[0-9]+/[0-9]+\\]" "" heading))))
           (list title progress))))))
-
-(defun org-workflow--clean-body (marker)
-  "Read MARKER's body through the shared item source pipeline."
-  (org-workflow-item-body (org-workflow-item-at-marker marker)))
 
 (defun org-workflow-status ()
   "Return a stable plist describing the current Org workflow state."

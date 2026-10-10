@@ -13,7 +13,6 @@
          (org-workflow-agenda-plan-tomorrow nil)
          (org-workflow-agenda-selected-group nil)
          (org-workflow-agenda-planning-all nil)
-         (org-workflow-agenda-future-expanded t)
          (org-workflow-agenda-columns-enabled nil))
      (unwind-protect
          (save-window-excursion

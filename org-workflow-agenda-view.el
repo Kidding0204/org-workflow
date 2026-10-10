@@ -28,13 +28,6 @@
 (require 'tab-line)
 (require 'org-workflow-sources)
 
-(defun org-workflow-agenda-direct-parent-breadcrumb ()
-  "Return the current Org entry's direct parent as an Agenda breadcrumb."
-  (if-let* (((derived-mode-p 'org-mode))
-            (parent (car (last (org-get-outline-path)))))
-      (concat parent org-agenda-breadcrumbs-separator)
-    ""))
-
 (defface org-workflow-agenda-section
   '((t (:inherit default :foreground "#193668" :height 1.15 :weight semibold)))
   "Compact face for the two top-level Sprint sections."
@@ -80,11 +73,6 @@
 (defface org-workflow-agenda-evening
   '((t (:inherit default :height 1.05 :weight semibold)))
   "Evening planning band; colors are supplied by the active theme."
-  :group 'org-agenda)
-
-(defface org-workflow-agenda-habit
-  '((t (:inherit default :height 1.05 :weight semibold)))
-  "Habit planning band; colors are supplied by the active theme."
   :group 'org-agenda)
 
 (defun org-workflow-agenda--period-header (priority &optional entries)
@@ -225,7 +213,7 @@
       (insert-text-button
        (concat " " (cdr item) " ")
        'face (if (eq tomorrow (car item)) 'org-workflow-agenda-group 'org-workflow-agenda-meta)
-       'follow-link t 'keymap org-workflow-agenda-future-header-map
+       'follow-link t 'keymap org-workflow-agenda-header-button-map
        'org-workflow-agenda-day (car item)
        'action (lambda (button)
                  (org-workflow-agenda-set-day (button-get button 'org-workflow-agenda-day))))
@@ -594,9 +582,6 @@ Use native Agenda markers and the existing parent progress renderer."
               (setq cursor next))))))
     (add-text-properties start (point) '(org-agenda-type todo))))
 
-(defvar org-workflow-agenda-future-expanded t
-  "Whether Sprint's future section is expanded for this Emacs session.")
-
 (defun org-workflow-agenda--date-offset (days)
   "Return DAYS after Workflow's today as an ISO date."
   (format-time-string
@@ -604,103 +589,18 @@ Use native Agenda markers and the existing parent progress renderer."
    (time-add (date-to-time (concat (org-workflow-target--today-string) " 12:00"))
              (days-to-time days))))
 
-(defun org-workflow-agenda--future-entries ()
-  "Return tomorrow through day seven, in date and Workflow group order."
-  (let ((today (org-workflow-target--today-string))
-        (target (org-workflow-agenda-target-date)))
-    (cl-stable-sort
-     (seq-filter (lambda (entry)
-                   (and (string< today (org-workflow-target-entry-scheduled-date entry))
-                        (not (equal target (org-workflow-target-entry-scheduled-date entry)))))
-                 (org-workflow-target--ordered-entries (org-workflow-agenda--date-offset 7)))
-     #'string< :key #'org-workflow-target-entry-scheduled-date)))
-
-(defun org-workflow-agenda-toggle-future (&optional _button)
-  "Expand or collapse future arrangements and keep point on their header."
-  (interactive)
-  (org-workflow-agenda--set-setting 'org-workflow-agenda-future-expanded
-                              (not (org-workflow-agenda--setting 'org-workflow-agenda-future-expanded)))
-  (org-agenda-redo)
-  (goto-char (point-min))
-  (search-forward "未来 7 天" nil t)
-  (beginning-of-line))
-
-(defvar org-workflow-agenda-future-header-map
+(defvar org-workflow-agenda-header-button-map
   (let ((map (copy-keymap button-map)))
     (org-workflow--keymap-set map "<mouse-1>" #'push-button)
     map)
-  "Button map for the future section; task mouse bindings remain unchanged.")
-
-(defun org-workflow-agenda-future (_match)
-  "Insert a collapsible future planning block with native Agenda task rows."
-  (goto-char (point-max))
-  (let ((inhibit-read-only t)
-        (start (point))
-        (entries (org-workflow-agenda--future-entries))
-        previous-date previous-priority previous-group period-start)
-    (insert "\n")
-    (insert-text-button
-     (format "%s 未来 7 天"
-             (if (org-workflow-agenda--setting 'org-workflow-agenda-future-expanded) "▾" "▸"))
-     'face 'org-workflow-agenda-section
-     'follow-link t
-     'keymap org-workflow-agenda-future-header-map
-     'action #'org-workflow-agenda-toggle-future
-     'help-echo "RET 或左键展开／收起；任务菜单 v 同样可用"
-     'org-agenda-structural-header t)
-    (insert "\n")
-    (when (org-workflow-agenda--setting 'org-workflow-agenda-future-expanded)
-      (unless entries
-        (insert (propertize "    暂无安排\n" 'face 'shadow)))
-      (dolist (entry entries)
-        (let ((date (org-workflow-target-entry-scheduled-date entry))
-              (priority (org-workflow-target-entry-priority entry))
-              (group (org-workflow-target--group-key entry)))
-          (unless (equal date previous-date)
-            (when period-start
-              (add-text-properties period-start (point)
-                                   `(org-workflow-agenda-create-context
-                                     (task ,previous-date ,(org-workflow-agenda--priority-letter previous-priority))))
-              (setq period-start nil))
-            (setq previous-date date previous-priority nil previous-group nil)
-            (insert (propertize (concat "  " date "\n")
-                                'face 'org-workflow-agenda-group
-                                'org-agenda-structural-header t)))
-          (unless (equal priority previous-priority)
-            (when period-start
-              (add-text-properties period-start (point)
-                                   `(org-workflow-agenda-create-context
-                                     (task ,date ,(org-workflow-agenda--priority-letter previous-priority)))))
-            (setq previous-priority priority previous-group nil)
-            (setq period-start (point))
-            (insert (org-workflow-agenda--period-header
-                     priority (seq-filter
-                               (lambda (item)
-                                 (and (= priority (org-workflow-target-entry-priority item))
-                                      (equal date (org-workflow-target-entry-scheduled-date item))))
-                               entries))))
-          (unless (equal group previous-group)
-            (setq previous-group group)
-            (insert (propertize
-                     (concat "    " (org-workflow-agenda--entry-group-title entry) "\n")
-                     'org-agenda-structural-header t)))
-          (insert (org-workflow-agenda--stack-line entry nil) "\n"))))
-    (when period-start
-      (add-text-properties period-start (point)
-                           `(org-workflow-agenda-create-context
-                             (task ,previous-date ,(org-workflow-agenda--priority-letter previous-priority)))))
-    (insert "\n")
-    (add-text-properties start (point) '(org-agenda-type todo))))
+  "Button map for day selection and completion section headers.")
 
 (defun org-workflow-agenda--redo-at-task (marker)
-  "Rebuild Sprint, revealing MARKER's future date and restoring its row."
+  "Rebuild Sprint and restore MARKER's row when visible."
   ;; Redo releases the previous Agenda markers; keep an independent anchor.
   (setq marker (copy-marker marker))
   (let ((date (org-with-point-at marker
                 (org-workflow-target--timestamp-date (org-entry-get nil "SCHEDULED")))))
-    (when (and date (string< (org-workflow-target--today-string) date)
-               (not (string< (org-workflow-agenda--date-offset 7) date)))
-      (org-workflow-agenda--set-setting 'org-workflow-agenda-future-expanded t))
     (org-agenda-redo)
     (let ((position (point-min)) found)
       (while (and (< position (point-max)) (not found))
@@ -710,9 +610,7 @@ Use native Agenda markers and the existing parent progress renderer."
                           position 'org-hd-marker nil (point-max)))))
       (when found (goto-char found)))
     (when date
-      (message "已安排至 %s%s" date
-               (if (string< (org-workflow-agenda--date-offset 7) date)
-                   "（超出未来 7 天视图）" "")))))
+      (message "已安排至 %s" date))))
 
 (defun org-workflow-agenda--planning-line-display ()
   "Simplify Sprint task text before org-modern, preserving Agenda metadata."
@@ -810,24 +708,6 @@ This changes only display.")
        (org-workflow-target--task-leaf-p)
        (not (org-workflow--held-p))
        (not (org-entry-get nil "SCHEDULED"))))
-
-(defun org-workflow-agenda-skip-nonplannable-current-leaf ()
-  "Skip the current match unless it is a plannable Current leaf."
-  (unless (org-workflow-agenda--plannable-current-leaf-p)
-    (save-excursion
-      (or (outline-next-heading) (goto-char (point-max)))
-      (point))))
-
-(defun org-workflow-agenda-category-parent-group (_item)
-  "Return category and direct parent for the Agenda item at point."
-  (let ((category (org-get-category))
-        (parent (save-excursion
-                  (org-back-to-heading t)
-                  (when (org-up-heading-safe)
-                    (substring-no-properties (org-get-heading t t t t))))))
-    (if (and parent (not (string-empty-p parent)))
-        (format "%s · %s" category parent)
-      category)))
 
 (defun org-workflow-agenda-needs-scheduling-header ()
   "Return the compact header for tasks which need scheduling."

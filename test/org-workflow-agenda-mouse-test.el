@@ -544,8 +544,13 @@
         (unwind-protect
             (progn
               (org-workflow-workbench-test-open)
-              ;; Exercise the legacy renderer API; Sprint itself hides this section.
-              (org-workflow-agenda-future nil)
+              ;; Supply native rows for future dates without a retired UI renderer.
+              (let ((inhibit-read-only t))
+                (goto-char (point-max))
+                (dolist (entry (org-workflow-target--ordered-entries "2026-08-24"))
+                  (when (string< (org-workflow-target--today-string)
+                                 (org-workflow-target-entry-scheduled-date entry))
+                    (insert (org-workflow-agenda--stack-line entry nil) "\n"))))
               (let* ((first (copy-marker (my/org-mouse-test-row (if bad-date "Today" "Tomorrow"))))
                      (second (copy-marker (my/org-mouse-test-row "Later")))
                      (source-buffer (marker-buffer first))

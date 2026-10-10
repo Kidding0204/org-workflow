@@ -131,7 +131,7 @@ This is only a candidate filter; Org still validates matching entries."
                      (if org-workflow-agenda-review-start "本周已完成" "今日已完成"))
              (unless org-workflow-agenda-sprint-view (format " · %d" (length entries))))
      'face 'org-workflow-agenda-section 'follow-link t
-     'keymap org-workflow-agenda-future-header-map
+     'keymap org-workflow-agenda-header-button-map
      'action #'org-workflow-agenda-toggle-completed
      'org-agenda-structural-header t 'org-workflow-agenda-completed-header t)
     (insert "\n")

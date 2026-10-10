@@ -9,7 +9,6 @@
 (defmacro org-workflow-target-test-with-files (contents &rest body)
   `(let ((files nil)
          (org-agenda-buffer-name (generate-new-buffer-name "*Org Target Test Agenda*"))
-         (org-workflow-agenda-future-expanded nil)
          (org-workflow-agenda-planning-all nil))
      (unwind-protect
          (progn
@@ -1607,7 +1606,7 @@ SCHEDULED: <2026-08-17 Mon>
      (let* ((text (note-gtd-target-test--workbench-text))
             (stack (string-match "安排" text))
             (task (string-match "Agenda View Customization" text))
-            (planning (string-match "全天可选" text)))
+            (planning (string-match "可选" text)))
        (should stack)
        (should task)
        (should planning)
@@ -1734,8 +1733,8 @@ SCHEDULED: <2026-08-17 Mon>
     (should (eq (cdr binding)
                 (lookup-key (current-local-map) (kbd (car binding)))))))))
 
-(ert-deftest note-gtd-agenda-future-collection-bounded-but-hidden-in-sprint ()
-  "Future metadata is retained; Sprint only shows its selected day."
+(ert-deftest note-gtd-agenda-selected-day-hides-other-future-tasks ()
+  "Sprint shows only the selected day and preserves native future task actions."
   (org-workflow-target-test-with-files
    '("#+filetags: :area:
 #+category: Test
@@ -1758,8 +1757,6 @@ SCHEDULED: <2026-08-19 Wed>
    (org-agenda nil "d")
    (with-current-buffer org-agenda-buffer-name
      (should-not (string-match-p "未来 7 天\\|Tomorrow evening\\|Day seven" (buffer-string)))
-     (should (equal '("Tomorrow evening" "Day seven")
-                    (mapcar #'org-workflow-target-entry-title (org-workflow-agenda--future-entries))))
      (org-workflow-agenda-set-day t)
      (note-gtd-target-test--goto-agenda-title "Tomorrow evening")
      (should (equal '(task "2026-08-18" 67)
@@ -2162,7 +2159,7 @@ SCHEDULED: <2026-08-18 Tue>
          (should (= 1 (length (window-list))))
          (should (eq 'combined org-workflow-agenda--pane-role))
          (should-not (string-match-p "未来 7 天" (buffer-string)))
-         (should (string-match-p "全天可选" (buffer-string)))
+         (should (string-match-p "可选" (buffer-string)))
          (should (string-match-p "安排" (buffer-string))))))))
 
 (provide 'org-workflow-agenda-target-test)
@@ -2313,7 +2310,7 @@ SCHEDULED: <2026-08-18 Tue>
 (ert-deftest note-gtd-agenda-manual-order-respects-future-day-and-readonly-peer ()
   (org-workflow-target-test-with-files
    '("#+filetags: :area:\n* DIVE Parent\n** TODO [#C] Today\nSCHEDULED: <2026-08-17 Mon>\n** TODO [#C] Tomorrow first\nSCHEDULED: <2026-08-18 Tue>\n** TODO [#C] Tomorrow second\nSCHEDULED: <2026-08-18 Tue>\n")
-   (let ((org-workflow-agenda-future-expanded t))
+   (progn
      (org-agenda nil "d")
      (with-current-buffer org-agenda-buffer-name
        (org-workflow-agenda-set-day t)

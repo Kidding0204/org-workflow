@@ -85,7 +85,7 @@
           (with-current-buffer org-agenda-buffer-name
             (goto-char (point-min))
             (search-forward "习惯")
-            (should (eq 'org-workflow-agenda-habit (get-text-property (1- (point)) 'face)))
+            (should (eq 'org-workflow-agenda-meta (get-text-property (1- (point)) 'face)))
             (should (get-text-property (1- (point)) 'org-agenda-structural-header))
             (beginning-of-line)
             (should (eq 'habit (get-text-property (point) 'org-workflow-agenda-create-context)))
@@ -104,8 +104,7 @@
          (org-workflow-projects-file file)
          (org-agenda-files (list file))
          (org-agenda-buffer-name "*Sprint future create test*")
-         (org-workflow-agenda-columns-enabled nil)
-         (org-workflow-agenda-future-expanded t))
+         (org-workflow-agenda-columns-enabled nil))
     (unwind-protect
         (progn
           (with-temp-file file

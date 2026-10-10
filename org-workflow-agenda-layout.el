@@ -47,7 +47,7 @@
 
 (defconst org-workflow-agenda--shared-settings
   '(org-workflow-agenda-plan-tomorrow org-workflow-agenda-planning-all
-				org-workflow-agenda-selected-group org-workflow-agenda-future-expanded
+				org-workflow-agenda-selected-group
                                 org-workflow-agenda-completed-expanded org-workflow-agenda-columns-enabled
                                 org-agenda-tag-filter))
 

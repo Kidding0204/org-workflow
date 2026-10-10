@@ -480,12 +480,6 @@ Inherited tags remain owned by their parent headings or file."
   "Remove the tag filter."
   (interactive) (org-workflow-agenda--filter-tag nil))
 
-(defun org-workflow-agenda-selection-label ()
-  "Describe the scope of the planning menu before applying an action."
-  (if org-agenda-bulk-marked-entries
-      (format "操作已选 %d 项" (length org-agenda-bulk-marked-entries))
-    "操作当前任务"))
-
 (defun org-workflow-agenda-actions--enable ()
   "Install this component while Workflow is being enabled."
   (org-workflow--advice-add 'org-agenda-refile :around #'org-workflow-agenda--refile-to-agenda-files)

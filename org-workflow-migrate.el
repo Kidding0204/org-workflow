@@ -219,22 +219,5 @@ affected file if an edit or save fails.  No commitment or historical facts chang
           (error "Imported record differs for %s" (plist-get day :date))))))
 )
 
-(defun org-workflow-system-setup ()
-  "Recover persisted work and enable the new model only after migration."
-  (org-workflow-migrate)
-  (setq org-workflow-external-actions (assq-delete-all 'ready org-workflow-external-actions))
-  (setq org-workflow-store-enabled t
-        org-todo-keywords '((sequence "TODO(t)" "DIVE(v)" "|" "DONE(d)" "HOLD(h)"))
-        org-provide-todo-statistics '(("TODO" "DIVE") ("DONE"))
-        org-tag-alist (seq-remove (lambda (item) (member (car item) '("promise" "CURR"))) org-tag-alist))
-  (dolist (buffer (buffer-list))
-    (with-current-buffer buffer
-      (when (derived-mode-p 'org-mode) (org-set-regexps-and-options))))
-  (org-workflow-store-recover)
-  (org-workflow-store-checkpoint)
-  (org-workflow-history-setup)
-  (org-workflow-commands-setup)
-  (org-workflow-weekly-setup))
-
 (provide 'org-workflow-migrate)
 ;;; org-workflow-migrate.el ends here
