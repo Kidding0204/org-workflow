@@ -124,6 +124,7 @@ Sprint 右侧项目循环用 `org-workflow-agenda-previous-project` / `org-workf
 
 - `org-workflow-projects-file` 集中杂项；统一任务捕获位于一级 Inbox，习惯位于“习惯”子树，
   指导位于“实践指导”子树。t/p/L 捕获和 Sprint I 新增安排任务均不再写入周日志。
+  t/p/L 标题捕获显式使用 `:empty-lines 0`，不沿用附近空行自动补分隔；正文列表模板不变。
   收集项日常查询只读 projects，不依赖 Vulpea 周日志索引。新周日志仅随记／周回顾。
   本次已授权迁移 52 个旧收集任务，备份与记录见 verification；程序不自动搬移其他文件。
 - Sprint 全天可选区按自由习惯、未安排收集项、每个直接 DIVE 父组最前两项呈现，单栏和
