@@ -1387,7 +1387,7 @@ SCHEDULED: <2026-08-17 Mon>
                  (setq received-title title))))
       (should (equal '(:queued t :action prerequisite)
                      (org-workflow-dispatch-in-frame 'prerequisite)))
-      (should (= 0.1 timer-delay))
+      (should (= 0 timer-delay))
       (should (eq #'org-workflow--dispatch-in-frame timer-function))
       (should (eq (selected-frame) (car timer-arguments)))
       (should (equal 'prerequisite (cadr timer-arguments)))
@@ -2395,3 +2395,14 @@ SCHEDULED: <2026-08-18 Tue>
        (should (equal "A" (org-entry-get nil "PRIORITY")))
        (should (equal (if tomorrow "2026-08-18" "2026-08-17")
                       (org-workflow-target--timestamp-date (org-entry-get nil "SCHEDULED"))))))))
+
+(ert-deftest org-workflow-desktop-frame-skips-default-task ()
+  "A page-specific desktop frame must not first visit the ordinary task."
+  (let (visited)
+    (cl-letf (((symbol-function 'display-graphic-p) (lambda (&optional _) t))
+              ((symbol-function 'frame-parameter)
+               (lambda (_ parameter) (eq parameter 'org-workflow-desktop)))
+              ((symbol-function 'org-workflow-target-visit)
+               (lambda () (setq visited t))))
+      (org-workflow--visit-current-target-in-new-frame)
+      (should-not visited))))

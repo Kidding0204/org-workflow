@@ -23,7 +23,7 @@ export ORG_WORKFLOW_TEST_LOG="$test_dir/calls"
 export PATH="$test_dir/bin:$PATH"
 
 "$bridge" visit
-expected_visit=$'systemctl\034--user\034start\034emacs.service\034\nemacsclient\034--alternate-editor=false\034--no-wait\034--reuse-frame\034\nsystemctl\034--user\034start\034emacs.service\034\nemacsclient\034--alternate-editor=false\034--eval\034(org-workflow-dispatch-in-frame (quote visit))\034'
+expected_visit=$'systemctl\034--user\034start\034emacs.service\034\nemacsclient\034--alternate-editor=false\034--no-wait\034--reuse-frame\034--frame-parameters\034((org-workflow-desktop . t))\034\nsystemctl\034--user\034start\034emacs.service\034\nemacsclient\034--alternate-editor=false\034--eval\034(org-workflow-dispatch-in-frame (quote visit))\034'
 actual_visit=$(cat "$ORG_WORKFLOW_TEST_LOG")
 if [[ "$actual_visit" != "$expected_visit" ]]; then
     printf 'visit call sequence mismatch\nexpected: %q\nactual:   %q\n' \
@@ -40,7 +40,7 @@ fi
 
 : > "$ORG_WORKFLOW_TEST_LOG"
 "$bridge" step
-expected_step=$'systemctl\034--user\034start\034emacs.service\034\nemacsclient\034--alternate-editor=false\034--no-wait\034--reuse-frame\034\nsystemctl\034--user\034start\034emacs.service\034\nemacsclient\034--alternate-editor=false\034--eval\034(org-workflow-dispatch-in-frame (quote step))\034'
+expected_step=$'systemctl\034--user\034start\034emacs.service\034\nemacsclient\034--alternate-editor=false\034--no-wait\034--reuse-frame\034--frame-parameters\034((org-workflow-desktop . t))\034\nsystemctl\034--user\034start\034emacs.service\034\nemacsclient\034--alternate-editor=false\034--eval\034(org-workflow-dispatch-in-frame (quote step))\034'
 actual_step=$(cat "$ORG_WORKFLOW_TEST_LOG")
 if [[ "$actual_step" != "$expected_step" ]]; then
     printf 'step call sequence mismatch\nexpected: %q\nactual:   %q\n' \

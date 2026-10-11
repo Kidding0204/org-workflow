@@ -143,7 +143,7 @@ This releases the current server request before an interactive command enters
 the minibuffer, so other clients such as the GNOME status reader stay usable."
   (unless (alist-get action org-workflow-external-actions)
     (user-error "Unknown Org Workflow action: %s" action))
-  (run-at-time 0.1 nil #'org-workflow--dispatch-in-frame
+  (run-at-time 0 nil #'org-workflow--dispatch-in-frame
                (selected-frame) action)
   (list :queued t :action action))
 
@@ -1423,6 +1423,7 @@ the selected frame, including removal of protected side windows."
 Make the target the frame's only window.  Leave the frame's default buffer
 alone when there is no current target."
   (when (and (display-graphic-p)
+             (not (frame-parameter nil 'org-workflow-desktop))
              (not (member (frame-parameter nil 'name)
                           '("capture" "workflow-select"))))
     (condition-case nil

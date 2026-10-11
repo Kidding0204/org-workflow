@@ -227,6 +227,10 @@ Status 专用的 `org-workflow-focus-timer-notify-status` 和无人复用的 `--
 - [GNOME／桌面／截图配套](../extras/README.md) 独立安装，不随 Lisp tar 自动部署。
   GNOME 固定调用 `~/.local/bin/org-workflow-client`；须将 extras/bin 的该脚本和
   `emacs-systemd-client` 一起安装。仅在宿主 `bin/` 有脚本不能满足这个入口。
+  页面客户端给新 frame 标记 `org-workflow-desktop`，跳过默认当前任务展示；随后在
+  下一轮事件异步打开目标页面。普通新 frame 仍展示当前任务，交互命令不阻塞客户端。
+  宿主 core-optimize 在桌面调度期间使用已启用 GCMH 的高阈值，返回或出错后恢复原值；
+  包不依赖 GCMH。core-theme 只在初始化加载主题，新 frame 沿用主题及 CJK fontset hook。
   当前计时接口使用 `org-workflow-focus-timer-*`，没有旧名称兼容别名。
   稳定的 D-Bus 路径、接口名和扩展 UUID 是协议，不能随命名整理顺手改掉。
 - GNOME Wayland 更新 JS 后需要新 Shell 会话；不要自动注销用户。
