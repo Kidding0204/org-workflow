@@ -1418,14 +1418,12 @@ the selected frame, including removal of protected side windows."
   (org-workflow-target--visit nil))
 
 (defun org-workflow--visit-current-target-in-new-frame ()
-  "Show today's current target when a graphical frame becomes available.
-
-Make the target the frame's only window.  Leave the frame's default buffer
-alone when there is no current target."
+  "Show the current target only in a frame explicitly requesting it.
+Leave the default buffer alone when there is no current target."
   (when (and (display-graphic-p)
-             (not (frame-parameter nil 'org-workflow-desktop))
-             (not (member (frame-parameter nil 'name)
-                          '("capture" "workflow-select"))))
+             (frame-parameter nil 'org-workflow-initial-target))
+    ;; Consume the request so later client actions cannot revisit the task.
+    (set-frame-parameter nil 'org-workflow-initial-target nil)
     (condition-case nil
         (progn
           (org-workflow-target-visit)
@@ -1518,8 +1516,6 @@ alone when there is no current target."
              '("c" "Note -> Current target" plain
                (function org-workflow-target-capture-location)
                "- [ ] %?\n  %a" :empty-lines 1))
-  (org-workflow--add-hook 'emacs-startup-hook
-          #'org-workflow--visit-current-target-in-new-frame)
   (org-workflow--add-hook 'server-after-make-frame-hook
           #'org-workflow--visit-current-target-in-new-frame)
   (org-workflow--add-hook 'org-after-todo-state-change-hook

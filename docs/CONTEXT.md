@@ -227,8 +227,8 @@ Status 专用的 `org-workflow-focus-timer-notify-status` 和无人复用的 `--
 - [GNOME／桌面／截图配套](../extras/README.md) 独立安装，不随 Lisp tar 自动部署。
   GNOME 固定调用 `~/.local/bin/org-workflow-client`；须将 extras/bin 的该脚本和
   `emacs-systemd-client` 一起安装。仅在宿主 `bin/` 有脚本不能满足这个入口。
-  页面客户端给新 frame 标记 `org-workflow-desktop`，跳过默认当前任务展示；随后在
-  下一轮事件异步打开目标页面。普通新 frame 仍展示当前任务，交互命令不阻塞客户端。
+  仅 Win+E 新建 frame 时传入 `org-workflow-initial-target`，server hook 消费一次标记
+  后显示当前任务。普通建窗及启动不跳转任务；页面客户端在下一轮事件打开指定页面。
   右顶栏 Agenda 动作使用专用入口，打开后明确显示 Agenda 再 delete-other-windows，
   覆盖复用窗口跳过 only-window 或恢复原选中窗口的路径；普通及双栏入口不变。
   宿主 core-optimize 在桌面调度期间使用已启用 GCMH 的高阈值，返回或出错后恢复原值；

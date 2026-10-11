@@ -19,8 +19,7 @@ case "$action" in
         exec "$emacs_client" --eval '(org-workflow-select-in-new-frame)'
         ;;
     visit|step|prerequisite|agenda|week|history)
-        "$emacs_client" --no-wait --reuse-frame \
-            --frame-parameters '((org-workflow-desktop . t))'
+        "$emacs_client" --no-wait --reuse-frame
         exec "$emacs_client" --eval \
             "(org-workflow-dispatch-in-frame (quote $action))"
         ;;
