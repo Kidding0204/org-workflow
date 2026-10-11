@@ -53,6 +53,138 @@
        (lambda () (org-workflow-store-create "2026-09-17") (error "injected failure"))))
      (should (equal before (buffer-string)))
      (should-not (org-workflow-store-due "2026-09-17")))))
+
+(ert-deftest workflow-store-rollback-retires-source-images ()
+  (org-workflow-store-test
+   (should-error (org-workflow-store--operation (lambda () (error "Rejected"))))
+   (should (equal '(("rolled-back" "nil" nil))
+                  (sqlite-select (org-workflow-store--db)
+                                 "SELECT state,before_text,after_text FROM operations")))))
+
+(ert-deftest workflow-store-recovery-retires-old-rollback-images ()
+  (org-workflow-store-test
+   (sqlite-execute (org-workflow-store--db)
+                   "INSERT INTO operations VALUES('old-rollback','rolled-back',?,NULL)"
+                   (list (org-workflow-store--encode (org-workflow-store--sources))))
+   (org-workflow-store-recover)
+   (should (equal '(("rolled-back" "nil" nil))
+                  (sqlite-select (org-workflow-store--db)
+                                 "SELECT state,before_text,after_text FROM operations")))))
+
+(ert-deftest workflow-store-initialization-releases-unsupported-connection ()
+  (org-workflow-store-test
+   (let ((db (sqlite-open org-workflow-store-file)))
+     (sqlite-execute db "PRAGMA user_version=2")
+     (sqlite-close db))
+   (dotimes (_ 2)
+     (should-error (org-workflow-store--db))
+     (should-not org-workflow-store--connection)
+     (should-not org-workflow-store--path))))
+
+(ert-deftest workflow-store-initialization-releases-connection-on-ddl-error ()
+  (org-workflow-store-test
+   (let ((execute (symbol-function 'sqlite-execute))
+         (open (symbol-function 'sqlite-open)) opened)
+     (cl-letf (((symbol-function 'sqlite-open)
+                (lambda (&rest args) (setq opened (apply open args))))
+               ((symbol-function 'sqlite-execute)
+                (lambda (db sql &rest args)
+                  (if (string-prefix-p "CREATE TABLE IF NOT EXISTS commitments" sql)
+                      (error "Injected DDL failure")
+                    (apply execute db sql args)))))
+       (should-error (org-workflow-store--db)))
+     (should-not (org-workflow-store--live-p opened))
+     (should-not org-workflow-store--connection)
+     (should-not org-workflow-store--path)
+     (should (org-workflow-store--live-p (org-workflow-store--db))))))
+
+(ert-deftest workflow-store-recovers-applied-before-prepared-operation ()
+  (org-workflow-store-test
+   (org-schedule nil "2026-09-17")
+   (let ((after (buffer-string)))
+     ;; A crash before COMMIT retains the prepared row, not its SQL changes.
+     (sqlite-execute (org-workflow-store--db)
+                     "INSERT INTO operations VALUES('interrupted','prepared',?,NULL)"
+                     (list (org-workflow-store--encode (org-workflow-store--sources))))
+     (revert-buffer t t)
+     (org-workflow-store-recover)
+     (should (equal after (buffer-string)))
+     (should (equal '(("rolled-back" "nil" nil))
+                    (sqlite-select (org-workflow-store--db)
+                                   "SELECT state,before_text,after_text FROM operations WHERE id='interrupted'")))
+     (should (= 1 (length (sqlite-select (org-workflow-store--db)
+                                        "SELECT id FROM operations WHERE state='applied'")))))))
+
+(ert-deftest workflow-store-prepared-conflict-preserves-all-recovery-images ()
+  (org-workflow-store-test
+   (let* ((other (expand-file-name "other.org" directory))
+          (org-agenda-files (list file other)))
+     (unwind-protect
+         (progn
+           (with-temp-file other (insert "* Other\n"))
+           (org-workflow-store--operation
+            (lambda ()
+              (goto-char (point-max)) (insert "Workflow edit\n")
+              (with-current-buffer (find-file-noselect other)
+                (goto-char (point-max)) (insert "Other edit\n"))))
+           (sqlite-execute (org-workflow-store--db)
+                           "INSERT INTO operations VALUES('interrupted','prepared',?,NULL)"
+                           (list (org-workflow-store--encode (org-workflow-store--sources))))
+           (sqlite-execute (org-workflow-store--db)
+                           "INSERT INTO operations VALUES('old-rollback','rolled-back',?,NULL)"
+                           (list (org-workflow-store--encode (org-workflow-store--sources))))
+           (revert-buffer t t)
+           (with-temp-file other (insert "* Independent disk edit\n"))
+           (with-current-buffer (get-file-buffer other) (revert-buffer t t))
+           (let ((images (sqlite-select (org-workflow-store--db) "SELECT * FROM operations"))
+                 (before (buffer-string)))
+             (should-error (org-workflow-store-recover))
+             (should (equal images (sqlite-select (org-workflow-store--db) "SELECT * FROM operations")))
+             (should (equal before (buffer-string)))))
+       (when-let* ((buffer (get-file-buffer other)))
+         (with-current-buffer buffer (set-buffer-modified-p nil))
+         (kill-buffer buffer))))))
+
+(ert-deftest workflow-store-prepared-recovery-rejects-untracked-before-image ()
+  (org-workflow-store-test
+   (org-schedule nil "2026-09-17")
+   (goto-char (point-max)) (insert "Untracked manual edit\n")
+   (sqlite-execute (org-workflow-store--db)
+                   "INSERT INTO operations VALUES('interrupted','prepared',?,NULL)"
+                   (list (org-workflow-store--encode (org-workflow-store--sources))))
+   (revert-buffer t t)
+   (let ((images (sqlite-select (org-workflow-store--db) "SELECT * FROM operations")))
+     (should-error (org-workflow-store-recover))
+     (should (equal images (sqlite-select (org-workflow-store--db) "SELECT * FROM operations"))))))
+
+(ert-deftest workflow-store-recovers-prepared-chain-after-partial-checkpoint ()
+  (org-workflow-store-test
+   (let* ((other (expand-file-name "other.org" directory))
+          (org-agenda-files (list file other)))
+     (unwind-protect
+         (progn
+           (with-temp-file other (insert "* Other\n"))
+           (org-workflow-store--operation
+            (lambda ()
+              (goto-char (point-max)) (insert "Workflow edit\n")
+              (with-current-buffer (find-file-noselect other)
+                (goto-char (point-max)) (insert "Other edit\n"))))
+           (save-buffer)
+           (sqlite-execute (org-workflow-store--db)
+                           "INSERT INTO operations VALUES('interrupted','prepared',?,NULL)"
+                           (list (org-workflow-store--encode (org-workflow-store--sources))))
+           (with-current-buffer (get-file-buffer other) (revert-buffer t t))
+           (org-workflow-store-recover)
+           (should (string-suffix-p "Workflow edit\n" (buffer-string)))
+           (with-current-buffer (get-file-buffer other)
+             (should (string-suffix-p "Other edit\n" (buffer-string))))
+           (let ((remaining (org-workflow-store--decode
+                             (caar (sqlite-select (org-workflow-store--db)
+                                                  "SELECT after_text FROM operations WHERE state='applied'")))))
+             (should (equal (list other) (mapcar #'car remaining)))))
+       (when-let* ((buffer (get-file-buffer other)))
+         (with-current-buffer buffer (set-buffer-modified-p nil))
+         (kill-buffer buffer))))))
 (ert-deftest workflow-store-recovers-multiple-unsaved-operations ()
   (org-workflow-store-test
    (let ((before (buffer-string)))
@@ -165,6 +297,18 @@
        (should (org-workflow-target--same-marker-p marker (org-workflow-target-current-marker)))))))
 
 (require 'org-workflow-migrate)
+(ert-deftest workflow-migration-preserves-already-settled-days ()
+  (org-workflow-store-test
+   (let ((user-emacs-directory (file-name-as-directory directory))
+         (day '(:date "2026-09-15" :finalized t)))
+     (org-workflow-store-put-day "2026-09-15" day)
+     (cl-letf (((symbol-function 'org-workflow-migrate--legacy-days) (lambda () nil))
+               ((symbol-function 'org-workflow-web-export--candidate-records) (lambda () nil))
+               ((symbol-function 'org-workflow-collection-inbox--review-files) (lambda () nil)))
+       (org-workflow-migrate)
+       (should (equal "complete" (org-workflow-store-meta "migration-v1")))
+       (should (equal day (org-workflow-store-day "2026-09-15")))))))
+
 (ert-deftest workflow-migration-is-idempotent-and-backs-up-source ()
   (org-workflow-store-test
    (let ((user-emacs-directory (file-name-as-directory directory))

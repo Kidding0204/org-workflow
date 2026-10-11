@@ -56,21 +56,27 @@
                (org-workflow-store--live-p org-workflow-store--connection))
     (when (and org-workflow-store--connection (org-workflow-store--live-p org-workflow-store--connection))
       (sqlite-close org-workflow-store--connection))
+    (setq org-workflow-store--connection nil org-workflow-store--path nil)
     (make-directory (file-name-directory org-workflow-store-file) t)
-    (setq org-workflow-store--connection (sqlite-open org-workflow-store-file)
-          org-workflow-store--path org-workflow-store-file)
-    (sqlite-execute org-workflow-store--connection "PRAGMA foreign_keys=ON")
-    (let ((version (caar (sqlite-select org-workflow-store--connection "PRAGMA user_version"))))
-      (unless (memq version '(0 1)) (error "Unsupported Workflow database version %s" version)))
-    (dolist (sql '("CREATE TABLE IF NOT EXISTS meta(key TEXT PRIMARY KEY,value TEXT NOT NULL)"
-                   "CREATE TABLE IF NOT EXISTS commitments(id TEXT PRIMARY KEY,task_id TEXT NOT NULL,created_at TEXT,due TEXT NOT NULL,original_title TEXT NOT NULL,title TEXT NOT NULL,status TEXT NOT NULL,adjusted INTEGER NOT NULL DEFAULT 0)"
-                   "CREATE TABLE IF NOT EXISTS events(seq INTEGER PRIMARY KEY,id TEXT NOT NULL,at TEXT NOT NULL,kind TEXT NOT NULL,payload TEXT NOT NULL)"
-                   "CREATE TABLE IF NOT EXISTS habit_days(date TEXT PRIMARY KEY,payload TEXT NOT NULL)"
-                   "CREATE TABLE IF NOT EXISTS days(date TEXT PRIMARY KEY,payload TEXT NOT NULL)"
-                   "CREATE TABLE IF NOT EXISTS leave_records(id TEXT PRIMARY KEY,date TEXT NOT NULL,payload TEXT NOT NULL)"
-                   "CREATE TABLE IF NOT EXISTS operations(id TEXT PRIMARY KEY,state TEXT NOT NULL,before_text TEXT NOT NULL,after_text TEXT)"
-                   "PRAGMA user_version=1"))
-      (sqlite-execute org-workflow-store--connection sql)))
+    (let ((db (sqlite-open org-workflow-store-file)) initialized)
+      (unwind-protect
+          (progn
+            (sqlite-execute db "PRAGMA foreign_keys=ON")
+            (let ((version (caar (sqlite-select db "PRAGMA user_version"))))
+              (unless (memq version '(0 1)) (error "Unsupported Workflow database version %s" version)))
+            (dolist (sql '("CREATE TABLE IF NOT EXISTS meta(key TEXT PRIMARY KEY,value TEXT NOT NULL)"
+                          "CREATE TABLE IF NOT EXISTS commitments(id TEXT PRIMARY KEY,task_id TEXT NOT NULL,created_at TEXT,due TEXT NOT NULL,original_title TEXT NOT NULL,title TEXT NOT NULL,status TEXT NOT NULL,adjusted INTEGER NOT NULL DEFAULT 0)"
+                          "CREATE TABLE IF NOT EXISTS events(seq INTEGER PRIMARY KEY,id TEXT NOT NULL,at TEXT NOT NULL,kind TEXT NOT NULL,payload TEXT NOT NULL)"
+                          "CREATE TABLE IF NOT EXISTS habit_days(date TEXT PRIMARY KEY,payload TEXT NOT NULL)"
+                          "CREATE TABLE IF NOT EXISTS days(date TEXT PRIMARY KEY,payload TEXT NOT NULL)"
+                          "CREATE TABLE IF NOT EXISTS leave_records(id TEXT PRIMARY KEY,date TEXT NOT NULL,payload TEXT NOT NULL)"
+                          "CREATE TABLE IF NOT EXISTS operations(id TEXT PRIMARY KEY,state TEXT NOT NULL,before_text TEXT NOT NULL,after_text TEXT)"
+                          "PRAGMA user_version=1"))
+              (sqlite-execute db sql))
+            (setq org-workflow-store--connection db
+                  org-workflow-store--path org-workflow-store-file
+                  initialized t))
+        (unless initialized (sqlite-close db)))))
   org-workflow-store--connection)
 
 (defun org-workflow-store--encode (value)
@@ -243,7 +249,11 @@ Retain recoverable source images when committing or rolling back changes."
            (db (org-workflow-store--db)) (id (org-id-new))
            (before (org-workflow-store--sources))
            (org-workflow-store--extra-source-files (mapcar #'car before))
-           (groups (mapcan (lambda (item) (prepare-change-group (get-file-buffer (car item)))) before))
+           (groups (append
+                    (mapcan (lambda (item) (prepare-change-group (get-file-buffer (car item)))) before)
+                    (when (and (derived-mode-p 'org-mode) buffer-file-name
+                               (not (assoc (expand-file-name buffer-file-name) before)))
+                      (prepare-change-group))))
            committed result)
       (sqlite-execute db "INSERT INTO operations VALUES(?,'prepared',?,NULL)"
                       (list id (org-workflow-store--encode before)))
@@ -262,7 +272,7 @@ Retain recoverable source images when committing or rolling back changes."
         (unless committed
           (ignore-errors (sqlite-execute db "ROLLBACK"))
           (cancel-change-group groups)
-          (sqlite-execute db "UPDATE operations SET state='rolled-back' WHERE id=?" (list id))))
+          (sqlite-execute db "UPDATE operations SET state='rolled-back',before_text='nil',after_text=NULL WHERE id=?" (list id))))
       ;; Saves inside the operation skip the save hook until facts commit.
       (let ((org-workflow-store--in-operation nil)) (org-workflow-store-checkpoint))
       (let ((org-workflow-store--in-operation nil)) (org-workflow-target-refresh t))
@@ -270,15 +280,9 @@ Retain recoverable source images when committing or rolling back changes."
 
 (defun org-workflow-store-recover ()
   "Validate all pending file versions before restoring the latest source image."
-  (dolist (op (sqlite-select (org-workflow-store--db)
-                             "SELECT id,before_text FROM operations WHERE state='prepared'"))
-    (dolist (entry (org-workflow-store--decode (cadr op)))
-      (unless (and (file-readable-p (car entry))
-                   (with-temp-buffer (insert-file-contents (car entry))
-                                     (equal (buffer-string) (cadr entry))))
-        (error "Unfinished Workflow operation %s requires recovery: %s" (car op) (car entry))))
-    (sqlite-execute (org-workflow-store--db) "UPDATE operations SET state='rolled-back' WHERE id=?" (list (car op))))
-  (let ((versions (make-hash-table :test #'equal))
+  (let ((prepared (sqlite-select (org-workflow-store--db)
+                                 "SELECT id,before_text FROM operations WHERE state='prepared'"))
+        (versions (make-hash-table :test #'equal))
         (latest (make-hash-table :test #'equal)) restore)
     (dolist (op (sqlite-select (org-workflow-store--db)
                                "SELECT before_text,after_text FROM operations WHERE state='applied' ORDER BY rowid"))
@@ -287,6 +291,15 @@ Retain recoverable source images when committing or rolling back changes."
           (push (cadr (assoc (car entry) before)) (gethash (car entry) versions))
           (push (cadr entry) (gethash (car entry) versions))
           (puthash (car entry) (cadr entry) latest))))
+    (dolist (op prepared)
+      (dolist (entry (org-workflow-store--decode (cadr op)))
+        (unless (and (file-readable-p (car entry))
+                     (with-temp-buffer
+                       (insert-file-contents (car entry))
+                       (or (equal (buffer-string) (cadr entry))
+                           (and (equal (cadr entry) (gethash (car entry) latest))
+                                (member (buffer-string) (gethash (car entry) versions))))))
+          (error "Unfinished Workflow operation %s requires recovery: %s" (car op) (car entry)))))
     (maphash
      (lambda (file text)
        (unless (file-readable-p file) (error "Missing Workflow recovery source %s" file))
@@ -297,6 +310,12 @@ Retain recoverable source images when committing or rolling back changes."
                                (unless (member current (gethash file versions))
                                  (error "Workflow recovery conflict in %s" file))
                                (push (cons (current-buffer) text) restore)))))) latest)
+    (dolist (op prepared)
+      (sqlite-execute (org-workflow-store--db)
+                      "UPDATE operations SET state='rolled-back',before_text='nil',after_text=NULL WHERE id=?"
+                      (list (car op))))
+    (sqlite-execute (org-workflow-store--db)
+                    "UPDATE operations SET before_text='nil',after_text=NULL WHERE state='rolled-back' AND (before_text!='nil' OR after_text IS NOT NULL)")
     (dolist (item restore)
       (with-current-buffer (car item)
         (save-restriction (widen) (erase-buffer) (insert (cdr item)))

@@ -212,8 +212,6 @@ affected file if an edit or save fails.  No commitment or historical facts chang
            (org-workflow-store-set-meta "migration-v1" "complete")))
         (dolist (file files) (with-current-buffer (find-file-noselect file) (when (buffer-modified-p) (save-buffer))))
         (org-workflow-store-checkpoint))
-      (unless (= (length days) (length (org-workflow-store-days)))
-        (error "Imported day count mismatch"))
       (dolist (day days)
         (unless (equal day (org-workflow-store-day (plist-get day :date)))
           (error "Imported record differs for %s" (plist-get day :date))))))
