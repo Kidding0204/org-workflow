@@ -84,7 +84,7 @@ Only direct task children count.  Nil disables automatic lookahead."
     (cancel . org-workflow-target-cancel)
     (record-last-pomodoro . org-workflow--record-last-pomodoro)
     (visit . org-workflow--visit-in-frame)
-    (agenda . org-workflow-open-agenda)
+    (agenda . org-workflow--agenda-in-frame)
     (week . org-workflow-week-open)
     (history . org-workflow-history-panel))
   "Allowed desktop ACTION to interactive Org Workflow command mappings.")
@@ -1437,6 +1437,13 @@ alone when there is no current target."
   "Reveal the shared current task or habit source as the frame's only window."
   (interactive)
   (org-workflow-target--visit t))
+
+(defun org-workflow--agenda-in-frame ()
+  "Open Sprint across the desktop frame, removing unrelated windows."
+  (interactive)
+  (let ((org-agenda-window-setup 'only-window)
+        (ignore-window-parameters t))
+    (org-workflow-open-agenda)))
 
 (defun org-workflow--step-in-frame ()
   "Reveal the current target in this frame, then read its Executed Part."

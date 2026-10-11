@@ -2406,3 +2406,27 @@ SCHEDULED: <2026-08-18 Tue>
                (lambda () (setq visited t))))
       (org-workflow--visit-current-target-in-new-frame)
       (should-not visited))))
+
+(ert-deftest org-workflow-desktop-agenda-fills-frame ()
+  "Desktop Agenda replaces ordinary and protected side windows."
+  (org-workflow-target-test-with-files
+   '("#+filetags: :area:\n* Area\n** TODO Today\nSCHEDULED: <2026-08-17 Mon>\n")
+   (save-window-excursion
+     (delete-other-windows)
+     (let* ((org-agenda-window-setup 'other-window)
+            (org-workflow-agenda-columns-enabled nil)
+            (main (selected-window))
+            (other (split-window-below))
+            (sidebar (display-buffer-in-side-window
+                      (get-buffer-create " *desktop-agenda-sidebar*") '((side . right)))))
+       (unwind-protect
+           (progn
+             (set-window-parameter sidebar 'no-delete-other-windows t)
+             (select-window main)
+             (should (equal '(:ok t :action agenda)
+                            (org-workflow--dispatch-in-frame (selected-frame) 'agenda)))
+             (should (= 1 (length (window-list))))
+             (should (derived-mode-p 'org-agenda-mode))
+             (should-not (window-live-p other))
+             (should (eq org-agenda-window-setup 'other-window)))
+         (kill-buffer " *desktop-agenda-sidebar*"))))))
