@@ -170,6 +170,9 @@ Org 文件保存结构、安排、状态和真实 CLOCK；SQLite 保存持久事
 任务写操作走已有共用事务边界。Org buffer 文本与 SQLite 的同步不是一个普通文件保存：
 `operations` 保存 before/after，启动恢复会校验版本；独立手动修改产生冲突时不能覆盖。
 checkpoint 按文件退役已保存的恢复映像，不能一次丢弃其他未保存文件的恢复能力。
+崩溃留下的 prepared 记录须与已有 applied 的合法版本链共同校验；全部文件验证通过
+才退役记录，独立文本改动仍是冲突。数据库版本／初始化失败不能留下可复用连接。
+已 rolled-back 的映像不再用于恢复，退役及成功启动恢复时清空全文；不自动压缩数据库。
 不要为“修复启动”直接清空 operations、删除数据库、伪造 checkpoint 或覆盖用户 Org 文件。
 迁移／清理操作先满足已有校验并做备份，参见 [恢复边界](workflow-architecture.md#保存恢复与备份)。
 
@@ -177,6 +180,9 @@ checkpoint 按文件退役已保存的恢复映像，不能一次丢弃其他未
 
 Focus Timer 通过标准 Org Clock 记录；自身停止时默认不足五分钟的片段取消，
 普通手动 Org Clock 不因这条规则被接管。计时状态机在 [focus-timer](../org-workflow-focus-timer.el)。
+休息期已有手动 CLOCK 时拒绝恢复专注，保留该 CLOCK 和休息状态。Sprint 直接新增
+安排任务也走 org-schedule 和共用事务：明天建立承诺，今天保持可选，失败回滚完整新增。
+桌面标题和习惯操作依据 status 的共用当前项；待处理提醒不能覆盖显式习惯选择或普通队列。
 
 顶栏右键菜单只保留独立计时入口“取消计时”和“补记上一番茄钟”；左键／Super+s
 负责智能切换。桌面补记显式传入共用当前项 marker，不使用 Emacs 当前 buffer 的条目。
@@ -193,6 +199,11 @@ Status 专用的 `org-workflow-focus-timer-notify-status` 和无人复用的 `--
 
 每日统计按本地午夜分界，跨日 CLOCK 分摊；历史后端负责结算／补结算。
 已结算快照按既有规则读取，missing 不等于零，旧规则边界也不能随意重写。
+同一任务对应多个承诺时，各条责任分别判断兑现，直接 CLOCK 投入只累计一次。
+日结在同一事务内向 events 写入按承诺 ID 关联的 attempt-fulfilled 及实际兑现日期，
+后续结转不依赖来源仍在 Agenda。显式重算替换该日统计和兑现事件，失败一起回滚。
+旧快照保持原样，来源仍有真实 CLOCK 时可回填兑现；已经失去来源且没有 ID 关联的
+旧记录不能安全还原，不按标题猜测，也不把整个 met 日当作每条承诺的关联。
 [history-read](../org-workflow-history.el) 和视图／图表层只读；界面不能重算承诺或写源文件。
 长期追踪现在在 Emacs 原生历史工作台中完成。
 外部网页启动器和后台 JSON 导出已移除；[显式静态导出](../org-workflow-web-export.el)
