@@ -54,11 +54,11 @@ const label = () => ({text: '', set_text(text) { this.text = text; },
     clutter_text: {set_markup(text) { this.markup = text; }}});
 Object.assign(extension, {
     _progress: {}, _label: {}, _parentLabel: label(), _taskLabel: label(), _skipHabitItem: {},
-    _workflowMenuItem: {}, _reminderMenuItem: {}, _bodyItem: {label: label()},
+    _workflowMenuItem: {}, _bodyItem: {label: label()},
     _focusGroup: {}, _accessoryGroup: {}, _queueLayout() {},
     _weekStrip: {}, _weekCells: Array.from({length: 7}, () => ({track: {set_style(value) { this.style = value; }}, unknown: {}, dot: {}})),
     _rightLabel: label(), _rightIndicator: {}, _rightBody: {label: label()},
-    _habitMenu: {menu: {removeAll() {}, addAction() {}}},
+    _habitMenu: {removeAll() {}, addAction() { return {setSensitive() {}}; }},
     _timerStatus: {phase: 'inactive'},
     _workflowStatus: {available: true, parent: 'Course', panel: {available: true, started: false, hint: 'Start here',
         habits: [{title: 'SICP', key: 'abc', done: false}],
@@ -93,20 +93,39 @@ extension._workflowStatus.parent = '';
 ExtensionClass.prototype._updatePlanning.call(extension);
 assert(!extension._parentLabel.visible && !extension._accessoryGroup.visible, 'no empty parent slot');
 
-extension._workflowStatus.task = 'Original task';
+extension._workflowStatus.kind = 'habit';
+extension._workflowStatus.task = 'Run';
 extension._workflowStatus.panel.habitReminder = {key: 'run', title: 'Run', done: false};
 ExtensionClass.prototype._updatePlanning.call(extension);
 assert(extension._taskLabel.text === '习惯 · Run' && extension._skipHabitItem.visible,
     'idle shows latest reminder and skip command');
-assert(extension._reminderMenuItem.visible && !extension._workflowMenuItem.visible, 'show habit actions instead of unrelated task actions');
+assert(!extension._workflowMenuItem.visible, 'hide unrelated task actions for the current habit');
 extension._timerStatus.phase = 'focus';
+extension._workflowStatus.kind = 'task';
+extension._workflowStatus.task = 'Original task';
 ExtensionClass.prototype._updatePlanning.call(extension);
 assert(extension._taskLabel.text === 'Original task' && !extension._skipHabitItem.visible,
     'focus preserves actual task and hides reminder action');
 extension._timerStatus.phase = 'inactive';
+extension._workflowStatus.kind = 'habit';
+extension._workflowStatus.task = 'Run';
 ExtensionClass.prototype._updatePlanning.call(extension);
 assert(extension._taskLabel.text === '习惯 · Run', 'stopping focus restores pending reminder');
 extension._workflowStatus.panel.habitReminder = null;
+extension._workflowStatus.kind = 'task';
+extension._workflowStatus.task = 'Original task';
 ExtensionClass.prototype._updatePlanning.call(extension);
 assert(extension._taskLabel.text === 'Original task', 'skipping restores underlying task');
 print('Habit reminder actor transitions passed');
+
+extension._workflowStatus.panel.habitReminder = {key: 'run', title: 'Run', done: false};
+extension._workflowStatus.kind = 'habit';
+extension._workflowStatus.task = 'Selected habit';
+ExtensionClass.prototype._updatePlanning.call(extension);
+assert(extension._taskLabel.text === '习惯 · Selected habit' && extension._skipHabitItem.visible,
+    'an explicit habit selection controls both title and skip action');
+extension._workflowStatus.kind = 'task';
+extension._workflowStatus.task = 'Original task';
+ExtensionClass.prototype._updatePlanning.call(extension);
+assert(extension._taskLabel.text === 'Original task' && !extension._skipHabitItem.visible && extension._workflowMenuItem.visible,
+    'restoring the queue controls title and actions despite the old reminder');

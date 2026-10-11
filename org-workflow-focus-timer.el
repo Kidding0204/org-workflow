@@ -405,6 +405,8 @@ SELECT carries useful `org-clock-in' prefix behavior."
      (org-workflow-focus-timer--enter-phase
       (org-workflow-focus-timer--next-break-phase org-workflow-focus-timer-completed-count)))
     ((or 'short-break 'long-break)
+     (when (org-clocking-p)
+       (user-error "请先结束手动 Org 计时"))
      (org-workflow-focus-timer--clock-in-marker org-workflow-focus-timer-task-marker)
      (org-workflow-focus-timer--enter-phase 'focus))
     (_ (user-error "Focus Timer is not active")))

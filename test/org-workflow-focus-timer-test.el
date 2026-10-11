@@ -272,6 +272,24 @@
     (should (= (marker-position org-workflow-focus-timer-task-marker)
                (marker-position task-marker)))))
 
+(ert-deftest org-workflow-focus-timer-break-resume-preserves-other-manual-clock ()
+  "Resuming a break must not replace a manually started clock."
+  (org-workflow-focus-timer-test-with-org-task
+    (org-workflow-focus-timer-start task-marker)
+    (org-workflow-focus-timer-finish-phase)
+    (goto-char (point-max))
+    (insert "\n* TODO Other task\n")
+    (org-back-to-heading t)
+    (org-clock-in)
+    (let ((other (copy-marker org-clock-hd-marker))
+          (before (buffer-string))
+          (phase-start org-workflow-focus-timer-phase-start-time))
+      (should-error (org-workflow-focus-timer-finish-phase) :type 'user-error)
+      (should (equal other org-clock-hd-marker))
+      (should (equal before (buffer-string)))
+      (should (eq org-workflow-focus-timer-phase 'short-break))
+      (should (equal phase-start org-workflow-focus-timer-phase-start-time)))))
+
 (ert-deftest org-workflow-focus-timer-toggle-stops-an-unexpired-focus-without-a-break ()
   "Treating an early stop as completion would incorrectly begin a break."
   (org-workflow-focus-timer-test-with-org-task

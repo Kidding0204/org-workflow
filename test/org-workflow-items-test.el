@@ -176,4 +176,19 @@
      (should (equal "Task" (org-workflow-target-entry-title (org-workflow-current-item))))
      (should-error (org-workflow-panel-toggle-habit "missing-habit") :type 'user-error))))
 
+(ert-deftest workflow-items-desktop-status-follows-selection-over-pending-reminder ()
+  (workflow-items-test
+   (org-workflow-habits-create "Second habit")
+   (let ((key (org-workflow-item-key (org-workflow-item-at-marker (point-marker)))))
+     (org-workflow-panel-toggle-habit key)
+     (let ((status (org-workflow-status)))
+       (should (equal "habit" (plist-get status :kind)))
+       (should (equal "Second habit" (plist-get status :task))))
+     (should (equal "Habit" (plist-get (org-workflow-panel-current-habit) :title)))
+     (org-workflow-panel-toggle-habit key)
+     (let ((status (org-workflow-status)))
+       (should (equal "task" (plist-get status :kind)))
+       (should (equal "Task" (plist-get status :task))))
+     (should (equal "Habit" (plist-get (org-workflow-panel-current-habit) :title))))))
+
 (provide 'org-workflow-items-test)
