@@ -225,6 +225,8 @@ Status 专用的 `org-workflow-focus-timer-notify-status` 和无人复用的 `--
 - 生命周期改变 Org TODO 规则时，应重建已开启的 Org Modern 字体规则；不能只刷新 Org 正则。
 - 颜色从宿主主题与包 face 继承；维护 UI 时检查实际中文字体、像素宽度与 Evil 状态。
 - [GNOME／桌面／截图配套](../extras/README.md) 独立安装，不随 Lisp tar 自动部署。
+  GNOME 固定调用 `~/.local/bin/org-workflow-client`；须将 extras/bin 的该脚本和
+  `emacs-systemd-client` 一起安装。仅在宿主 `bin/` 有脚本不能满足这个入口。
   当前计时接口使用 `org-workflow-focus-timer-*`，没有旧名称兼容别名。
   稳定的 D-Bus 路径、接口名和扩展 UUID 是协议，不能随命名整理顺手改掉。
 - GNOME Wayland 更新 JS 后需要新 Shell 会话；不要自动注销用户。
