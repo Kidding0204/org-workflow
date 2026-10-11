@@ -1443,7 +1443,10 @@ alone when there is no current target."
   (interactive)
   (let ((org-agenda-window-setup 'only-window)
         (ignore-window-parameters t))
-    (org-workflow-open-agenda)))
+    (org-workflow-open-agenda)
+    ;; Reusing Agenda can preserve the caller's selected window.
+    (pop-to-buffer-same-window org-agenda-buffer-name)
+    (delete-other-windows)))
 
 (defun org-workflow--step-in-frame ()
   "Reveal the current target in this frame, then read its Executed Part."

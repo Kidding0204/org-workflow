@@ -229,8 +229,8 @@ Status 专用的 `org-workflow-focus-timer-notify-status` 和无人复用的 `--
   `emacs-systemd-client` 一起安装。仅在宿主 `bin/` 有脚本不能满足这个入口。
   页面客户端给新 frame 标记 `org-workflow-desktop`，跳过默认当前任务展示；随后在
   下一轮事件异步打开目标页面。普通新 frame 仍展示当前任务，交互命令不阻塞客户端。
-  右顶栏 Agenda 动作使用专用入口，以 only-window 布局铺满 frame，移除普通和保护
-  侧窗；普通 org-workflow-open-agenda 及双栏工作台的入口规则保持不变。
+  右顶栏 Agenda 动作使用专用入口，打开后明确显示 Agenda 再 delete-other-windows，
+  覆盖复用窗口跳过 only-window 或恢复原选中窗口的路径；普通及双栏入口不变。
   宿主 core-optimize 在桌面调度期间使用已启用 GCMH 的高阈值，返回或出错后恢复原值；
   包不依赖 GCMH。core-theme 只在初始化加载主题，新 frame 沿用主题及 CJK fontset hook。
   当前计时接口使用 `org-workflow-focus-timer-*`，没有旧名称兼容别名。

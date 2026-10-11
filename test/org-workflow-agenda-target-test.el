@@ -2430,3 +2430,37 @@ SCHEDULED: <2026-08-18 Tue>
              (should-not (window-live-p other))
              (should (eq org-agenda-window-setup 'other-window)))
          (kill-buffer " *desktop-agenda-sidebar*"))))))
+
+(ert-deftest org-workflow-desktop-agenda-reopen-fills-frame ()
+  "A visible Agenda must not retain unrelated windows on desktop reopen."
+  (org-workflow-target-test-with-files
+   '("#+filetags: :area:\n* Area\n** TODO Today\nSCHEDULED: <2026-08-17 Mon>\n")
+   (save-window-excursion
+     (delete-other-windows)
+     (let ((org-workflow-agenda-columns-enabled nil))
+       (org-workflow--dispatch-in-frame (selected-frame) 'agenda)
+       (dolist (from-agenda '(nil t))
+         (let* ((agenda-window (selected-window))
+                (other (split-window-below)))
+           (set-window-buffer other (get-buffer-create "*scratch*"))
+           (select-window (if from-agenda agenda-window other))
+           (should (equal '(:ok t :action agenda)
+                          (org-workflow--dispatch-in-frame (selected-frame) 'agenda)))
+           (should (= 1 (length (window-list))))
+           (should (derived-mode-p 'org-agenda-mode))))))))
+
+(ert-deftest org-workflow-desktop-agenda-restored-selection-shows-agenda ()
+  "Desktop layout must target Agenda even when rendering restores selection."
+  (org-workflow-target-test-with-files
+   '("#+filetags: :area:\n* Area\n** TODO Today\nSCHEDULED: <2026-08-17 Mon>\n")
+   (save-window-excursion
+     (delete-other-windows)
+     (let ((open (symbol-function 'org-workflow-open-agenda))
+           (org-workflow-agenda-columns-enabled nil)
+           (org-agenda-window-setup 'other-window))
+       (switch-to-buffer (get-buffer-create "*scratch*"))
+       (cl-letf (((symbol-function 'org-workflow-open-agenda)
+                  (lambda () (save-selected-window (funcall open)))))
+         (org-workflow--agenda-in-frame))
+       (should (= 1 (length (window-list))))
+       (should (eq (window-buffer) (get-buffer org-agenda-buffer-name)))))))
