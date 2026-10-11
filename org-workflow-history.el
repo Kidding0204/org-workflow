@@ -52,11 +52,22 @@ Running clocks and descendants' records cannot satisfy a daily attempt."
   "Read ROW's fulfillment on DATE without changing task lifecycle.
 Use supplied TASKS when non-nil, otherwise read that day's direct clocks."
   (or (member (org-workflow-history--row-state row date) '("done" "adjusted-done"))
+      (org-workflow-history--attempt-fulfilled-p row date)
       (and (org-workflow-history-attempt-enabled-p date)
            (seq-some (lambda (task)
                        (and (equal (plist-get task :id) (nth 1 row))
                             (> (plist-get task :focusMinutes) 0)))
                      (or tasks (org-workflow-history--tasks date))))))
+
+(defun org-workflow-history--attempt-fulfilled-p (row date)
+  "Whether ROW has a settled investment fulfillment on or before DATE."
+  (seq-some
+   (lambda (event)
+     (let ((day (plist-get (org-workflow-store--decode (car event)) :date)))
+       (and day (not (string< date day)))))
+   (sqlite-select (org-workflow-store--db)
+                  "SELECT payload FROM events WHERE id=? AND kind='attempt-fulfilled'"
+                  (list (car row)))))
 
 (defun org-workflow-history-progress (date)
   "Compute responsibility on DATE, including unresolved earlier commitments."
@@ -91,6 +102,7 @@ Keep original due dates intact.  Leave records do not discharge commitments."
             (string< (nth 3 row) date)
             (not (member (org-workflow-history--row-state row previous)
                          '("done" "adjusted-done" "withdrawn" "cancelled")))
+            (not (org-workflow-history--attempt-fulfilled-p row previous))
             (let ((day (nth 3 row)) fulfilled)
               ;; Read each day's direct clocks once for the whole commitment set.
               (while (and (string< day date) (not fulfilled))
@@ -143,13 +155,15 @@ Use bounded cache-free reads, preserving live edits and source restrictions."
          (tasks (org-workflow-history--tasks date)) (committed-minutes 0) (optional-minutes 0)
          (habits (org-workflow-history--habit-records date))
          (habit-minutes (apply #'+ (mapcar (lambda (row) (plist-get row :focusMinutes)) habits)))
-         (fulfilled 0) minimum optional)
+         (fulfilled 0) (counted (make-hash-table :test #'equal)) minimum optional)
     (dolist (row commitments)
       (let* ((task (seq-find (lambda (item) (equal (plist-get item :id) (nth 1 row))) tasks))
-             (minutes (or (plist-get task :focusMinutes) 0))
+             (minutes (if (gethash (nth 1 row) counted) 0
+                        (or (plist-get task :focusMinutes) 0)))
              (state (org-workflow-history--row-state row date))
              (satisfied (org-workflow-history--commitment-satisfied-p row date tasks)))
         (cl-incf committed-minutes minutes)
+        (puthash (nth 1 row) t counted)
         (when satisfied (cl-incf fulfilled))
         (push (list :task (nth 5 row) :outcome
                     (cond ((member state '("done" "adjusted-done")) "done")
@@ -188,23 +202,63 @@ Use bounded cache-free reads, preserving live edits and source restrictions."
         (vconcat (mapcar #'org-workflow-history--with-leaves days))
       days)))
 
+(defun org-workflow-history--unrecorded-attempts (date)
+  "Read investments only for DATE's commitments without durable fulfillment."
+  (when (org-workflow-history-attempt-enabled-p date)
+    (let ((rows (seq-remove
+                 (lambda (row)
+                   (or (org-workflow-history--attempt-fulfilled-p row date)
+                       (member (org-workflow-history--row-state row date)
+                               '("done" "adjusted-done" "withdrawn" "cancelled"))))
+                 (sqlite-select
+                  (org-workflow-store--db)
+                  "SELECT id,task_id,created_at,due,original_title,title,status,adjusted FROM commitments WHERE due<=? ORDER BY due,rowid"
+                  (list date)))))
+      (when rows
+        (let ((tasks (org-workflow-history--tasks date)))
+          (seq-filter
+           (lambda (row)
+             (seq-some (lambda (task)
+                         (and (equal (plist-get task :id) (nth 1 row))
+                              (> (plist-get task :focusMinutes) 0))) tasks))
+           rows))))))
+
 (defun org-workflow-history-finalize (date &optional recompute)
   "Seal past calendar DATE, or return its existing settlement.
-RECOMPUTE changes statistics without changing commitments."
+RECOMPUTE replaces DATE's statistics and investment fulfillment facts.
+Existing snapshots remain unchanged; verifiable source clocks can backfill
+fulfillment events.  Older snapshots without source clocks cannot identify
+fulfilled commitments."
   (unless (string< date (org-workflow-target--today-string))
     (user-error "只能结算已经结束的日期"))
   (when (and recompute (org-workflow-store-day date)
              (null (org-workflow-history--responsibilities date))
              (> (length (plist-get (org-workflow-store-day date) :minimumTasks)) 0))
     (user-error "旧结算缺少可验证的承诺关联，保留原快照，不能安全重算"))
-  (or (and (not recompute) (org-workflow-store-day date))
-      (let ((record (org-workflow-history--compute date)) (db (org-workflow-store--db)))
-        (sqlite-execute db "BEGIN IMMEDIATE")
-        (condition-case err
-            (progn (org-workflow-store-put-day date record) (sqlite-execute db "COMMIT"))
-          (error (sqlite-execute db "ROLLBACK") (signal (car err) (cdr err))))
-        (run-hook-with-args 'org-workflow-journal-finalized-hook date)
-        record)))
+  (let* ((existing (org-workflow-store-day date))
+         (attempts (and existing (not recompute)
+                        (org-workflow-history--unrecorded-attempts date)))
+         (db (org-workflow-store--db)) record)
+    (if (and existing (not recompute) (null attempts)) existing
+      (sqlite-execute db "BEGIN IMMEDIATE")
+      (condition-case err
+          (progn
+            ;; Recompute replaces this day's facts; a failure restores both.
+            (when recompute
+              (sqlite-execute db "DELETE FROM events WHERE kind='attempt-fulfilled' AND payload=?"
+                              (list (org-workflow-store--encode (list :date date)))))
+            (setq record (if (and existing (not recompute)) existing
+                           (org-workflow-history--compute date)))
+            (dolist (row (if (and existing (not recompute)) attempts
+                           (org-workflow-history--unrecorded-attempts date)))
+              (org-workflow-store--event (car row) "attempt-fulfilled" (list :date date)))
+            (when (or (not existing) recompute)
+              (org-workflow-store-put-day date record))
+            (sqlite-execute db "COMMIT"))
+	(error (sqlite-execute db "ROLLBACK") (signal (car err) (cdr err))))
+      (when (or (not existing) recompute)
+	(run-hook-with-args 'org-workflow-journal-finalized-hook date))
+      record)))
 
 (defun org-workflow-history-recompute (date)
   "Explicitly recalculate DATE's historical clocks without recreating promises."
