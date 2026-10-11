@@ -43,16 +43,19 @@
   (let ((file (expand-file-name org-workflow-projects-file)))
     (make-directory (file-name-directory file) t)
     (with-current-buffer (find-file-noselect file)
-      (org-with-wide-buffer
-       (goto-char (org-workflow-source-section "Inbox" t))
-       (org-end-of-subtree t t)
-       (unless (bolp) (insert "\n"))
-       (let ((stamp (format-time-string "%Y-%m-%d %a"
-                                        (date-to-time (concat date " 12:00")))))
-         (atomic-change-group
-           (insert (format "** TODO [#%c] %s\nSCHEDULED: <%s>\n:PROPERTIES:\n:CAPTURED_ON: %s\n:END:\n"
-                           period title stamp (org-workflow-target--today-string)))))
-       (save-buffer)))))
+      (org-workflow-store--operation
+       (lambda ()
+         (org-with-wide-buffer
+          (atomic-change-group
+            (goto-char (org-workflow-source-section "Inbox" t))
+            (org-end-of-subtree t t)
+            (unless (bolp) (insert "\n"))
+            (let ((position (point)))
+              (insert (format "** TODO [#%c] %s\n:PROPERTIES:\n:CAPTURED_ON: %s\n:END:\n"
+                              period title (org-workflow-target--today-string)))
+              (goto-char position)
+              (org-schedule nil date))))))
+      (save-buffer))))
 
 (defun org-workflow-agenda-create-at-point ()
   "Create a task or habit in the Sprint group at point."

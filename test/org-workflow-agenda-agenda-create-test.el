@@ -130,3 +130,74 @@
       (when-let* ((buffer (get-buffer org-agenda-buffer-name))) (kill-buffer buffer))
       (when-let* ((buffer (get-file-buffer file))) (kill-buffer buffer))
       (delete-directory directory t))))
+
+(unless (fboundp 'org-workflow-store-test)
+  (load (expand-file-name "org-workflow-store-test.el"
+                          (file-name-directory load-file-name)) nil t))
+
+(ert-deftest workflow-sprint-create-tomorrow-records-commitment ()
+  (org-workflow-store-test
+   (let ((org-workflow-projects-file file))
+     (org-workflow-agenda-create-task "Tomorrow" "2026-09-17" ?B)
+     (goto-char (point-min)) (search-forward "Tomorrow") (beginning-of-line)
+     (let ((id (org-entry-get nil "WORKFLOW_COMMITMENT_ID")))
+       (should id)
+       (should (equal "2026-09-17" (nth 3 (org-workflow-store-commitment id))))
+       (should (= ?B (nth 3 (org-heading-components)))))
+     (org-workflow-agenda-create-task "Today" "2026-09-16" ?A)
+     (goto-char (point-min)) (search-forward "Today") (beginning-of-line)
+     (should-not (org-entry-get nil "WORKFLOW_COMMITMENT_ID"))
+     (should (= 1 (length (org-workflow-store-due "2026-09-17")))))))
+
+(ert-deftest workflow-sprint-create-failure-restores-inbox-and-facts ()
+  (org-workflow-store-test
+   (let ((org-workflow-projects-file file)
+         (before (buffer-string))
+         (create (symbol-function 'org-workflow-store-create)))
+     (cl-letf (((symbol-function 'org-workflow-store-create)
+                (lambda (&rest args)
+                  (apply create args)
+                  (error "Injected creation failure"))))
+       (should-error (org-workflow-agenda-create-task "Tomorrow" "2026-09-17" ?B)))
+     (should (equal before (buffer-string)))
+     (should-not (org-workflow-store-due "2026-09-17"))
+     (should (equal before (with-temp-buffer
+                            (insert-file-contents file) (buffer-string)))))))
+
+(ert-deftest workflow-sprint-create-new-file-commit-failure-restores-buffer ()
+  (org-workflow-store-test
+   (let* ((new-file (expand-file-name "new.org" directory))
+          (org-workflow-projects-file new-file)
+          (org-agenda-files (list new-file))
+          (execute (symbol-function 'sqlite-execute)))
+     (unwind-protect
+         (progn
+           (cl-letf (((symbol-function 'sqlite-execute)
+                      (lambda (db sql &rest args)
+                        (if (string-prefix-p "UPDATE operations SET state='applied'" sql)
+                            (error "Injected post-edit database failure")
+                          (apply execute db sql args)))))
+             (should-error (org-workflow-agenda-create-task "New task" "2026-09-17" ?B)))
+           (should-not (file-exists-p new-file))
+           (with-current-buffer (get-file-buffer new-file)
+             (should (equal "" (buffer-string))))
+           (should-not (org-workflow-store-due "2026-09-17")))
+       (when-let* ((buffer (get-file-buffer new-file)))
+         (with-current-buffer buffer (set-buffer-modified-p nil))
+         (kill-buffer buffer))))))
+
+(ert-deftest workflow-sprint-create-postcommit-failure-keeps-source-and-facts ()
+  (dolist (function '(org-workflow-store-checkpoint org-workflow-target-refresh))
+    (org-workflow-store-test
+     (let ((org-workflow-projects-file file))
+       (cl-letf (((symbol-function function)
+                  (lambda (&rest _)
+                    (unless org-workflow-store--in-operation
+                      (error "Injected post-commit failure")))))
+         (should-error (org-workflow-agenda-create-task "Tomorrow" "2026-09-17" ?B)))
+       (should (string-match-p "Tomorrow" (buffer-string)))
+       (goto-char (point-min)) (search-forward "Tomorrow") (beginning-of-line)
+       (should (equal "Tomorrow"
+                      (nth 5 (org-workflow-store-commitment
+                              (org-entry-get nil "WORKFLOW_COMMITMENT_ID")))))
+       (should (= 1 (length (org-workflow-store-due "2026-09-17"))))))))
