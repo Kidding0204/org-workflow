@@ -114,23 +114,21 @@
 
 (provide 'org-workflow-sources-test)
 
-(ert-deftest workflow-source-stage-progress-bypasses-broken-live-cache ()
+(ert-deftest workflow-source-stage-progress-reuses-cache-after-live-edit ()
   (workflow-source-test
    (with-temp-file org-workflow-projects-file
      (insert "#+filetags: :project:\n* Stage\n** TODO [#A] Task\nSCHEDULED: <2026-10-06 Tue>\n"))
    (let ((org-agenda-files (list org-workflow-projects-file))
-         (org-element-use-cache t)
-         (cache-map (symbol-function 'org-element-cache-map)))
+         (org-element-use-cache t))
      (with-current-buffer (find-file-noselect org-workflow-projects-file)
+       (org-element-at-point (point-max))
        (goto-char (point-min)) (search-forward "TODO") (replace-match "DONE")
        (forward-line 1) (insert "CLOSED: [2026-10-06 Tue 10:00] ")
        (org-back-to-heading t) (org-narrow-to-subtree)
        (let ((position (point)) (start (point-min)) (end (point-max))
              (text (buffer-string)))
-         (cl-letf (((symbol-function 'org-element-cache-map)
-                    (lambda (&rest args)
-                      (when org-element-use-cache (error "Broken live Org cache"))
-                      (apply cache-map args))))
+         (cl-letf (((symbol-function 'org-element-cache-reset)
+                    (lambda (&rest _) (ert-fail "Warm source cache was reset"))))
            (should (equal '(:stageSatisfied 1 :stageTotal 1)
                           (org-workflow--stage-progress
                            "2026-10-06" (encode-time 0 0 10 6 10 2026)))))
@@ -151,24 +149,23 @@
                      "2026-10-06" (encode-time 0 0 10 6 10 2026))))
      (should-not (get-file-buffer org-workflow-projects-file)))))
 
-(ert-deftest workflow-source-history-tasks-bypasses-broken-live-cache ()
+(ert-deftest workflow-source-history-tasks-reuses-cache-after-live-edit ()
   (workflow-source-test
    (with-temp-file org-workflow-projects-file
      (insert "#+filetags: :project:\n#+TODO: TODO DIVE | DONE HOLD\n* DIVE Stage\n** TODO Disk task\n:PROPERTIES:\n:ID: history-source-task\n:END:\n:LOGBOOK:\nCLOCK: [2026-10-06 Tue 09:00]--[2026-10-06 Tue 09:25] => 0:25\n:END:\n** TODO Habit\nSCHEDULED: <2026-10-07 Wed .+1d>\n:PROPERTIES:\n:STYLE: habit\n:ID: history-source-habit\n:END:\n:LOGBOOK:\nCLOCK: [2026-10-06 Tue 10:00]--[2026-10-06 Tue 10:10] => 0:10\n:END:\n"))
    (let ((org-agenda-files (list org-workflow-projects-file))
          (org-element-use-cache t)
-         (cache-map (symbol-function 'org-element-cache-map))
+         (cache-reset (symbol-function 'org-element-cache-reset))
          (calls 0))
      (with-current-buffer (find-file-noselect org-workflow-projects-file)
+       (org-element-at-point (point-max))
        (goto-char (point-min)) (search-forward "Disk task") (replace-match "Live task")
        (org-back-to-heading t) (org-element-at-point) (org-narrow-to-subtree)
        (let ((position (point)) (start (point-min)) (end (point-max)) (text (buffer-string)))
-         (cl-letf (((symbol-function 'org-element-cache-map)
+         (cl-letf (((symbol-function 'org-element-cache-reset)
                     (lambda (&rest args)
-                      (if org-element-use-cache
-                          (progn (cl-incf calls)
-                                 (error "Invalid search bound (wrong side of point)"))
-                        (apply cache-map args)))))
+                      (cl-incf calls)
+                      (apply cache-reset args))))
            (let ((rows (org-workflow-history--tasks "2026-10-06")))
              (should (= 0 calls))
              (should (= 1 (length rows)))
@@ -207,3 +204,23 @@
                                  :focusMinutes)))
          (should (equal "done" (plist-get (seq-find (lambda (row) (equal "Finished" (plist-get row :task))) rows)
                                           :outcome))))))))
+
+(ert-deftest workflow-source-queries-reuse-warm-cache ()
+  (workflow-source-test
+   (with-temp-file org-workflow-projects-file
+     (insert "#+filetags: :project:\n#+TODO: TODO DIVE | DONE HOLD\n* DIVE Stage\nDEADLINE: <2026-10-16 Fri>\n** TODO Task\nSCHEDULED: <2026-10-15 Thu>\n* Inbox\n** TODO Note\n"))
+   (let ((org-agenda-files (list org-workflow-projects-file))
+         (org-element-use-cache t))
+     (with-current-buffer (find-file-noselect org-workflow-projects-file)
+       (org-element-at-point (point-max)))
+     (cl-letf (((symbol-function 'org-workflow-collection-inbox--review-files)
+                (lambda () (list org-workflow-projects-file)))
+               ((symbol-function 'org-element-cache-reset)
+                (lambda (&rest _) (ert-fail "Warm query cache was reset"))))
+       (dotimes (_ 2)
+         (org-workflow-target--selection-entries)
+         (org-workflow--stage-progress "2026-10-15")
+         (org-workflow-history--read-tasks "2026-10-15")
+         (should (= 1 (length (org-workflow-agenda--deadline-goals))))
+         (should (= 1 (length (org-workflow-collection-inbox--pending
+                              (list org-workflow-projects-file) t)))))))))

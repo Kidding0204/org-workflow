@@ -109,8 +109,8 @@ Sprint 右侧项目循环用 `org-workflow-agenda-previous-project` / `org-workf
   不创建 ID。唯一当前项解析优先正在执行的计时周期（包含休息），再读取空闲提醒和普通队列。
   状态、capture、新 frame 和操作共用这个解析结果；无人安装的旧任务 mode-line 展示已删除。
 - 桌面阶段进度 `org-workflow--stage-progress` 通过 `org-workflow-source-read` 读取 Agenda
-  文件，局部绕过 Org element cache，复用未保存内容并保留 point／narrowing；未访问的文件
-  用临时只读 buffer，不触发文件访问或 Org UI hooks。避免启动后的桌面轮询卡在旧解析缓存。
+  文件，复用现场 Org element cache 和未保存内容，保留 point／narrowing；未访问的文件
+  用临时只读 buffer，不触发文件访问或 Org UI hooks。避免已访问文件在桌面轮询时重复建立临时解析缓存。
 - 阶段目标以 DIVE + DEADLINE 为唯一来源，替代旧周日志文本周目标；今天／明天 Sprint
   顶部展示截止日期及原生进度，`W`／主菜单 `w` 访问源阶段。仅 TODO + DEADLINE 不列入。
   新周日志不生成周目标节，已有日志原文保留；参见 [习惯与阶段目标](habit-system.md)。
@@ -154,10 +154,11 @@ Sprint 右侧项目循环用 `org-workflow-agenda-previous-project` / `org-workf
   仅原生 DONE 的直属任务，CLOSED 超出截止日则留待下次；缺少 CLOSED 的旧 DONE 可归档。
   沿用 Org ARCHIVE／org-archive-location，先保存档案再保存源，维护 ID 定位；有未保存编辑
   或外部改动时暂缓，不保存用户其他编辑。不会全局关闭 Org 缓存或改写历史快照。
-- history--tasks 的普通任务 CLOCK／完成事实读取也走 source-read；习惯完成后的桌面状态
-  刷新不能退回缓存式 org-map-entries 扫描，须保留现场未保存文本与收窄范围。
-- sources 库后台读取优先使用现场 buffer，否则使用禁止启动钩子、缓存和保存询问的临时
-  只读 Org buffer。收集项先取得位置，只有实际显示的匹配才访问文件并生成存活 marker。
+- history--tasks 的普通任务 CLOCK／完成事实读取也走 source-read；桌面状态刷新复用
+  已打开来源的原生缓存，须保留现场未保存文本与收窄范围。
+- sources 库后台读取优先复用现场 buffer 的原生缓存与未保存编辑；选择器、阶段进度、
+  历史、收集箱及截止目标扫描不再为每次查询重建临时缓存。未访问文件使用禁止启动
+  钩子、缓存和保存询问的临时只读 Org buffer。收集项先取得位置，只有实际显示的匹配才访问文件并生成存活 marker。
   修改、事务、计时、捕获和现存用户 buffer 的生命周期不变。
 - `org-workflow-week-close`／菜单 J 封存已结束且收集项已清空的周；保存并索引
   `workflow-closed` 文件标签，在日常查询打开文件之前过滤。已结算历史不改写；明确回顾

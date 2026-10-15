@@ -766,19 +766,18 @@ Without THROUGH-DATE, use today as the upper scheduling boundary."
         (with-current-buffer (find-file-noselect file)
           (org-with-wide-buffer
            (when-let* ((kind (org-workflow--file-kind)))
-             (let ((org-element-use-cache nil))
-               (org-map-entries
-                (lambda ()
-                  (when (and (org-workflow-target--unfinished-leaf-p)
-                             (org-workflow-target--eligible-leaf-p kind nil)
-                             (org-workflow--dive-child-p)
-                             (not (seq-some
-                                   (lambda (entry)
-                                     (org-workflow-target--same-marker-p
-                                      (point-marker) (org-workflow-target-entry-marker entry)))
-                                   stack)))
-                    (push (org-workflow-target--entry-at-point) extra)))
-                nil 'file)))))))
+             (org-map-entries
+              (lambda ()
+                (when (and (org-workflow-target--unfinished-leaf-p)
+                           (org-workflow-target--eligible-leaf-p kind nil)
+                           (org-workflow--dive-child-p)
+                           (not (seq-some
+                                 (lambda (entry)
+                                   (org-workflow-target--same-marker-p
+                                    (point-marker) (org-workflow-target-entry-marker entry)))
+                                 stack)))
+                  (push (org-workflow-target--entry-at-point) extra)))
+              nil 'file))))))
     (append (mapcar (lambda (entry) (cons "今日任务栈" entry)) stack)
             (mapcar (lambda (entry) (cons "栈外 DIVE" entry))
                     (cl-stable-sort (nreverse extra) #'>

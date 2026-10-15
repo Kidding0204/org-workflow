@@ -9,28 +9,29 @@
 
 (defun org-workflow-source-read (file function)
   "Call FUNCTION on FILE's text without visiting an otherwise closed file.
-Reuse a visited buffer, including its unsaved text.  Return plain values or
-positions; temporary source markers must not escape FUNCTION."
-  (let ((existing (org-find-base-buffer-visiting file))
-        (org-element-use-cache nil))
+Reuse a visited buffer and its native cache, including unsaved text.
+Return plain values or positions; temporary source markers must not escape
+FUNCTION."
+  (let ((existing (org-find-base-buffer-visiting file)))
     (cond
      (existing
       (with-current-buffer existing
         (save-excursion (save-restriction (widen) (goto-char (point-min))
-                                        (funcall function)))))
+                                          (funcall function)))))
      ((file-readable-p file)
-      (with-temp-buffer
-        (insert-file-contents file)
-        (setq buffer-file-name (expand-file-name file))
-        (let ((org-inhibit-startup t)) (delay-mode-hooks (org-mode)))
-        (setq buffer-read-only t)
-        (set-buffer-modified-p nil)
-        ;; This private read buffer must neither ask to save nor run user
-        ;; file-close integrations when `with-temp-buffer' releases it.
-        (setq-local kill-buffer-query-functions nil)
-        (setq-local kill-buffer-hook nil)
-        (goto-char (point-min))
-        (funcall function))))))
+      (let ((org-element-use-cache nil))
+        (with-temp-buffer
+          (insert-file-contents file)
+          (setq buffer-file-name (expand-file-name file))
+          (let ((org-inhibit-startup t)) (delay-mode-hooks (org-mode)))
+          (setq buffer-read-only t)
+          (set-buffer-modified-p nil)
+          ;; This private read buffer must neither ask to save nor run user
+          ;; file-close integrations when `with-temp-buffer' releases it.
+          (setq-local kill-buffer-query-functions nil)
+          (setq-local kill-buffer-hook nil)
+          (goto-char (point-min))
+          (funcall function)))))))
 
 (defun org-workflow-source-section (title &optional create)
   "Locate the level-one TITLE in the current Org source.

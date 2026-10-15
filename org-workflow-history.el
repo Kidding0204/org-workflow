@@ -170,7 +170,7 @@ Return (POSITION . DATE-OR-T) pairs; t means a direct clock needs checking."
 
 (defun org-workflow-history--read-tasks (date)
   "Read direct clocks and completed tasks on DATE, including refined containers.
-Use bounded cache-free reads, preserving live edits and source restrictions."
+Reuse live source caches, preserving unsaved edits and source restrictions."
   (let ((org-clock-report-include-clocking-task nil) rows)
     (dolist (file (org-agenda-files t))
       (when (file-readable-p file)
