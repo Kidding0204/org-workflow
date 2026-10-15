@@ -1,0 +1,47 @@
+;;; org-workflow-history-scan-test.el --- Request-local scans -*- lexical-binding: t; -*-
+(require 'ert)
+(require 'org-workflow-core)
+(require 'org-workflow-history)
+
+(ert-deftest workflow-history-scan-shared-across-dates-and-refreshed-next-request ()
+  (let* ((directory (make-temp-file "workflow-scan-" t))
+         (file (expand-file-name "project.org" directory))
+         (org-agenda-files (list file))
+         (scan (symbol-function 'org-workflow-history--task-positions))
+         (calls 0))
+    (unwind-protect
+        (progn
+          (with-temp-file file
+            (insert "#+filetags: :project:\n* TODO Parent\n** DONE Child\nCLOSED: [2026-09-17 Thu 12:00]\n:PROPERTIES:\n:ID: child\n:END:\n:LOGBOOK:\nCLOCK: [2026-09-16 Wed 23:50]--[2026-09-17 Thu 00:10] =>  0:20\n:END:\n* TODO Empty\n* TODO Habit\n:PROPERTIES:\n:STYLE: habit\n:END:\n:LOGBOOK:\nCLOCK: [2026-09-16 Wed 10:00]--[2026-09-16 Wed 10:15] =>  0:15\n:END:\n"))
+          (cl-letf (((symbol-function 'org-workflow-history--task-positions)
+                     (lambda (source) (cl-incf calls) (funcall scan source))))
+            (let ((org-workflow-history--request-cache (make-hash-table :test #'equal)))
+              (dolist (date '("2026-09-16" "2026-09-17"))
+                (let ((records (org-workflow-history--tasks date)))
+                  (should (= 1 (length records)))
+                  (should (equal "child" (plist-get (car records) :id)))
+                  (should (= 10 (plist-get (car records) :focusMinutes)))))
+              (should (= 1 calls)))
+            (should-not (get-file-buffer file))
+            (with-current-buffer (find-file-noselect file)
+              (goto-char (point-max))
+              (insert "* DONE Unsaved\nCLOSED: [2026-09-17 Thu 13:00]\n")
+              (let ((org-workflow-history--request-cache (make-hash-table :test #'equal)))
+                (should (= 2 (length (org-workflow-history--tasks "2026-09-17"))))))
+            (should (= 2 calls))))
+      (when-let* ((buffer (get-file-buffer file)))
+        (with-current-buffer buffer (set-buffer-modified-p nil))
+        (kill-buffer buffer))
+      (delete-directory directory t))))
+
+(ert-deftest workflow-history-scan-caches-empty-source ()
+  (with-temp-buffer
+    (org-mode)
+    (let ((org-workflow-history--request-cache (make-hash-table :test #'equal))
+          (calls 0))
+      (cl-letf (((symbol-function 'org-map-entries)
+                 (lambda (&rest _) (cl-incf calls) nil)))
+        (dotimes (_ 2)
+          (should-not (org-workflow-history--request-read
+                       'task-positions "empty.org" #'org-workflow-history--task-positions)))
+        (should (= 1 calls))))))

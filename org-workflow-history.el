@@ -150,6 +150,24 @@ Keep original due dates intact.  Leave records do not discharge commitments."
   "Read DATE's closed clocks and completions, shared within a status request."
   (org-workflow-history--request-read 'tasks date #'org-workflow-history--read-tasks))
 
+(defun org-workflow-history--task-positions (_file)
+  "Find non-habit headings with potential daily facts in the current source.
+Return (POSITION . DATE-OR-T) pairs; t means a direct clock needs checking."
+  (let (positions)
+    (org-map-entries
+     (lambda ()
+       (unless (org-workflow-habit-p)
+         (let ((closed (and (equal (org-get-todo-state) "DONE")
+                            (org-workflow-target--timestamp-date (org-entry-get nil "CLOSED"))))
+               (clock (save-excursion
+                        (let ((limit (save-excursion
+                                       (if (outline-next-heading) (point) (point-max)))))
+                          (re-search-forward org-clock-line-re limit t)))))
+           (when (or closed clock)
+             (push (cons (point) (if clock t closed)) positions)))))
+     nil 'file)
+    (nreverse positions)))
+
 (defun org-workflow-history--read-tasks (date)
   "Read direct clocks and completed tasks on DATE, including refined containers.
 Use bounded cache-free reads, preserving live edits and source restrictions."
@@ -160,21 +178,15 @@ Use bounded cache-free reads, preserving live edits and source restrictions."
          file
          (lambda ()
            (when (org-workflow--file-kind)
-             (org-map-entries
-              (lambda ()
-                (unless (org-workflow-habit-p)
-                  ;; Most headings have no facts; avoid constructing navigation data for them.
-                  (when (or (and (equal (org-get-todo-state) "DONE")
-                                 (equal date (org-workflow-target--timestamp-date
-                                              (org-entry-get nil "CLOSED"))))
-                            (save-excursion
-                              (let ((limit (save-excursion
-                                             (if (outline-next-heading) (point) (point-max)))))
-                                (re-search-forward org-clock-line-re limit t))))
-                    (when-let* ((record (org-workflow-item-day-record
-                                        (org-workflow-item-at-marker (point-marker) date) date)))
-                      (push record rows)))))
-              nil 'file))))))
+             ;; Dates share a source scan only inside this read-only request.
+             (dolist (candidate (org-workflow-history--request-read
+                               'task-positions file
+                               #'org-workflow-history--task-positions))
+               (when (or (eq (cdr candidate) t) (equal (cdr candidate) date))
+                 (goto-char (car candidate))
+                 (when-let* ((record (org-workflow-item-day-record
+                                     (org-workflow-item-at-marker (point-marker) date) date)))
+                   (push record rows)))))))))
     rows))
 
 (defun org-workflow-history--habit-records (date)
