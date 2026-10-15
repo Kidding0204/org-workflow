@@ -74,17 +74,24 @@ An explicit file keeps the dedicated habit document behavior."
 
 (defun org-workflow-habits-records (date)
   "Read DATE's habit facts through the shared item day-record pipeline."
-  (let (records)
+  (cdar (org-workflow-habits-records-for-dates (list date))))
+
+(defun org-workflow-habits-records-for-dates (dates)
+  "Read habit facts for DATES in one source scan, returning a date alist."
+  (let ((records (mapcar #'list dates)))
     (org-workflow-habits--map
      (lambda ()
-       (when-let* ((record (org-workflow-item-day-record
-                           (org-workflow-item-at-marker (point-marker) date) date)))
-         (let ((id (plist-get record :id)))
-           (unless id (user-error "习惯缺少 ID：%s；请创建 ID 并保存" (plist-get record :task)))
-           (when (seq-find (lambda (row) (equal id (plist-get row :id))) records)
-             (error "Duplicate habit ID: %s" id))
-           (push record records)))))
-    (nreverse records)))
+       (let ((item (org-workflow-item-at-marker (point-marker))))
+         (dolist (day records)
+           (when-let* ((record (org-workflow-item-day-record item (car day))))
+             (let ((id (plist-get record :id)))
+               (unless id
+                 (user-error "习惯缺少 ID：%s；请创建 ID 并保存" (plist-get record :task)))
+               (when (seq-find (lambda (row) (equal id (plist-get row :id))) (cdr day))
+                 (error "Duplicate habit ID: %s" id))
+               (push record (cdr day))))))))
+    (dolist (day records) (setcdr day (nreverse (cdr day))))
+    records))
 
 (defun org-workflow-habits--parse ()
   "Read all native completion dates, independent of graph display settings."

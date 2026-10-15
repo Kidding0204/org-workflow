@@ -191,10 +191,14 @@ Use bounded cache-free reads, preserving live edits and source restrictions."
 
 (defun org-workflow-history--habit-records (date)
   "Read habit facts for DATE, rejecting a missing established source."
+  (org-workflow-history--check-habit-source)
+  (org-workflow-habits-records date))
+
+(defun org-workflow-history--check-habit-source ()
+  "Reject a missing established habit source before reading or syncing facts."
   (when (and (org-workflow-store-meta "habit-source")
              (not (file-readable-p (org-workflow-habits-file))))
-    (error "Habit source is missing or unreadable: %s" (org-workflow-habits-file)))
-  (org-workflow-habits-records date))
+    (error "Habit source is missing or unreadable: %s" (org-workflow-habits-file))))
 
 (defun org-workflow-history--compute (date)
   "Compute DATE's settlement from commitments, direct clocks and habit facts."
@@ -436,13 +440,14 @@ Sources are saved first: a database failure is reported and the next sync can
 replay them.  Past finalized totals require explicit recomputation."
   (interactive)
   (when org-workflow-store-enabled
+    (org-workflow-history--check-habit-source)
     ;; Also supports hot activation with an already-open pre-habit connection.
     (sqlite-execute (org-workflow-store--db)
                     "CREATE TABLE IF NOT EXISTS habit_days(date TEXT PRIMARY KEY,payload TEXT NOT NULL)")
     (let* ((previous (org-workflow-store-habit-days))
            (dates (delete-dups (append (mapcar #'car previous)
                                       (org-workflow-habits-dates))))
-           (records (mapcar (lambda (date) (cons date (org-workflow-history--habit-records date))) dates))
+           (records (org-workflow-habits-records-for-dates dates))
            (db (org-workflow-store--db)))
       (sqlite-execute db "BEGIN IMMEDIATE")
       (condition-case err

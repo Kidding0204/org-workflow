@@ -37,6 +37,74 @@
           (lambda () (push (org-get-heading t t t t) titles)))))
      (should (equal titles '("Habit" "Habit"))))))
 
+(ert-deftest workflow-habit-sync-scans-sources-twice-regardless-of-history ()
+  "Date discovery and fact collection each scan once, even for long history."
+  (workflow-habit-test
+   (with-temp-file org-workflow-habit-file
+     (insert "* TODO Habit\n:PROPERTIES:\n:STYLE: habit\n:ID: bulk\n:END:\n:LOGBOOK:\n- State \"DONE\" from \"TODO\" [2026-09-19 Sat 00:20]\nCLOCK: [2026-09-18 Fri 23:50]--[2026-09-19 Sat 00:20] => 0:30\n:END:\n"))
+   (let ((scan (symbol-function 'org-workflow-habits--map)) (calls 0))
+     (cl-letf (((symbol-function 'org-workflow-habits--map)
+                (lambda (function) (cl-incf calls) (funcall scan function))))
+       (org-workflow-history-sync-habits))
+     (should (= calls 2)))
+   (let ((days (org-workflow-store-habit-days)))
+     (should (= 10 (plist-get (cadr (assoc "2026-09-18" days)) :focusMinutes)))
+     (should (= 20 (plist-get (cadr (assoc "2026-09-19" days)) :focusMinutes))))))
+
+(ert-deftest workflow-habit-bulk-records-preserve-order-and-empty-days ()
+  (workflow-habit-test
+   (with-temp-file org-workflow-habit-file
+     (dolist (id '("first" "second"))
+       (insert (format "* TODO %s\n:PROPERTIES:\n:STYLE: habit\n:ID: %s\n:END:\n- State \"DONE\" from \"TODO\" [2026-09-19 Sat 00:20]\n" id id))))
+   (let ((records (org-workflow-habits-records-for-dates '("2026-09-19" "2026-09-20"))))
+     (should (equal (mapcar (lambda (row) (plist-get row :id)) (cdar records))
+                    '("first" "second")))
+     (should (equal (cadr records) '("2026-09-20"))))))
+
+(ert-deftest workflow-habit-sync-clears-deleted-facts-and-rejects-duplicate-ids ()
+  (workflow-habit-test
+   (let ((text "* TODO Habit\n:PROPERTIES:\n:STYLE: habit\n:ID: same\n:END:\n- State \"DONE\" from \"TODO\" [2026-09-19 Sat 00:20]\n"))
+     (with-temp-file org-workflow-habit-file (insert text))
+     (org-workflow-history-sync-habits)
+     (let ((before (org-workflow-store-habit-days)))
+       (with-current-buffer (find-file-noselect org-workflow-habit-file)
+         (goto-char (point-max)) (insert text))
+       (should-error (org-workflow-history-sync-habits))
+       (should (equal before (org-workflow-store-habit-days))))
+     (with-current-buffer (find-file-noselect org-workflow-habit-file) (erase-buffer))
+     (org-workflow-history-sync-habits)
+     (should (equal (assoc "2026-09-19" (org-workflow-store-habit-days))
+                    '("2026-09-19"))))))
+
+(ert-deftest workflow-habit-capture-save-and-kill-use-bulk-sync ()
+  (require 'org-capture)
+  (workflow-habit-test
+   (with-temp-file org-workflow-habit-file
+     (insert "* TODO Habit\n:PROPERTIES:\n:STYLE: habit\n:ID: capture-test\n:END:\n- State \"DONE\" from \"TODO\" [2026-09-19 Sat 00:20]\n"))
+   (let ((org-capture-templates
+          `(("x" "Test" entry (file ,org-workflow-habit-file) "* TODO %?")))
+         (org-capture-mode-hook nil)
+         (org-capture-prepare-finalize-hook nil)
+         (org-capture-after-finalize-hook nil)
+         (org-workflow-habits-saved-hook '(org-workflow-history-sync-habits))
+         (scan (symbol-function 'org-workflow-habits--map)) (calls 0))
+     (save-window-excursion
+       (org-capture nil "x")
+       (unwind-protect
+           (cl-letf (((symbol-function 'org-workflow-habits--map)
+                      (lambda (function) (cl-incf calls) (funcall scan function))))
+             (insert "Temporary capture")
+             (with-current-buffer (buffer-base-buffer) (save-buffer))
+             (should (= calls 2))
+             (setq calls 0)
+             (org-capture-kill)
+             (should (= calls 2)))
+         (when (bound-and-true-p org-capture-mode) (org-capture-kill))))
+     (with-temp-buffer
+       (insert-file-contents org-workflow-habit-file)
+       (should-not (search-forward "Temporary capture" nil t)))
+     (should (= 1 (length (cdr (assoc "2026-09-19" (org-workflow-store-habit-days)))))))))
+
 (ert-deftest workflow-habit-cross-midnight-completion-and-sqlite-replay ()
   (workflow-habit-test
    (with-temp-file org-workflow-habit-file
