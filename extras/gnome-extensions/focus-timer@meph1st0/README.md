@@ -168,7 +168,7 @@ snapshots only, with missing snapshots shown as unknown. Leave does not count
 as achievement or override a complete/unknown day.
 
 Version 18 restores the immediate parent as a separate dim 100px field, without
-project statistics. Week tracks preserve achievement hues (green/gray/purple)
+project statistics. Week tracks preserve achievement hues (green/gray/amber)
 and vary intensity continuously over 0–600 recorded minutes, saturating at ten
 hours. Menus show exact hours/minutes. Today sums direct task and habit clocks;
 past days use sealed total time without rewriting history. Missing time is not
@@ -223,3 +223,7 @@ row to make it the current item; activate that current habit again to restore
 the ordinary task queue. The selected row shows an arrow. Completion stays in
 the direct completion action; completed rows show a check and are disabled. The right menu opens the native long-term history panel or weekly
 journal. Left click on the right indicator still opens Sprint.
+
+Week indicators use a compact translucent rounded backing, soft state fills
+and a warm underline for today. The existing green/gray/amber achievement
+colors and continuous recorded-time intensity remain unchanged in meaning.

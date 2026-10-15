@@ -70,46 +70,46 @@
     max-width: 440px;
 }
 .workflow-week-strip {
-    spacing: 12px;
-    padding: 0 8px;
+    spacing: 8px;
+    /* Balance the 3px gap and 2px today marker below the tracks. */
+    padding: 8px 9px 3px;
+    border-radius: 12px;
+    background-color: rgba(20, 22, 19, 0.14);
+    border: 1px solid rgba(245, 239, 222, 0.08);
 }
 .workflow-week-cell {
-    width: 36px;
+    width: 28px;
     spacing: 3px;
 }
 .workflow-week-track {
     height: 5px;
-    border-radius: 3px;
-    border: 1px solid transparent;
+    border-radius: 4px;
+    border: 1px solid rgba(245, 239, 222, 0.08);
 }
 .workflow-week-complete,
 .workflow-week-invested {
     background-color: #8dc8bd;
 }
 .workflow-week-leave {
-    border-color: #c3a7d6;
-    background-color: rgba(195, 167, 214, 0.25);
+    background-color: rgba(224, 169, 103, 0.24);
 }
 .workflow-week-incomplete,
 .workflow-week-unrecorded {
-    border-color: rgba(255, 255, 255, 0.30);
+    background-color: rgba(190, 195, 202, 0.16);
 }
 .workflow-week-future {
-    background-color: rgba(255, 255, 255, 0.12);
-    height: 1px;
-    margin-top: 2px;
-    margin-bottom: 2px;
+    background-color: rgba(245, 239, 222, 0.06);
 }
 .workflow-week-today {
-    width: 3px;
-    height: 3px;
-    border-radius: 2px;
-    background-color: #e4eeeb;
+    width: 8px;
+    height: 2px;
+    border-radius: 1px;
+    background-color: rgba(245, 239, 222, 0.85);
 }
 .workflow-week-unknown {
     font-size: 9px;
     line-height: 7px;
-    color: #b8b8b8;
+    color: rgba(245, 239, 222, 0.55);
 }
 .focus-timer-content {
     spacing: 16px;

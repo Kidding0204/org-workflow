@@ -1,0 +1,285 @@
+{
+  "remote": "https://github.com/Kidding0204/org-workflow.git",
+  "remote_head": "7691ddadaf13ea468df7f38ec85a6a35c88f1749",
+  "remote_commit_date": "2026-10-11T16:43:36+08:00",
+  "recovery_location": "/tmp/emacs-recovery-workflow",
+  "raw_evidence": "/tmp/workflow-recovery-evidence",
+  "method": "Replay original successful package edits from historical tool inputs in timestamp order; restrict paths to isolated recovery checkout. No synthesized application code.",
+  "sources": [
+    {
+      "timestamp": "2026-10-12T15:24:54.834Z",
+      "source": "/home/meph1st0/.codex/sessions/2026/10/11/rollout-2026-10-11T00-43-46-01a126b2-fd57-7421-9c62-3e51a30fcc9a.jsonl",
+      "line": 1339,
+      "file": "org-workflow-history.el",
+      "id": 94,
+      "kind": "apply_patch"
+    },
+    {
+      "timestamp": "2026-10-13T04:35:58.411Z",
+      "source": "/home/meph1st0/.codex/sessions/2026/10/13/rollout-2026-10-13T12-34-52-01a1338a-bc25-7883-90af-023d031c070f.jsonl",
+      "line": 65,
+      "file": "extras/gnome-extensions/focus-timer@meph1st0/extension.js",
+      "id": 95,
+      "kind": "apply_patch"
+    },
+    {
+      "timestamp": "2026-10-13T04:36:45.999Z",
+      "source": "/home/meph1st0/.codex/sessions/2026/10/13/rollout-2026-10-13T12-34-52-01a1338a-bc25-7883-90af-023d031c070f.jsonl",
+      "line": 79,
+      "file": "extras/gnome-extensions/focus-timer@meph1st0/tests/startup.test.js",
+      "id": 96,
+      "kind": "apply_patch"
+    },
+    {
+      "timestamp": "2026-10-13T04:38:38.430Z",
+      "source": "/home/meph1st0/.codex/sessions/2026/10/13/rollout-2026-10-13T12-27-51-01a13384-4f47-7413-886d-2f7bec659470.jsonl",
+      "line": 311,
+      "file": "docs/CONTEXT.md",
+      "id": 97,
+      "kind": "apply_patch"
+    },
+    {
+      "timestamp": "2026-10-14T14:19:33.025Z",
+      "source": "/home/meph1st0/.codex/sessions/2026/10/11/rollout-2026-10-11T00-43-46-01a126b2-fd57-7421-9c62-3e51a30fcc9a.jsonl",
+      "line": 1452,
+      "file": "org-workflow-core.el",
+      "id": 98,
+      "kind": "apply_patch"
+    },
+    {
+      "timestamp": "2026-10-14T14:22:54.813Z",
+      "source": "/home/meph1st0/.codex/sessions/2026/10/11/rollout-2026-10-11T00-43-46-01a126b2-fd57-7421-9c62-3e51a30fcc9a.jsonl",
+      "line": 1490,
+      "file": "test/org-workflow-dispatch-test.el",
+      "id": 99,
+      "kind": "apply_patch"
+    },
+    {
+      "timestamp": "2026-10-14T14:22:54.813Z",
+      "source": "/home/meph1st0/.codex/sessions/2026/10/11/rollout-2026-10-11T00-43-46-01a126b2-fd57-7421-9c62-3e51a30fcc9a.jsonl",
+      "line": 1490,
+      "file": "org-workflow-core.el",
+      "id": 100,
+      "kind": "apply_patch"
+    },
+    {
+      "timestamp": "2026-10-14T14:28:05.809Z",
+      "source": "/home/meph1st0/.codex/sessions/2026/10/11/rollout-2026-10-11T00-43-46-01a126b2-fd57-7421-9c62-3e51a30fcc9a.jsonl",
+      "line": 1618,
+      "file": "test/org-workflow-select-test.el",
+      "id": 101,
+      "kind": "apply_patch"
+    },
+    {
+      "timestamp": "2026-10-14T14:28:23.740Z",
+      "source": "/home/meph1st0/.codex/sessions/2026/10/11/rollout-2026-10-11T00-43-46-01a126b2-fd57-7421-9c62-3e51a30fcc9a.jsonl",
+      "line": 1627,
+      "file": "org-workflow-core.el",
+      "id": 102,
+      "kind": "apply_patch"
+    },
+    {
+      "id": 0,
+      "timestamp": "2026-10-11T15:18:03.992Z",
+      "source": "/home/meph1st0/.codex/sessions/2026/10/11/rollout-2026-10-11T00-43-46-01a126b2-fd57-7421-9c62-3e51a30fcc9a.jsonl",
+      "line": 980,
+      "kind": "exec_command"
+    },
+    {
+      "id": 1,
+      "timestamp": "2026-10-11T15:20:39.818Z",
+      "source": "/home/meph1st0/.codex/sessions/2026/10/11/rollout-2026-10-11T00-43-46-01a126b2-fd57-7421-9c62-3e51a30fcc9a.jsonl",
+      "line": 1020,
+      "kind": "exec_command"
+    },
+    {
+      "id": 2,
+      "timestamp": "2026-10-11T15:26:21.168Z",
+      "source": "/home/meph1st0/.codex/sessions/2026/10/11/rollout-2026-10-11T00-43-46-01a126b2-fd57-7421-9c62-3e51a30fcc9a.jsonl",
+      "line": 1055,
+      "kind": "exec_command"
+    },
+    {
+      "id": 3,
+      "timestamp": "2026-10-11T15:30:20.798Z",
+      "source": "/home/meph1st0/.codex/sessions/2026/10/11/rollout-2026-10-11T00-43-46-01a126b2-fd57-7421-9c62-3e51a30fcc9a.jsonl",
+      "line": 1101,
+      "kind": "exec_command"
+    },
+    {
+      "id": 4,
+      "timestamp": "2026-10-11T15:30:44.629Z",
+      "source": "/home/meph1st0/.codex/sessions/2026/10/11/rollout-2026-10-11T00-43-46-01a126b2-fd57-7421-9c62-3e51a30fcc9a.jsonl",
+      "line": 1114,
+      "kind": "exec_command"
+    },
+    {
+      "id": 6,
+      "timestamp": "2026-10-12T15:24:54.834Z",
+      "source": "/home/meph1st0/.codex/sessions/2026/10/11/rollout-2026-10-11T00-43-46-01a126b2-fd57-7421-9c62-3e51a30fcc9a.jsonl",
+      "line": 1339,
+      "kind": "exec_command"
+    },
+    {
+      "id": 7,
+      "timestamp": "2026-10-12T15:28:22.539Z",
+      "source": "/home/meph1st0/.codex/sessions/2026/10/11/rollout-2026-10-11T00-43-46-01a126b2-fd57-7421-9c62-3e51a30fcc9a.jsonl",
+      "line": 1375,
+      "kind": "exec_command"
+    },
+    {
+      "id": 8,
+      "timestamp": "2026-10-14T14:19:33.025Z",
+      "source": "/home/meph1st0/.codex/sessions/2026/10/11/rollout-2026-10-11T00-43-46-01a126b2-fd57-7421-9c62-3e51a30fcc9a.jsonl",
+      "line": 1452,
+      "kind": "exec_command"
+    },
+    {
+      "id": 14,
+      "timestamp": "2026-10-13T04:36:18.928Z",
+      "source": "/home/meph1st0/.codex/sessions/2026/10/13/rollout-2026-10-13T12-34-42-01a1338a-95c9-7a90-ac60-5d87fd8b4036.jsonl",
+      "line": 54,
+      "kind": "exec_command"
+    },
+    {
+      "id": 15,
+      "timestamp": "2026-10-13T04:37:07.834Z",
+      "source": "/home/meph1st0/.codex/sessions/2026/10/13/rollout-2026-10-13T12-34-42-01a1338a-95c9-7a90-ac60-5d87fd8b4036.jsonl",
+      "line": 86,
+      "kind": "exec_command"
+    },
+    {
+      "id": 16,
+      "timestamp": "2026-10-13T04:37:49.841Z",
+      "source": "/home/meph1st0/.codex/sessions/2026/10/13/rollout-2026-10-13T12-34-42-01a1338a-95c9-7a90-ac60-5d87fd8b4036.jsonl",
+      "line": 96,
+      "kind": "exec_command"
+    },
+    {
+      "id": 17,
+      "timestamp": "2026-10-13T04:38:09.180Z",
+      "source": "/home/meph1st0/.codex/sessions/2026/10/13/rollout-2026-10-13T12-34-42-01a1338a-95c9-7a90-ac60-5d87fd8b4036.jsonl",
+      "line": 103,
+      "kind": "exec_command"
+    },
+    {
+      "id": 18,
+      "timestamp": "2026-10-13T04:38:50.582Z",
+      "source": "/home/meph1st0/.codex/sessions/2026/10/13/rollout-2026-10-13T12-34-42-01a1338a-95c9-7a90-ac60-5d87fd8b4036.jsonl",
+      "line": 119,
+      "kind": "exec_command"
+    },
+    {
+      "id": 19,
+      "timestamp": "2026-10-13T04:39:10.170Z",
+      "source": "/home/meph1st0/.codex/sessions/2026/10/13/rollout-2026-10-13T12-34-42-01a1338a-95c9-7a90-ac60-5d87fd8b4036.jsonl",
+      "line": 126,
+      "kind": "exec_command"
+    },
+    {
+      "id": 20,
+      "timestamp": "2026-10-13T04:39:38.690Z",
+      "source": "/home/meph1st0/.codex/sessions/2026/10/13/rollout-2026-10-13T12-34-42-01a1338a-95c9-7a90-ac60-5d87fd8b4036.jsonl",
+      "line": 145,
+      "kind": "exec_command"
+    },
+    {
+      "kind": "exec_command",
+      "source": "/home/meph1st0/.codex/sessions/2026/10/13/rollout-2026-10-13T12-27-51-01a13384-4f47-7413-886d-2f7bec659470.jsonl",
+      "line": 405,
+      "note": "Append original performance verification documentation only"
+    }
+  ],
+  "files": [
+    {
+      "path": "docs/CONTEXT.md",
+      "remote_sha256": "bd48751ae96e4307c04fe2d8b1918813e71a36420c7376de094d080267246a0a",
+      "recovered_sha256": "a5b4c414b7ee4723f30905154f1615bea64616bf69c216f23b2ae9bed14df2cb"
+    },
+    {
+      "path": "docs/verification.md",
+      "remote_sha256": "2bc1204a0960f7474c2695ff6b45ab2a3398ea1cd7fd51ce804cd7ead1d249e1",
+      "recovered_sha256": "25b7e92a183ec67d0c0ce4ba6b0d7c08bc4620d1dba1ac64046f330645508149"
+    },
+    {
+      "path": "extras/bin/org-workflow-client",
+      "remote_sha256": "d3927ed502f5760a6a4f2bbf8dd66a37a47b677e2ef4b36988acc1ecf8686931",
+      "recovered_sha256": "79f9c64952c7f0596d58e4820966f12990db0aa932a01d4ad491bcefb1cc6b0c"
+    },
+    {
+      "path": "extras/gnome-extensions/focus-timer@meph1st0/README.md",
+      "remote_sha256": "388d5c40a6984a89c7d8a43b05bd8b225e8eb985d58d2c0d8f9eaf7ce2e4ea2c",
+      "recovered_sha256": "2f53b19f2c14c1d341624a7ad577d0574f859cf784f4320c9d28e214bafcae30"
+    },
+    {
+      "path": "extras/gnome-extensions/focus-timer@meph1st0/extension.js",
+      "remote_sha256": "0d1a94a920a3154724ae2a56bc11127735329b53b92320f13e2d9eaa45f79067",
+      "recovered_sha256": "f94df3c7206a6656d0d392473f44c70b8c1572a5739eea2123cc55f4efff0455"
+    },
+    {
+      "path": "extras/gnome-extensions/focus-timer@meph1st0/planning.js",
+      "remote_sha256": "f7ca88dc2a354406e7c1839226fda7d55b86a26e85b20ecdb472db5524c5bb89",
+      "recovered_sha256": "dc4a38a68dda22201fbf60f4125ad43f09945f22f5c3ebcb49b3a4b5ae508a35"
+    },
+    {
+      "path": "extras/gnome-extensions/focus-timer@meph1st0/stylesheet.css",
+      "remote_sha256": "0a71a86de95abbbd0319716a8610645f2eba8063e2e93696c8f7c33a8b734efd",
+      "recovered_sha256": "3718c9d966290a01cb7269af5d536fcb2dc6e09cf05c96a877de937732a429bc"
+    },
+    {
+      "path": "extras/gnome-extensions/focus-timer@meph1st0/tests/planning.test.js",
+      "remote_sha256": "360eecc0994e923eac6ee23d891163e8d5596a4893e749d2a5d62914cfc6c4a9",
+      "recovered_sha256": "1c144b2610cb40e32b8e20b320588ec89f3c856680303af47ad1b03aaca6bd91"
+    },
+    {
+      "path": "extras/gnome-extensions/focus-timer@meph1st0/tests/startup.test.js",
+      "remote_sha256": "1612ed264c450e88092fac40da0633dc7249284ff50eb5b2931b22916d219303",
+      "recovered_sha256": "91a77aa86988518b54bbaa6d9d0ca7a907de289d3d4b56800e215af6f6dffed0"
+    },
+    {
+      "path": "org-workflow-core.el",
+      "remote_sha256": "bb57fe65057e8c9dbe5ed305531b3d6807d622781ca7697e77e9a8a5dade8b6f",
+      "recovered_sha256": "f3b9d08e74198c4a88fdefe912a29c35f28c305f455442fd5c793e11206e7283"
+    },
+    {
+      "path": "org-workflow-history.el",
+      "remote_sha256": "46b71ccf02b6dba263a4f999b494514c266e1342ef1dd2aaa52297445b77b7ca",
+      "recovered_sha256": "dde353d323aade5758c31e399ef759e05b8f16d25bef8253f6119a1d8120a828"
+    },
+    {
+      "path": "org-workflow-panel.el",
+      "remote_sha256": "aaf8ea7b2c2cadc8979b8696195a9b39c949edcd194b9b16d1bc6c1ca5bf9827",
+      "recovered_sha256": "dbb7f2db5c959c06545ba15730e4bd976c8d5678357afab4c2a2ac5880ab2496"
+    },
+    {
+      "path": "org-workflow-store.el",
+      "remote_sha256": "d7f6f518d5c2ba0f7588637bb43bf6ba74c12da3d6fc44229b8f10bf32299a6e",
+      "recovered_sha256": "23f439a3a4ede72975d9f9001ab4462c5aa56fe493dda5d14bce1ae7d968a601"
+    },
+    {
+      "path": "test/org-workflow-attempt-test.el",
+      "remote_sha256": "ed969714010b5edde025c3825a004c5b6b43fdf5178f366831c77eee44ac8e05",
+      "recovered_sha256": "d3e6e36f8155fc230953314f3f080df64572f4b9e14b562f6b8df80d89b91fad"
+    },
+    {
+      "path": "test/org-workflow-dispatch-test.el",
+      "remote_sha256": "28c2e4410fd1327639237b548f8c52d7fc8a3e5eb2dafe8cd4b1d66741c9894f",
+      "recovered_sha256": "475a59ecfcb205b61b14fc3d87e58338242c7674b78ccee84c048d0df718d807"
+    },
+    {
+      "path": "test/org-workflow-panel-test.el",
+      "remote_sha256": "39d94189bc0735bdb89cf7ca867d61a4fe734cbb1a775c75bd5b86a3c58a553f",
+      "recovered_sha256": "04fc0bbf93a9e57033c1bc40c1ad18b8021c80d0ba98fcd2cdb547c5a631a31d"
+    },
+    {
+      "path": "test/org-workflow-select-test.el",
+      "remote_sha256": "4ba8c877782355225d9eb277891786dc837585e30626f2ee8d7b2c671af338b2",
+      "recovered_sha256": "f12d3d884885c67a23a2ff459f94d4fa426da5593fac4c4064ebf6a0719293e4"
+    },
+    {
+      "path": "test/org-workflow-sources-test.el",
+      "remote_sha256": "9868b26f6e7a7788fc67c6b98164d7f9f8145173ab8ec64ec66575d14478432c",
+      "recovered_sha256": "41b56cf9dde38de26c96f4bf38eda41bb38a1de1316c4da6e89ee3d3100f0435"
+    }
+  ]
+}

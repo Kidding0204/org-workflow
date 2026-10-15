@@ -417,5 +417,94 @@
                    (caar (sqlite-select (org-workflow-store--db)
                                         "SELECT payload FROM events WHERE kind='attempt-fulfilled'")))))))
 
+(ert-deftest workflow-attempt-empty-tasks-are-read-once ()
+  (org-workflow-attempt-test
+   (dotimes (_ 10) (org-workflow-store-create "2026-09-16"))
+   (let ((reads 0))
+     (cl-letf (((symbol-function 'org-workflow-history--tasks)
+                (lambda (_) (cl-incf reads) nil)))
+       (let ((progress (org-workflow-history-progress "2026-09-16")))
+         (should (= 10 (plist-get progress :minimumTotal)))
+         (should (= 0 (plist-get progress :minimumSatisfied)))))
+     (should (= 1 reads)))))
+
+(ert-deftest workflow-attempt-catch-up-discards-settled-and-terminal-rows ()
+  (org-workflow-attempt-test
+   (org-workflow-store-set-meta "anchor" "2026-09-16")
+   (dotimes (offset 365)
+     (let* ((date (org-workflow-history-add-days "2026-09-16" offset))
+            (id (org-workflow-store-create date)))
+       (if (= 0 (% offset 2))
+           (org-workflow-store--event id "attempt-fulfilled" (list :date date))
+         (sqlite-execute (org-workflow-store--db)
+                         "INSERT INTO events(id,at,kind,payload) VALUES(?,?,'done','nil')"
+                         (list id (concat date "T12:00:00"))))
+       (org-workflow-store-put-day date (list :date date :commitment "met"))))
+   (let ((checks 0) (checker (symbol-function 'org-workflow-history--attempt-fulfilled-p)))
+     (cl-letf (((symbol-function 'org-workflow-target--today-string)
+                (lambda () (org-workflow-history-add-days "2026-09-16" 365)))
+               ((symbol-function 'org-workflow-inbox-archive-done) #'ignore)
+               ((symbol-function 'org-workflow-history--tasks)
+                (lambda (_) (ert-fail "Settled days must not scan sources")))
+               ((symbol-function 'org-workflow-history--attempt-fulfilled-p)
+                (lambda (&rest args) (cl-incf checks) (apply checker args))))
+       (org-workflow-history-catch-up))
+     (should (<= checks 365)))))
+
+(ert-deftest workflow-attempt-catch-up-backfills-before-future-fulfillment ()
+  (org-workflow-attempt-test
+   (org-workflow-store-set-meta "anchor" "2026-09-16")
+   (let ((id (org-workflow-store-create "2026-09-16")))
+     (org-workflow-store--event id "attempt-fulfilled" '(:date "2026-09-20"))
+     (org-workflow-attempt-test--clock "2026-09-17" 5)
+     (dotimes (offset 5)
+       (let ((date (org-workflow-history-add-days "2026-09-16" offset)))
+         (org-workflow-store-put-day date (list :date date :commitment "unmet"))))
+     (cl-letf (((symbol-function 'org-workflow-target--today-string) (lambda () "2026-09-21"))
+               ((symbol-function 'org-workflow-inbox-archive-done) #'ignore))
+       (org-workflow-history-catch-up))
+     (should (org-workflow-history--attempt-fulfilled-p
+              (org-workflow-store-commitment id) "2026-09-17"))
+     (should (equal "unmet" (plist-get (org-workflow-store-day "2026-09-17") :commitment))))))
+
+(ert-deftest workflow-attempt-catch-up-retries-failed-backfill ()
+  (org-workflow-attempt-test
+   (org-workflow-store-set-meta "anchor" "2026-09-16")
+   (let ((id (org-workflow-store-create "2026-09-16")))
+     (org-workflow-attempt-test--clock "2026-09-16" 5)
+     (org-workflow-store-put-day "2026-09-16" '(:date "2026-09-16" :commitment "unmet"))
+     (cl-letf (((symbol-function 'org-workflow-target--today-string) (lambda () "2026-09-17"))
+               ((symbol-function 'org-workflow-inbox-archive-done) #'ignore))
+       (cl-letf (((symbol-function 'org-workflow-store--event)
+                  (lambda (&rest _) (error "write failed"))))
+         (should-error (org-workflow-history-catch-up)))
+       (should-not (org-workflow-history--attempt-fulfilled-p
+                    (org-workflow-store-commitment id) "2026-09-16"))
+       (org-workflow-history-catch-up)
+       (should (org-workflow-history--attempt-fulfilled-p
+                (org-workflow-store-commitment id) "2026-09-16"))))))
+
+(ert-deftest workflow-attempt-catch-up-keeps-reopened-and-out-of-order-events ()
+  (org-workflow-attempt-test
+   (org-workflow-store-set-meta "anchor" "2026-09-16")
+   (let ((id (org-workflow-store-create "2026-09-16")))
+     ;; The final event is terminal, but a later calendar event reopens an earlier day.
+     (dolist (event '(("2026-09-16" "done") ("2026-09-17" "pending")
+                      ("2026-09-20" "pending")
+                      ("2026-09-18" "done")))
+       (sqlite-execute (org-workflow-store--db)
+                       "INSERT INTO events(id,at,kind,payload) VALUES(?,?,?,'nil')"
+                       (list id (concat (car event) "T12:00:00") (cadr event))))
+     ;; September 17 is reopened; later events cannot hide its verifiable clock.
+     (org-workflow-attempt-test--clock "2026-09-17" 5)
+     (dotimes (offset 5)
+       (let ((date (org-workflow-history-add-days "2026-09-16" offset)))
+         (org-workflow-store-put-day date (list :date date :commitment "met"))))
+     (cl-letf (((symbol-function 'org-workflow-target--today-string) (lambda () "2026-09-21"))
+               ((symbol-function 'org-workflow-inbox-archive-done) #'ignore))
+       (org-workflow-history-catch-up))
+     (should (org-workflow-history--attempt-fulfilled-p
+              (org-workflow-store-commitment id) "2026-09-17")))))
+
 (provide 'org-workflow-attempt-test)
 ;;; org-workflow-attempt-test.el ends here

@@ -176,7 +176,10 @@
 
 (defun org-workflow-panel--week (today)
   "Return the current week's daily achievement and leave facts relative to TODAY."
-  (let ((week (org-workflow-week-start today)))
+  (let* ((day (time-to-days (org-time-string-to-time (concat today " 12:00"))))
+         (week (format-time-string "%Y-%m-%d"
+                                  (org-workflow-habits--day-time
+                                   (org-workflow-habits-week-start day)))))
     (vconcat
      (mapcar
       (lambda (offset)

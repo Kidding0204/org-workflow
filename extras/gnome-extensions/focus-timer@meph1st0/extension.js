@@ -62,6 +62,7 @@ export default class FocusTimerExtension extends Extension {
         this._refreshSourceId = null;
         this._refreshIntervalSeconds = null;
         this._refreshInFlight = false;
+        this._actionsInFlight = 0;
         this._refreshPending = false;
         this._refreshPending休息art = false;
         this._dbusSignalIds = [];
@@ -260,12 +261,15 @@ export default class FocusTimerExtension extends Extension {
     _refresh({restartSchedule = false} = {}) {
         if (!this._enabled)
             return;
-        if (this._refreshInFlight) {
+        if (this._refreshInFlight || this._actionsInFlight > 0) {
             this._refreshPending = true;
             this._refreshPending休息art ||= restartSchedule;
             return;
         }
 
+        restartSchedule ||= this._refreshPending休息art;
+        this._refreshPending = false;
+        this._refreshPending休息art = false;
         this._refreshInFlight = true;
         this._readTimer(restartSchedule);
     }
@@ -320,12 +324,8 @@ export default class FocusTimerExtension extends Extension {
             this._refreshPending = false;
             return;
         }
-        if (this._refreshPending) {
-            const restart = this._refreshPending休息art;
-            this._refreshPending = false;
-            this._refreshPending休息art = false;
-            this._refresh({restartSchedule: restart});
-        }
+        if (this._refreshPending)
+            this._refresh();
     }
 
     _updatePlanning() {
@@ -456,7 +456,7 @@ export default class FocusTimerExtension extends Extension {
     }
 
     _runCommand(expression) {
-        this._runExpression(expression, () => this._refresh(), () => this._refresh());
+        this._runAction(['emacsclient', '--timeout=5', '--eval', expression]);
     }
 
     _runWorkflowAction(actionId) {
@@ -467,7 +467,19 @@ export default class FocusTimerExtension extends Extension {
             this._refresh();
             return;
         }
-        this._runEmacsclient(argv, () => this._refresh(), () => this._refresh());
+        this._runAction(argv);
+    }
+
+    _runAction(argv) {
+        if (!this._enabled)
+            return;
+        this._actionsInFlight++;
+        const complete = () => {
+            this._actionsInFlight--;
+            // Changed signals during the action are covered by this final read.
+            this._refresh({restartSchedule: true});
+        };
+        this._runEmacsclient(argv, complete, complete);
     }
 
     _runExpression(expression, onSuccess, onFailure) {

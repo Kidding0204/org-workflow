@@ -29,6 +29,21 @@
 
 ; legacy schema-v1 validator
 
+(defvar org-workflow-history--request-cache nil
+  "Read cache bound only for one desktop status request.")
+(defvar org-workflow-history--catch-up-rows t
+  "Candidate commitments during catch-up, or t for a fresh database query.")
+(defvar org-workflow-history--fulfillment-dates nil
+  "Earliest durable fulfillment dates during catch-up.")
+
+(defun org-workflow-history--request-read (kind date reader)
+  "Read KIND for DATE with READER, sharing results within a status request."
+  (if (not org-workflow-history--request-cache) (funcall reader date)
+    (let* ((key (cons kind date))
+           (cached (gethash key org-workflow-history--request-cache 'missing)))
+      (if (not (eq cached 'missing)) cached
+        (puthash key (funcall reader date) org-workflow-history--request-cache)))))
+
 (defun org-workflow-history-add-days (date days)
   "Return the calendar date DAYS days after DATE."
   (org-workflow-journal--date-add-days date days))
@@ -48,29 +63,37 @@ Running clocks and descendants' records cannot satisfy a daily attempt."
              (or marker (point-marker)) (concat "[" date " 00:00]")
              (concat "[" (org-workflow-history-add-days date 1) " 00:00]")) 0))))
 
-(defun org-workflow-history--commitment-satisfied-p (row date &optional tasks)
+(cl-defun org-workflow-history--commitment-satisfied-p
+    (row date &optional (tasks nil tasks-supplied-p))
   "Read ROW's fulfillment on DATE without changing task lifecycle.
-Use supplied TASKS when non-nil, otherwise read that day's direct clocks."
+Use supplied TASKS, including an empty list, or read that day's direct clocks."
   (or (member (org-workflow-history--row-state row date) '("done" "adjusted-done"))
       (org-workflow-history--attempt-fulfilled-p row date)
       (and (org-workflow-history-attempt-enabled-p date)
            (seq-some (lambda (task)
                        (and (equal (plist-get task :id) (nth 1 row))
                             (> (plist-get task :focusMinutes) 0)))
-                     (or tasks (org-workflow-history--tasks date))))))
+                     (if tasks-supplied-p tasks (org-workflow-history--tasks date))))))
 
 (defun org-workflow-history--attempt-fulfilled-p (row date)
   "Whether ROW has a settled investment fulfillment on or before DATE."
-  (seq-some
+  (if org-workflow-history--fulfillment-dates
+      (let ((day (gethash (car row) org-workflow-history--fulfillment-dates)))
+        (and day (not (string< date day))))
+    (seq-some
    (lambda (event)
      (let ((day (plist-get (org-workflow-store--decode (car event)) :date)))
        (and day (not (string< date day)))))
    (sqlite-select (org-workflow-store--db)
                   "SELECT payload FROM events WHERE id=? AND kind='attempt-fulfilled'"
-                  (list (car row)))))
+                  (list (car row))))))
 
 (defun org-workflow-history-progress (date)
   "Compute responsibility on DATE, including unresolved earlier commitments."
+  (org-workflow-history--request-read 'progress date #'org-workflow-history--read-progress))
+
+(defun org-workflow-history--read-progress (date)
+  "Compute uncached responsibility on DATE."
   (let* ((rows (org-workflow-history--responsibilities date))
          (tasks (org-workflow-history--tasks date))
          (done (seq-count (lambda (row) (org-workflow-history--commitment-satisfied-p row date tasks)) rows))
@@ -124,6 +147,10 @@ Keep original due dates intact.  Leave records do not discharge commitments."
       (list date)))))
 
 (defun org-workflow-history--tasks (date)
+  "Read DATE's closed clocks and completions, shared within a status request."
+  (org-workflow-history--request-read 'tasks date #'org-workflow-history--read-tasks))
+
+(defun org-workflow-history--read-tasks (date)
   "Read direct clocks and completed tasks on DATE, including refined containers.
 Use bounded cache-free reads, preserving live edits and source restrictions."
   (let ((org-clock-report-include-clocking-task nil) rows)
@@ -136,9 +163,17 @@ Use bounded cache-free reads, preserving live edits and source restrictions."
              (org-map-entries
               (lambda ()
                 (unless (org-workflow-habit-p)
-                  (when-let* ((record (org-workflow-item-day-record
-                                      (org-workflow-item-at-marker (point-marker) date) date)))
-                    (push record rows))))
+                  ;; Most headings have no facts; avoid constructing navigation data for them.
+                  (when (or (and (equal (org-get-todo-state) "DONE")
+                                 (equal date (org-workflow-target--timestamp-date
+                                              (org-entry-get nil "CLOSED"))))
+                            (save-excursion
+                              (let ((limit (save-excursion
+                                             (if (outline-next-heading) (point) (point-max)))))
+                                (re-search-forward org-clock-line-re limit t))))
+                    (when-let* ((record (org-workflow-item-day-record
+                                        (org-workflow-item-at-marker (point-marker) date) date)))
+                      (push record rows)))))
               nil 'file))))))
     rows))
 
@@ -210,10 +245,13 @@ Use bounded cache-free reads, preserving live edits and source restrictions."
                    (or (org-workflow-history--attempt-fulfilled-p row date)
                        (member (org-workflow-history--row-state row date)
                                '("done" "adjusted-done" "withdrawn" "cancelled"))))
-                 (sqlite-select
+                 (if (not (eq org-workflow-history--catch-up-rows t))
+                     (seq-filter (lambda (row) (not (string< date (nth 3 row))))
+                                 org-workflow-history--catch-up-rows)
+                   (sqlite-select
                   (org-workflow-store--db)
                   "SELECT id,task_id,created_at,due,original_title,title,status,adjusted FROM commitments WHERE due<=? ORDER BY due,rowid"
-                  (list date)))))
+                  (list date))))))
       (when rows
         (let ((tasks (org-workflow-history--tasks date)))
           (seq-filter
@@ -238,7 +276,7 @@ fulfilled commitments."
   (let* ((existing (org-workflow-store-day date))
          (attempts (and existing (not recompute)
                         (org-workflow-history--unrecorded-attempts date)))
-         (db (org-workflow-store--db)) record)
+         (db (org-workflow-store--db)) record recorded-attempts)
     (if (and existing (not recompute) (null attempts)) existing
       (sqlite-execute db "BEGIN IMMEDIATE")
       (condition-case err
@@ -249,13 +287,19 @@ fulfilled commitments."
                               (list (org-workflow-store--encode (list :date date)))))
             (setq record (if (and existing (not recompute)) existing
                            (org-workflow-history--compute date)))
-            (dolist (row (if (and existing (not recompute)) attempts
-                           (org-workflow-history--unrecorded-attempts date)))
+            (setq recorded-attempts (if (and existing (not recompute)) attempts
+                                      (org-workflow-history--unrecorded-attempts date)))
+            (dolist (row recorded-attempts)
               (org-workflow-store--event (car row) "attempt-fulfilled" (list :date date)))
             (when (or (not existing) recompute)
               (org-workflow-store-put-day date record))
             (sqlite-execute db "COMMIT"))
 	(error (sqlite-execute db "ROLLBACK") (signal (car err) (cdr err))))
+      (when org-workflow-history--fulfillment-dates
+        (dolist (row recorded-attempts)
+          (let ((previous (gethash (car row) org-workflow-history--fulfillment-dates)))
+            (when (or (null previous) (string< date previous))
+              (puthash (car row) date org-workflow-history--fulfillment-dates)))))
       (when (or (not existing) recompute)
 	(run-hook-with-args 'org-workflow-journal-finalized-hook date))
       record)))
@@ -268,8 +312,37 @@ fulfilled commitments."
 (defun org-workflow-history-catch-up (&rest _)
   "Seal all past days from the tracking anchor through yesterday."
   (let ((date (or (org-workflow-store-meta "anchor") (org-workflow-target--today-string)))
-        (today (org-workflow-target--today-string)))
+        (today (org-workflow-target--today-string))
+        (org-workflow-history--fulfillment-dates (make-hash-table :test #'equal))
+        (org-workflow-history--catch-up-rows nil)
+        (terminal-dates (make-hash-table :test #'equal))
+        (future-rows
+         (sqlite-select (org-workflow-store--db)
+                        "SELECT id,task_id,created_at,due,original_title,title,status,adjusted FROM commitments ORDER BY due,rowid")))
+    (dolist (event (sqlite-select (org-workflow-store--db)
+                                  "SELECT id,payload FROM events WHERE kind='attempt-fulfilled'"))
+      (let* ((day (plist-get (org-workflow-store--decode (cadr event)) :date))
+             (previous (gethash (car event) org-workflow-history--fulfillment-dates)))
+        (when (and day (or (null previous) (string< day previous)))
+          (puthash (car event) day org-workflow-history--fulfillment-dates))))
+    ;; Only discard a terminal row after every lifecycle event is in the past.
+    (dolist (event (sqlite-select (org-workflow-store--db)
+                                 "SELECT id,at,kind FROM events WHERE kind IN ('pending','done','adjusted-done','held','deferred','withdrawn','cancelled') ORDER BY seq"))
+      (let* ((previous (gethash (car event) terminal-dates))
+             (day (substring (cadr event) 0 10)))
+        (puthash (car event)
+                 (cons (if (and previous (string< day (car previous))) (car previous) day)
+                       (member (nth 2 event) '("done" "adjusted-done" "withdrawn" "cancelled")))
+                 terminal-dates)))
     (while (string< date today)
+      (while (and future-rows (not (string< date (nth 3 (car future-rows)))))
+        (push (pop future-rows) org-workflow-history--catch-up-rows))
+      (setq org-workflow-history--catch-up-rows
+            (seq-remove (lambda (row)
+                          (let ((terminal (gethash (car row) terminal-dates)))
+                            (or (and (cdr terminal) (not (string< date (car terminal))))
+                                (org-workflow-history--attempt-fulfilled-p row date))))
+                        org-workflow-history--catch-up-rows))
       (org-workflow-history-finalize date)
       (setq date (org-workflow-history-add-days date 1)))
     (org-workflow-inbox-archive-done (org-workflow-history-add-days today -1))))

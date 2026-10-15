@@ -854,7 +854,8 @@ is deferred, or the day changes.  Do not start timing automatically."
             (org-workflow--release-execution)
             (setq org-workflow-habit-selection (cons (org-workflow-target--today-string) nil))
             (setq org-workflow-executing-marker (copy-marker marker))
-            (org-workflow-target-refresh t))
+            (org-workflow-target-refresh t)
+            (org-workflow--request-gnome-refresh))
         (error (setq org-workflow-target-selected-marker old-marker
                      org-workflow-target-selected-date old-date
                      org-workflow-habit-selection old-habit-selection)
@@ -876,15 +877,19 @@ is deferred, or the day changes.  Do not start timing automatically."
 
 (defun org-workflow-select-in-new-frame ()
   "Queue task selection in a temporary minibuffer-only graphical frame."
-  ;; The daemon's initial frame has no graphical terminal to inherit.
-  (let ((frame (make-frame-on-display
-                (or (and (featurep 'pgtk) (getenv "WAYLAND_DISPLAY"))
-                    (getenv "DISPLAY")
-                    (user-error "No graphical display is available"))
-                '((name . "workflow-select")
-                             (minibuffer . only)
-                             (width . 100) (height . 18)
-                             (menu-bar-lines . 0) (tool-bar-lines . 0)))))
+  ;; emacsclient creates the selector using its own graphical environment.
+  (let ((frame (if (and (display-graphic-p)
+                       (equal (frame-parameter nil 'name) "workflow-select")
+                       (eq (frame-parameter nil 'minibuffer) 'only))
+                  (selected-frame)
+                (make-frame-on-display
+                 (or (and (featurep 'pgtk) (getenv "WAYLAND_DISPLAY"))
+                     (getenv "DISPLAY")
+                     (user-error "No graphical display is available"))
+                 '((name . "workflow-select")
+                   (minibuffer . only)
+                   (width . 100) (height . 18)
+                   (menu-bar-lines . 0) (tool-bar-lines . 0))))))
     (run-at-time 0.1 nil #'org-workflow--select-in-dedicated-frame frame)
     (list :queued t :action 'select)))
 
@@ -1506,9 +1511,12 @@ Leave the default buffer alone when there is no current target."
      (list :commitmentStreak streak)
      stage)))
 
+(defvar org-workflow-history--request-cache nil)
+
 (defun org-workflow-status-json ()
   "Return `org-workflow-status' as JSON for desktop consumers."
-  (decode-coding-string (json-serialize (org-workflow-status)) 'utf-8))
+  (let ((org-workflow-history--request-cache (make-hash-table :test #'equal)))
+    (decode-coding-string (json-serialize (org-workflow-status)) 'utf-8)))
 
 (defun org-workflow-core--enable ()
   "Install this component while Workflow is being enabled."

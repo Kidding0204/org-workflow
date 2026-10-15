@@ -67,6 +67,7 @@
             (dolist (sql '("CREATE TABLE IF NOT EXISTS meta(key TEXT PRIMARY KEY,value TEXT NOT NULL)"
                           "CREATE TABLE IF NOT EXISTS commitments(id TEXT PRIMARY KEY,task_id TEXT NOT NULL,created_at TEXT,due TEXT NOT NULL,original_title TEXT NOT NULL,title TEXT NOT NULL,status TEXT NOT NULL,adjusted INTEGER NOT NULL DEFAULT 0)"
                           "CREATE TABLE IF NOT EXISTS events(seq INTEGER PRIMARY KEY,id TEXT NOT NULL,at TEXT NOT NULL,kind TEXT NOT NULL,payload TEXT NOT NULL)"
+                          "CREATE INDEX IF NOT EXISTS events_id ON events(id)"
                           "CREATE TABLE IF NOT EXISTS habit_days(date TEXT PRIMARY KEY,payload TEXT NOT NULL)"
                           "CREATE TABLE IF NOT EXISTS days(date TEXT PRIMARY KEY,payload TEXT NOT NULL)"
                           "CREATE TABLE IF NOT EXISTS leave_records(id TEXT PRIMARY KEY,date TEXT NOT NULL,payload TEXT NOT NULL)"

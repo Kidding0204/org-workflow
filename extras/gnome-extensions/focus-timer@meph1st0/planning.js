@@ -5,8 +5,8 @@ export function weekTrackStyle(day) {
     const ratio = Math.min(1, day.focusMinutes / 600);
     const palette = {
         complete: [141, 200, 189, 0.24, 0.95],
-        incomplete: [190, 195, 202, 0.08, 0.55],
-        leave: [195, 167, 214, 0.08, 0.65],
+        incomplete: [190, 195, 202, 0.16, 0.55],
+        leave: [224, 169, 103, 0.24, 0.65],
     };
     const color = palette[day.state];
     if (!color)
@@ -28,7 +28,7 @@ export function planningPresentation(timer, panel, resume = '') {
     const habit = timer?.phase !== 'inactive' ? '' : pending.length
         ? `○ ${pending[0].title}${pending.length > 1 ? ` +${pending.length - 1}` : ''}`
         : panel.habits.length ? '✓ 习惯已完成' : '';
-    const labels = ['一', '二', '三', '四', '五', '六', '日'];
+    const labels = ['日', '一', '二', '三', '四', '五', '六'];
     const symbols = {complete: '●', leave: '◇', incomplete: '·', future: '–', unknown: '?'};
     const week = panel.week.map((day, i) => `${labels[i]}${symbols[day.state] ?? '?'}`).join(' ');
     return {

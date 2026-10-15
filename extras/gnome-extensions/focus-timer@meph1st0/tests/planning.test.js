@@ -24,7 +24,7 @@ check(days[2].state === 'future' && days[3].state === 'unknown', 'future and err
 check(planningPresentation(null, panel).days.length === 0, 'guidance has no tracks');
 
 for (const phase of ['focus', 'short-break', 'long-break']) {
-    check(planningPresentation({phase}, panel, 'Task cue').right === '一●', `${phase} shows week`);
+    check(planningPresentation({phase}, panel, 'Task cue').right === '日●', `${phase} shows week`);
 }
 check(planningPresentation({phase: 'inactive'}, panel, 'Task cue').right === 'Task cue', 'task cue wins');
 check(planningPresentation({phase: 'inactive'}, panel, '   ').right === panel.hint, 'blank cue falls back');
@@ -36,7 +36,7 @@ const leaveRecord = {id: 'leave-1', date: '2026-09-21', slots: ['evening'], reas
 const leaveView = planningPresentation({phase: 'focus'}, {...panel,
     week: [{date: leaveRecord.date, state: 'leave', leaveRecords: [leaveRecord]},
         {date: '2026-09-22', state: 'complete', basis: 'investment', leaveRecords: [{...leaveRecord, date: '2026-09-22'}]}]});
-check(leaveView.right === '一◇ 二●', 'leave is distinct from invested');
+check(leaveView.right === '日◇ 一●', 'leave is distinct from invested');
 check(leaveView.days[0].state === 'leave' && leaveView.days[1].state === 'complete', 'track state preserves actual investment');
 check(leaveView.details.includes('已记录请假') && leaveView.details.includes('晚上 · 朋友邀请聚会'), 'leave slot and reason in details');
 check(leaveView.details.includes('2026-09-22  无承诺但有投入'), 'invested leave retains actual investment text');
@@ -46,7 +46,7 @@ const commitmentWeek = planningPresentation({phase: 'focus'}, {...panel, week: [
     {date: '2026-09-23', state: 'complete', basis: 'investment'},
     {date: '2026-09-24', state: 'incomplete', basis: 'investment'},
 ]});
-check(commitmentWeek.right === '一● 二· 三● 四·', 'tracks represent achievement');
+check(commitmentWeek.right === '日● 一· 二● 三·', 'tracks represent achievement');
 for (const text of ['承诺已兑现', '承诺尚未全部兑现', '无承诺但有投入', '无承诺且无投入'])
     check(commitmentWeek.details.includes(text), `explicit achievement basis: ${text}`);
 const transitional = planningPresentation({phase: 'focus'}, {...panel, week: [
@@ -60,7 +60,7 @@ check(weekTrackStyle({state: 'complete', focusMinutes: 300}).includes('0.595'), 
 check(weekTrackStyle({state: 'complete', focusMinutes: 600}).includes('0.950'), 'ten hours reaches full intensity');
 check(weekTrackStyle({state: 'complete', focusMinutes: 900}) === weekTrackStyle({state: 'complete', focusMinutes: 600}), 'ten-hour cap');
 check(weekTrackStyle({state: 'incomplete', focusMinutes: 600}).includes('190, 195, 202'), 'incomplete remains gray');
-check(weekTrackStyle({state: 'leave', focusMinutes: 300}).includes('195, 167, 214'), 'leave remains purple');
+check(weekTrackStyle({state: 'leave', focusMinutes: 300}).includes('224, 169, 103'), 'leave uses warm amber');
 for (const state of ['future', 'unknown'])
     check(weekTrackStyle({state, focusMinutes: 600}) === '', 'no invented future or unknown intensity');
 check(weekTrackStyle({state: 'complete'}) === '', 'missing time is not zero');

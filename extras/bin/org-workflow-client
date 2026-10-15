@@ -16,7 +16,9 @@ esac
 
 case "$action" in
     select)
-        exec "$emacs_client" --eval '(org-workflow-select-in-new-frame)'
+        exec "$emacs_client" --no-wait --create-frame \
+            --frame-parameters='((name . "workflow-select") (minibuffer . only) (width . 100) (height . 18) (menu-bar-lines . 0) (tool-bar-lines . 0))' \
+            --eval '(org-workflow-select-in-new-frame)'
         ;;
     visit|step|prerequisite|agenda|week|history)
         "$emacs_client" --no-wait --reuse-frame

@@ -1,7 +1,7 @@
 import GLib from 'gi://GLib';
 import {currentHabitReminder, workflowTitleState} from '../workflow-state.js';
 import {planningPresentation, weekTrackStyle} from '../planning.js';
-import {isServerUnavailable, refreshIntervalFor} from '../sync.js';
+import {isServerUnavailable, refreshIntervalFor, workflowCommandArgv} from '../sync.js';
 
 // Exercise refresh control flow without a GNOME Shell session.
 const Extension = class {};
@@ -129,3 +129,98 @@ extension._workflowStatus.task = 'Original task';
 ExtensionClass.prototype._updatePlanning.call(extension);
 assert(extension._taskLabel.text === 'Original task' && !extension._skipHabitItem.visible && extension._workflowMenuItem.visible,
     'restoring the queue controls title and actions despite the old reminder');
+
+// Keep subprocess lifecycle guards real while controlling action completion order.
+const processes = [];
+let spawnError = false;
+const Gio = {
+    SubprocessFlags: {STDOUT_PIPE: 1, STDERR_PIPE: 2},
+    Subprocess: {new() {
+        if (spawnError)
+            throw new Error('spawn failed');
+        return {
+            communicate_utf8_async(_input, _cancel, callback) {
+                processes.push(success => {
+                    this.success = success;
+                    callback(this, {});
+                });
+            },
+            communicate_utf8_finish() { return [true, '', 'action failed']; },
+            get_successful() { return this.success; },
+        };
+    }},
+};
+const reads = [];
+const refreshes = [];
+const actions = Object.create(ExtensionClass.prototype);
+Object.assign(actions, {
+    _enabled: true, _generation: {}, _actionsInFlight: 0,
+    _refreshInFlight: false, _refreshPending: false, _refreshPending休息art: false,
+    _timerStatus: {}, _workflowStatus: {},
+    _syncRefreshTimer() {}, _updatePlanning() {},
+    _readTimer(restart) {
+        reads.push('timer');
+        refreshes.push(() => {
+            reads.push('workflow');
+            this._completeRefresh(restart);
+        });
+    },
+});
+actions._runWorkflowAction('complete');
+actions._refresh({restartSchedule: true});
+actions._refresh({restartSchedule: true});
+assert(reads.length === 0, 'action signals wait for the final state');
+processes.shift()(true);
+refreshes.shift()();
+assert(reads.join(',') === 'timer,workflow' && !actions._refreshPending,
+    'command completion and Changed signals share exactly one status pair');
+
+reads.length = 0;
+actions._runCommand('(org-workflow-panel-toggle-habit "run")');
+actions._runWorkflowAction('cancel');
+actions._refresh({restartSchedule: true});
+processes.shift()(true);
+assert(reads.length === 0, 'concurrent actions wait until all have completed');
+processes.shift()(false);
+actions._refresh({restartSchedule: true});
+refreshes.shift()();
+refreshes.shift()();
+assert(reads.join(',') === 'timer,workflow,timer,workflow',
+    'a failure still refreshes, and a later change during the read is retained');
+
+reads.length = 0;
+actions._refresh();
+actions._runWorkflowAction('complete');
+actions._refresh({restartSchedule: true});
+refreshes.shift()();
+assert(reads.length === 2 && actions._refreshPending,
+    'an older read completing during an action defers its pending refresh');
+processes.shift()(true);
+refreshes.shift()();
+assert(reads.join(',') === 'timer,workflow,timer,workflow',
+    'action completion drains the deferred refresh once');
+
+reads.length = 0;
+spawnError = true;
+actions._runWorkflowAction('cancel');
+spawnError = false;
+refreshes.shift()();
+assert(actions._actionsInFlight === 0 && reads.length === 2,
+    'synchronous subprocess failure releases the action lock');
+
+reads.length = 0;
+actions._runWorkflowAction('cancel');
+actions._enabled = false;
+actions._generation = null;
+processes.shift()(true);
+assert(reads.length === 0, 'disabled extension ignores outstanding action completion');
+actions._enabled = true;
+actions._generation = {};
+actions._actionsInFlight = 0;
+actions._runWorkflowAction('cancel');
+actions._generation = {};
+actions._actionsInFlight = 0;
+processes.shift()(false);
+assert(reads.length === 0 && actions._actionsInFlight === 0,
+    'old action callbacks cannot alter a re-enabled extension');
+print('Workflow action refresh coalescing passed');

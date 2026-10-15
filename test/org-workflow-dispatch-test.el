@@ -58,5 +58,22 @@
       (should (equal '(:ok t :action history) (org-workflow-dispatch 'history)))
       (should opened))))
 
+(ert-deftest org-workflow-select-reuses-client-frame-without-daemon-display ()
+  "A native client selector must work when daemon display variables are absent."
+  (let ((process-environment (copy-sequence process-environment)) queued)
+    (setenv "DISPLAY" nil)
+    (setenv "WAYLAND_DISPLAY" nil)
+    (cl-letf (((symbol-function 'display-graphic-p) (lambda (&optional _) t))
+              ((symbol-function 'selected-frame) (lambda () 'selector-frame))
+              ((symbol-function 'frame-parameter)
+               (lambda (_frame parameter)
+                 (pcase parameter ('name "workflow-select") ('minibuffer 'only))))
+              ((symbol-function 'make-frame-on-display)
+               (lambda (&rest _) (ert-fail "Selector must not create a second frame")))
+              ((symbol-function 'run-at-time)
+               (lambda (&rest arguments) (setq queued arguments))))
+      (should (equal '(:queued t :action select) (org-workflow-select-in-new-frame)))
+      (should (equal '(0.1 nil org-workflow--select-in-dedicated-frame selector-frame) queued)))))
+
 (provide 'org-workflow-dispatch-test)
 ;;; org-workflow-dispatch-test.el ends here

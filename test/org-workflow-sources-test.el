@@ -188,3 +188,22 @@
          (org-mode-hook (list (lambda () (ert-fail "Background UI hook")))))
      (should (equal "Finished" (plist-get (car (org-workflow-history--tasks "2026-10-06")) :task)))
      (should-not (get-file-buffer org-workflow-projects-file)))))
+
+(ert-deftest workflow-source-history-skips-headings-without-direct-facts ()
+  (workflow-source-test
+   (with-temp-file org-workflow-projects-file
+     (insert "#+filetags: :project:\n#+TODO: TODO | DONE\n* Notes\nNo work here.\n* DIVE Parent\n** TODO Clocked\n:LOGBOOK:\nCLOCK: [2026-10-06 Tue 23:50]--[2026-10-07 Wed 00:10] => 0:20\n:END:\n** DONE Finished\nCLOSED: [2026-10-07 Wed 12:00]\n** DONE Other day\nCLOSED: [2026-10-06 Tue 12:00]\n"))
+   (let ((org-agenda-files (list org-workflow-projects-file))
+         (reader (symbol-function 'org-workflow-item-at-marker)) built)
+     (cl-letf (((symbol-function 'org-workflow-item-at-marker)
+                (lambda (marker &optional date)
+                  (let ((item (funcall reader marker date)))
+                    (push (org-workflow-target-entry-title item) built)
+                    item))))
+       (let ((rows (org-workflow-history--tasks "2026-10-07")))
+         (should (equal '("Finished" "Clocked") built))
+         (should (= 2 (length rows)))
+         (should (= 10 (plist-get (seq-find (lambda (row) (equal "Clocked" (plist-get row :task))) rows)
+                                 :focusMinutes)))
+         (should (equal "done" (plist-get (seq-find (lambda (row) (equal "Finished" (plist-get row :task))) rows)
+                                          :outcome))))))))
