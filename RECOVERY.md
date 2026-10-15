@@ -1,6 +1,6 @@
 # org-workflow 源码恢复
 
-恢复目录：`/tmp/emacs-recovery-workflow`，独立临时 Git checkout；未安装到真实 Emacs 配置，未推送。
+最初在 `/tmp/emacs-recovery-workflow` 隔离恢复，现已部署到 `~/.config/emacs/user-lisp/org-workflow`；未推送。
 
 基线远程：<https://github.com/Kidding0204/org-workflow.git>；main HEAD
 `7691ddadaf13ea468df7f38ec85a6a35c88f1749`，提交日期 `2026-10-11T16:43:36+08:00`。
@@ -37,3 +37,12 @@
 ## 依赖恢复后的验证
 
 相关 ERT 共 90 项：89 项通过。旧的 weekly document 测试尝试写入默认 ~/org 路径，被只读沙箱阻止；未为此修改原有逻辑。父配置已在独立 batch 进程完成 init.el 加载，GUI/daemon 重启仍未验收。
+
+## 2026-10-15 桌面延迟优化复核
+
+- 按 Codex 原始调用时间核对：10/12 历史标题预筛选、10/13 单请求缓存、空结果复用、events(id) 索引及扩展动作刷新合并已在包源码。宿主 core-optimize.el 的 GCMH 包装亦在。
+- 补回仅在父配置扩展中的 10/14 选择菜单与 select 白名单，合并到包的扩展和相应测试。来源为历史索引 calls.rowid 1423（2026-10-14T14:25:35.430Z）和 1431（2026-10-14T14:28:23.740Z）。
+- 已安装扩展缺少 10/13 刷新合并，且 workflow-state.js 仍是 10/8 旧逻辑；本次同步合并后的 extension.js、sync.js、workflow-state.js。桥接沿用包的 ~/.local/bin/org-workflow-client，已与宿主 bin 副本逐字核对相同。
+- 合并后的全部 GNOME *.test.js 通过（14 条通过消息），包含动作成功、失败、交错刷新和选择动作检查。
+- 扩展 ERT 检查 21 项，20 通过。延迟相关的预筛选、空任务单次读取、请求事实／进度共享、读取失败不缓存和源文件行为均通过；另发现既有 org-workflow-select-scope-and-refresh 对 READY “Other” 候选期望失败（实际仅 Scheduled）。本轮未改动 Lisp 或该测试，保留此问题，不扩展修复。
+- 本轮不操作真实任务、Org 或 SQLite 数据，不热重载 Emacs、不注销 GNOME；桌面实际点击延迟未重新测量。安装的 JS 文件需在 GNOME 重新加载后才保证生效。

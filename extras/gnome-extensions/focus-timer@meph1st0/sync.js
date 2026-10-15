@@ -18,7 +18,7 @@ export const WORKFLOW_MENU_ACTIONS = [
 ];
 
 const WORKFLOW_ACTION_IDS = new Set([
-    'visit', 'toggle', 'agenda', 'week', 'start', 'complete', 'cancel', 'record-last-pomodoro', 'history',
+    'select', 'visit', 'toggle', 'agenda', 'week', 'start', 'complete', 'cancel', 'record-last-pomodoro', 'history',
     ...WORKFLOW_MENU_ACTIONS.map(action => action.id),
 ]);
 const WORKFLOW_CLIENT = GLib.build_filenamev([

@@ -179,6 +179,8 @@ export default class FocusTimerExtension extends Extension {
         this._bodyItem.label.add_style_class_name('org-workflow-body');
         this._bodyItem.label.clutter_text.line_wrap = true;
 
+        this._indicator.menu.addAction('选择任务',
+            () => this._runWorkflowAction('select'));
         this._indicator.menu.addAction('打开当前任务',
             () => this._runWorkflowAction('visit'));
         this._indicator.menu.addAction('完成当前任务',

@@ -214,7 +214,7 @@
     {
       "path": "extras/gnome-extensions/focus-timer@meph1st0/extension.js",
       "remote_sha256": "0d1a94a920a3154724ae2a56bc11127735329b53b92320f13e2d9eaa45f79067",
-      "recovered_sha256": "f94df3c7206a6656d0d392473f44c70b8c1572a5739eea2123cc55f4efff0455"
+      "recovered_sha256": "0b5d9dcd5599a5b6bfef1b9389027cd46c1df351886aa54c7903de071ff410eb"
     },
     {
       "path": "extras/gnome-extensions/focus-timer@meph1st0/planning.js",
@@ -281,5 +281,15 @@
       "remote_sha256": "9868b26f6e7a7788fc67c6b98164d7f9f8145173ab8ec64ec66575d14478432c",
       "recovered_sha256": "41b56cf9dde38de26c96f4bf38eda41bb38a1de1316c4da6e89ee3d3100f0435"
     }
-  ]
+  ],
+  "deployed_location": "/home/meph1st0/.config/emacs/user-lisp/org-workflow",
+  "desktop_reaudit": {
+    "date": "2026-10-15",
+    "history_index": "/tmp/emacs-history.sqlite",
+    "calls": [
+      1423,
+      1431
+    ],
+    "note": "Merge Oct 14 host extension selector into Oct 13 optimized package extension; deploy runtime files. Test assertions adapted to package-local tests."
+  }
 }

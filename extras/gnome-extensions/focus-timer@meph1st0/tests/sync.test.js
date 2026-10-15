@@ -71,6 +71,9 @@ function testWorkflowMenuExposesExistingDesktopActions() {
 }
 
 function testWorkflowCommandsReuseOrCreateFramesOnlyWhenNeeded() {
+    assertDeepEqual(workflowCommandArgv('select'), [
+        GLib.build_filenamev([GLib.get_home_dir(), '.local', 'bin', 'org-workflow-client']), 'select',
+    ], 'selection uses the dedicated selector client path');
     assertDeepEqual(workflowCommandArgv('visit'), [
         GLib.build_filenamev([GLib.get_home_dir(), '.local', 'bin', 'org-workflow-client']), 'visit',
     ], 'open delegates persistent-frame handling to the workflow bridge');

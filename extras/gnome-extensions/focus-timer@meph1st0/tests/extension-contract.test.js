@@ -43,7 +43,10 @@ for (const oldName of ['focus-timer-status-json', 'focus-timer-finish-phase', 'f
         throw new Error(`legacy Emacs interface remains: ${oldName}`);
 }
 
-const directLabels = ['打开当前任务', '完成当前任务', '取消计时', '补记番茄钟', '任务操作'];
+assertContains(source, "this._runWorkflowAction('select')",
+    '选择任务 uses the dedicated selector client path');
+
+const directLabels = ['选择任务', '打开当前任务', '完成当前任务', '取消计时', '补记番茄钟', '任务操作'];
 const positions = directLabels.map(label => source.indexOf(`'${label}'`));
 if (positions.some((position, index) => position < 0 || (index > 0 && position <= positions[index - 1])))
     throw new Error('direct actions precede the task submenu in the requested order');
