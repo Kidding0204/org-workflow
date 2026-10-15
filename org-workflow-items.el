@@ -42,25 +42,24 @@
 
 (defun org-workflow-item-at-marker (marker &optional date)
   "Read MARKER as a task or habit item, with habit occurrence DATE.
-This bounded source read bypasses the Org element cache and never creates IDs."
+Reuse the native Org cache without changing text or creating IDs."
   (unless (and (markerp marker) (marker-buffer marker))
     (user-error "当前项源文件已不可用"))
-  (let ((org-element-use-cache nil))
-    (org-with-point-at marker
-      (org-back-to-heading t)
-      (let* ((habit (equal (org-entry-get nil "STYLE") "habit"))
-             (parent (org-workflow-target--direct-parent-marker))
-             (scheduled (org-entry-get nil "SCHEDULED")))
-        (org-workflow-target-entry-create
-         :marker (copy-marker (point)) :group-marker parent
-         :kind (if habit 'habit 'task) :id (org-entry-get nil "ID")
-         :occurrence-date (and habit (or date (org-workflow-target--today-string)))
-         :priority (org-workflow--effective-priority-at-point)
-         :scheduled-date (org-workflow-target--timestamp-date scheduled)
-         :scheduled-minute (org-workflow-target--scheduled-minute scheduled)
-         :title (org-workflow-target--entry-title)
-         :group-title (when parent (org-with-point-at parent (org-get-heading t t t t)))
-         :file (buffer-file-name) :outline-position (point))))))
+  (org-with-point-at marker
+    (org-back-to-heading t)
+    (let* ((habit (equal (org-entry-get nil "STYLE") "habit"))
+           (parent (org-workflow-target--direct-parent-marker))
+           (scheduled (org-entry-get nil "SCHEDULED")))
+      (org-workflow-target-entry-create
+       :marker (copy-marker (point)) :group-marker parent
+       :kind (if habit 'habit 'task) :id (org-entry-get nil "ID")
+       :occurrence-date (and habit (or date (org-workflow-target--today-string)))
+       :priority (org-workflow--effective-priority-at-point)
+       :scheduled-date (org-workflow-target--timestamp-date scheduled)
+       :scheduled-minute (org-workflow-target--scheduled-minute scheduled)
+       :title (org-workflow-target--entry-title)
+       :group-title (when parent (org-with-point-at parent (org-get-heading t t t t)))
+       :file (buffer-file-name) :outline-position (point)))))
 
 (defun org-workflow-item-key (item)
   "Return ITEM's source ID or a stable presentation-only source key."
@@ -169,10 +168,9 @@ This bounded source read bypasses the Org element cache and never creates IDs."
 
 (defun org-workflow-item-visit (item &optional focused-frame-p)
   "Reveal ITEM's source subtree, optionally alone in FOCUSED-FRAME-P."
-  (let ((org-element-use-cache nil))
-    (org-workflow-target--reveal (org-workflow-target-entry-marker item) focused-frame-p)
-    (org-narrow-to-subtree)
-    (org-end-of-meta-data t)))
+  (org-workflow-target--reveal (org-workflow-target-entry-marker item) focused-frame-p)
+  (org-narrow-to-subtree)
+  (org-end-of-meta-data t))
 
 (defun org-workflow-item-body (item)
   "Read ITEM's direct body without metadata or nested headings."

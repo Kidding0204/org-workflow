@@ -145,14 +145,39 @@
        (insert ":LOGBOOK:\nCLOCK: [2026-10-07 Wed 23:50]--[2026-10-08 Thu 00:20] => 0:30\n:END:\n"))
      (should (= 20 (plist-get (org-workflow-item-day-record task "2026-10-08") :focusMinutes))))))
 
-(ert-deftest workflow-items-source-adapter-is-cache-free-and-readonly ()
+(ert-deftest workflow-items-source-adapter-reuses-cache-and-is-readonly ()
   (workflow-items-test
-   (let ((before (org-with-point-at habit-marker (buffer-string)))
-         (original (symbol-function 'org-workflow-target--entry-title)))
-     (cl-letf (((symbol-function 'org-workflow-target--entry-title)
-                (lambda () (should-not org-element-use-cache) (funcall original))))
-       (org-workflow-item-at-marker habit-marker))
-     (should (equal before (org-with-point-at habit-marker (buffer-string)))))))
+   (org-with-point-at habit-marker
+     (let ((org-element-use-cache t))
+       (org-element-at-point (point-max))
+       (let ((before (buffer-string))
+             (original (symbol-function 'org-element-headline-parser))
+             (parses 0))
+         (cl-letf (((symbol-function 'org-element-headline-parser)
+                    (lambda (&rest args) (cl-incf parses) (apply original args))))
+           (dotimes (_ 2) (org-workflow-item-at-marker habit-marker)))
+         (should (= 0 parses))
+         (should (equal before (buffer-string))))
+       (org-entry-put nil "ID" "updated-id")
+       (should (equal "updated-id"
+                      (org-workflow-target-entry-id
+                       (org-workflow-item-at-marker habit-marker))))))))
+
+(ert-deftest workflow-items-visit-keeps-cache-tracking-in-reveal-callbacks ()
+  (with-temp-buffer
+    (let ((org-mode-hook nil) (org-element-use-cache t))
+      (org-mode)
+      (insert "* TODO Task\n:PROPERTIES:\n:VALUE: before\n:END:\nBody\n")
+      (goto-char (point-min))
+      (should (equal "before" (org-entry-get nil "VALUE")))
+      (let ((item (org-workflow-target-entry-create :marker (point-marker))))
+        (cl-letf (((symbol-function 'org-workflow-target--reveal)
+                   (lambda (&rest _)
+                     ;; Window and buffer integrations may edit while revealing.
+                     (org-entry-put nil "VALUE" "after"))))
+          (org-workflow-item-visit item))
+        (goto-char (point-min))
+        (should (equal "after" (org-entry-get nil "VALUE")))))))
 
 (ert-deftest workflow-items-desktop-habit-selection-restores-ordinary-queue ()
   (workflow-items-test
