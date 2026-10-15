@@ -22,6 +22,21 @@
          (sqlite-close org-workflow-store--connection))
        (delete-directory directory t))))
 
+(ert-deftest workflow-habit-scan-reuses-warm-native-cache ()
+  "Repeated history scans must not rebuild already parsed source buffers."
+  (workflow-habit-test
+   (with-temp-file org-workflow-habit-file
+     (insert "* TODO Habit\n:PROPERTIES:\n:STYLE: habit\n:END:\n* Ordinary task\n"))
+   (let ((org-element-use-cache t) titles)
+     (with-current-buffer (find-file-noselect org-workflow-habit-file)
+       (org-element-at-point (point-max)))
+     (cl-letf (((symbol-function 'org-element-cache-reset)
+                (lambda (&rest _) (ert-fail "Warm habit source cache was reset"))))
+       (dotimes (_ 2)
+         (org-workflow-habits--map
+          (lambda () (push (org-get-heading t t t t) titles)))))
+     (should (equal titles '("Habit" "Habit"))))))
+
 (ert-deftest workflow-habit-cross-midnight-completion-and-sqlite-replay ()
   (workflow-habit-test
    (with-temp-file org-workflow-habit-file

@@ -58,15 +58,15 @@ An explicit file keeps the dedicated habit document behavior."
   (delete-dups (cons (org-workflow-habits-file) (org-agenda-files t))))
 
 (defun org-workflow-habits--map (function)
-  "Call FUNCTION on each native habit with bounded, cache-free source reads."
+  "Call FUNCTION on each native habit, reusing each source's native cache."
   (dolist (file (org-workflow-habits-files))
     (when (file-exists-p file)
       (unless (file-readable-p file) (error "Unreadable habit source: %s" file))
       (with-current-buffer (find-file-noselect file)
-        (let ((org-element-use-cache nil))
-          (org-with-wide-buffer
-           (org-map-entries
-            (lambda () (when (org-workflow-habit-p) (funcall function))) nil 'file)))))))
+        ;; Disabling the cache makes `org-map-entries' rebuild it on every scan.
+        (org-with-wide-buffer
+         (org-map-entries
+          (lambda () (when (org-workflow-habit-p) (funcall function))) nil 'file))))))
 
 (defun org-workflow-habits--direct-end ()
   "Return the position of the next heading, excluding nested habit content."
