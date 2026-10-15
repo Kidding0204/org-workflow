@@ -288,3 +288,52 @@
    (org-workflow-store-set-meta "habit-source" org-workflow-habit-file)
    (should-error (org-workflow-history--habit-records "2026-09-21"))
    (should-not (file-exists-p org-workflow-habit-file))))
+
+(ert-deftest workflow-habit-save-clears-last-embedded-habit ()
+  (workflow-habit-test
+   (let* ((embedded (expand-file-name "embedded.org" directory))
+          (org-agenda-files (list embedded))
+          (org-workflow-habits-saved-hook '(org-workflow-history-sync-habits)))
+     (with-temp-file org-workflow-habit-file (insert "* Dedicated source\n"))
+     (with-temp-file embedded
+       (insert "* TODO Embedded\n:PROPERTIES:\n:STYLE: habit\n:ID: embedded\n:END:\n- State \"DONE\" from \"TODO\" [2026-10-14 Wed 09:00]\n"))
+     (org-workflow-history-sync-habits)
+     (should (cdr (assoc "2026-10-14" (org-workflow-store-habit-days))))
+     (with-current-buffer (find-file-noselect embedded)
+       (erase-buffer) (insert "* Ordinary task\n")
+       (let ((org-workflow-habits-saved-hook
+              (list (lambda () (error "Temporary sync failure")))))
+         (should-error (save-buffer)))
+       (should (cdr (assoc "2026-10-14" (org-workflow-store-habit-days))))
+       (insert "Retry\n") (save-buffer)
+       (let ((org-workflow-habits-saved-hook
+              (list (lambda () (ert-fail "Ordinary save repeated habit sync")))))
+         (insert "Ordinary edit\n") (save-buffer)))
+     (should-not (org-workflow-habits-records "2026-10-14"))
+     (should-not (cdr (assoc "2026-10-14" (org-workflow-store-habit-days)))))))
+
+(ert-deftest workflow-habit-sync-quit-rolls-back ()
+  (workflow-habit-test
+   (with-temp-file org-workflow-habit-file (insert "* Source\n"))
+   (let ((execute (symbol-function 'sqlite-execute)) (quit-seen nil))
+     (cl-letf (((symbol-function 'sqlite-execute)
+                (lambda (db sql &optional values)
+                  (if (string-prefix-p "INSERT OR REPLACE INTO habit_days" sql)
+                      (signal 'quit nil)
+                    (funcall execute db sql values)))))
+       (condition-case nil (org-workflow-history-sync-habits)
+         (quit (setq quit-seen t))))
+     (should quit-seen)
+     (sqlite-execute (org-workflow-store--db) "BEGIN IMMEDIATE")
+     (sqlite-execute (org-workflow-store--db) "ROLLBACK"))))
+
+
+(ert-deftest workflow-habit-finalize-quit-rolls-back ()
+  (workflow-habit-test
+   (cl-letf (((symbol-function 'org-workflow-history--compute)
+              (lambda (_) (signal 'quit nil))))
+     (should (eq 'cancelled
+                 (condition-case nil (org-workflow-history-finalize "2026-01-01")
+                   (quit 'cancelled)))))
+   (sqlite-execute (org-workflow-store--db) "BEGIN IMMEDIATE")
+   (sqlite-execute (org-workflow-store--db) "ROLLBACK")))

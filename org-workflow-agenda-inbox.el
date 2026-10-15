@@ -79,6 +79,51 @@
         (user-error "Inbox 归档暂缓，请先保存或重新读取 %s" file)))
     buffer))
 
+(defun org-workflow-inbox--archive-one (marker target)
+  "Archive MARKER to TARGET, saving this move before starting the next.
+Restore exact buffer snapshots if the destination was not persisted.  Native
+Org archive operations can rearrange undo lists across buffers, so a combined
+change group is not a reliable rollback for this operation."
+  (let* ((source (marker-buffer marker))
+         (buffers (delete-dups (list source target)))
+         (before (mapcar (lambda (buffer)
+                           (with-current-buffer buffer
+                             (org-with-wide-buffer
+                              (list buffer (buffer-string) buffer-undo-list))))
+                         buffers))
+         (ids (org-with-point-at marker
+                (delq nil (org-map-entries
+                           (lambda () (org-entry-get nil "ID")) nil 'tree))))
+         archive-text persisted)
+    (unwind-protect
+        (let ((org-archive-subtree-save-file-p nil)
+              (org-workflow-store-enabled nil))
+          (org-with-point-at marker (org-archive-subtree))
+          (with-current-buffer target
+            (setq archive-text (org-with-wide-buffer (buffer-string)))
+            (save-buffer)
+            (setq persisted t))
+          (dolist (id ids) (org-id-add-location id (buffer-file-name target)))
+          (with-current-buffer source (save-buffer))
+          (org-id-locations-save))
+      ;; An after-save hook may signal after the destination reached disk.
+      ;; In that case keep the source deletion pending, just as on source-save
+      ;; failure; saving it later cannot discard the archived task.
+      (unless persisted
+        (setq persisted
+              (and archive-text (file-readable-p (buffer-file-name target))
+                   (with-temp-buffer
+                     (insert-file-contents (buffer-file-name target))
+                     (equal archive-text (buffer-string))))))
+      (unless persisted
+        (dolist (snapshot before)
+          (with-current-buffer (car snapshot)
+            (org-with-wide-buffer
+             (replace-region-contents (point-min) (point-max) (nth 1 snapshot))
+             (setq buffer-undo-list (nth 2 snapshot))
+             (set-buffer-modified-p nil))))
+        (dolist (id ids) (org-id-add-location id (buffer-file-name source)))))))
+
 (defun org-workflow-inbox-archive-done (date)
   "Archive direct DONE Inbox items through settled DATE, preserving full trees.
 Newer CLOSED entries remain until their day is settled.  Follow native Org
@@ -99,44 +144,26 @@ archive locations; save destinations before removing source entries on disk."
                     (push (point) positions))))) nil 'tree)))))
     (when positions
       (condition-case error-data
-	  (let* ((source (org-workflow-inbox--archive-buffer file))
-		 (markers (mapcar (lambda (position) (with-current-buffer source (copy-marker position))) positions))
-		 destinations id-targets changes destination-saved accepted)
+          (let* ((source (org-workflow-inbox--archive-buffer file))
+                 (markers (mapcar (lambda (position)
+                                    (with-current-buffer source (copy-marker position)))
+                                  positions))
+                 moves)
             (unwind-protect
-		(progn
+                (progn
+                  ;; Validate every destination before changing any source.
                   (dolist (marker markers)
                     (org-with-point-at marker
-				       (let* ((location (org-archive--compute-location
-							 (or (org-entry-get nil "ARCHIVE" 'inherit) org-archive-location)))
-					      (target (org-workflow-inbox--archive-buffer (car location))))
-					 (cl-pushnew target destinations)
-					 (push (cons (buffer-file-name target)
-						     (delq nil (org-map-entries
-								(lambda () (org-entry-get nil "ID")) nil 'tree)))
-					       id-targets))))
-                  (setq changes (mapcan #'prepare-change-group (delete-dups (cons source destinations))))
-                  (activate-change-group changes)
-                  (let ((org-archive-subtree-save-file-p nil)
-                        (org-workflow-store-enabled nil))
-                    (dolist (marker markers)
-                      (org-with-point-at marker (org-archive-subtree)))
-                    (dolist (buffer destinations) (with-current-buffer buffer (save-buffer)))
-                    (setq destination-saved t)
-                    (dolist (target id-targets)
-                      (dolist (id (cdr target)) (org-id-add-location id (car target))))
-                    (with-current-buffer source (save-buffer)))
-                  (accept-change-group changes)
-                  (setq accepted t)
-                  (org-id-locations-save)
+                      (let* ((location (org-archive--compute-location
+                                        (or (org-entry-get nil "ARCHIVE" 'inherit)
+                                            org-archive-location)))
+                             (target (org-workflow-inbox--archive-buffer (car location))))
+                        (push (cons marker target) moves))))
+                  (dolist (move (nreverse moves))
+                    (org-workflow-inbox--archive-one (car move) (cdr move)))
                   (length positions))
-              (when (and changes (not accepted))
-		;; A persisted archive is already a recoverable copy.  Keep an
-		;; unsaved source edit after source-save failure rather than undoing
-		;; only buffers while leaving a contradictory archive on disk.
-		(if destination-saved (accept-change-group changes)
-		  (cancel-change-group changes)))
               (dolist (marker markers) (set-marker marker nil))))
-	(user-error (message "%s" (error-message-string error-data)) 0)))))
+        (user-error (message "%s" (error-message-string error-data)) 0)))))
 
 (defun org-workflow-collection-inbox--heading-p ()
   "Return non-nil for the unified Inbox or a legacy collection heading."

@@ -411,9 +411,9 @@
             (setq source-marker (copy-marker (point-min))))
           (with-temp-buffer
             (setq major-mode 'org-agenda-mode)
-            (cl-letf (((symbol-function 'org-get-at-bol)
-                       (lambda (_property) source-marker))
-                      ((symbol-function 'org-clock-in)
+            (insert (propertize "Task\n" 'org-hd-marker source-marker))
+            (goto-char (point-min))
+            (cl-letf (((symbol-function 'org-clock-in)
                        (lambda (&rest _arguments)
                          (setq org-clock-hd-marker (copy-marker (point))
                                clocked-marker (copy-marker (point)))))

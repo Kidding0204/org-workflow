@@ -117,3 +117,85 @@
    (should (= 0 (org-workflow-inbox-archive-done "2026-10-09")))
    (with-temp-buffer (insert-file-contents org-workflow-projects-file)
                      (should (string-match-p "DONE Done" (buffer-string))))))
+
+(ert-deftest workflow-inbox-archive-partial-save-keeps-completed-moves-consistent ()
+  "A later failed destination must not undo an already persisted move."
+  (workflow-source-test
+   (let* ((a (expand-file-name "a.org" directory))
+          (b (expand-file-name "b.org" directory))
+          (org-id-locations-file (expand-file-name "ids" directory))
+          (org-id-locations (make-hash-table :test #'equal))
+          (org-id-files nil)
+          (save (symbol-function 'save-buffer)) (attempts 0))
+     (with-temp-file a (insert "")) (with-temp-file b (insert ""))
+     (with-temp-file org-workflow-projects-file
+       (insert (format "* Inbox\n** DONE A\n:PROPERTIES:\n:ID: task-a\n:ARCHIVE: %s::\n:END:\n** DONE B\n:PROPERTIES:\n:ID: task-b\n:ARCHIVE: %s::\n:END:\n" a b)))
+     (cl-letf (((symbol-function 'save-buffer)
+                (lambda (&rest args)
+                  (when (member buffer-file-name (list a b))
+                    (cl-incf attempts)
+                    (when (= attempts 2) (error "Second destination failed")))
+                  (apply save args))))
+       (should-error (org-workflow-inbox-archive-done "2026-10-14")))
+     ;; Exactly one persisted copy of each task, with every buffer matching disk.
+     (let ((text ""))
+       (dolist (file (list org-workflow-projects-file a b))
+         (let ((disk (with-temp-buffer (insert-file-contents file) (buffer-string))))
+           (setq text (concat text disk))
+           (with-current-buffer (get-file-buffer file)
+             (should (equal disk (buffer-string)))
+             (should-not (buffer-modified-p)))))
+       (dolist (id '("task-a" "task-b"))
+         (should (= 1 (with-temp-buffer
+                        (insert text) (goto-char (point-min))
+                        (let ((count 0))
+                          (while (search-forward id nil t) (cl-incf count)) count))))))
+     ;; Retrying archives only the remaining item, without creating duplicates.
+     (should (= 1 (org-workflow-inbox-archive-done "2026-10-14")))
+     (should-not (org-workflow-inbox-archive-done "2026-10-14")))))
+
+(ert-deftest workflow-inbox-archive-interruption-respects-destination-persistence ()
+  "Errors and quits before/after destination writes retain recoverable text."
+  (dolist (after-write '(nil t))
+    (dolist (failure '(error quit))
+      (workflow-source-test
+       (let* ((archive (concat org-workflow-projects-file "_archive"))
+              (org-id-locations-file (expand-file-name "ids" directory))
+              (org-id-locations (make-hash-table :test #'equal))
+              (org-id-files nil)
+              (original "* Inbox\n** DONE Task\n:PROPERTIES:\n:ID: interrupted-task\n:END:\n")
+              (save (symbol-function 'save-buffer)))
+         (with-temp-file org-workflow-projects-file (insert original))
+         (with-temp-file archive (insert "* Existing\n"))
+         (cl-letf (((symbol-function 'save-buffer)
+                    (lambda (&rest args)
+                      (if (equal buffer-file-name archive)
+                          (progn
+                            (when after-write (apply save args))
+                            (signal failure (and (eq failure 'error) '("Injected failure"))))
+                        (apply save args)))))
+           (should (eq failure
+                       (condition-case nil
+                           (org-workflow-inbox-archive-done "2026-10-14")
+                         (error 'error) (quit 'quit)))))
+         (with-temp-buffer (insert-file-contents org-workflow-projects-file)
+                           (should (equal original (buffer-string))))
+         (with-current-buffer (get-file-buffer org-workflow-projects-file)
+           (if after-write
+               (progn (should-not (string-match-p "interrupted-task" (buffer-string)))
+                      (should (buffer-modified-p)))
+             (should (equal original (buffer-string)))
+             (should-not (buffer-modified-p))))
+         (with-current-buffer (get-file-buffer archive)
+           (should-not (buffer-modified-p))
+           (if after-write
+               (should (string-match-p "interrupted-task" (buffer-string)))
+             (should (equal "* Existing\n" (buffer-string)))))
+         ;; Completing the pending source save, or retrying a reverted move,
+         ;; leaves precisely one archive entry and a resolvable task ID.
+         (if after-write
+             (with-current-buffer (get-file-buffer org-workflow-projects-file) (save-buffer))
+           (should (= 1 (org-workflow-inbox-archive-done "2026-10-14"))))
+         (should-not (org-workflow-inbox-archive-done "2026-10-14"))
+         (should (equal archive (buffer-file-name
+                                (marker-buffer (org-id-find "interrupted-task" 'marker))))))))))

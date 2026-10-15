@@ -292,11 +292,13 @@ fulfilled commitments."
   (let* ((existing (org-workflow-store-day date))
          (attempts (and existing (not recompute)
                         (org-workflow-history--unrecorded-attempts date)))
-         (db (org-workflow-store--db)) record recorded-attempts)
+         (db (org-workflow-store--db)) record recorded-attempts started committed)
     (if (and existing (not recompute) (null attempts)) existing
-      (sqlite-execute db "BEGIN IMMEDIATE")
-      (condition-case err
+      (unwind-protect
           (progn
+            (let ((inhibit-quit t))
+              (sqlite-execute db "BEGIN IMMEDIATE")
+              (setq started t))
             ;; Recompute replaces this day's facts; a failure restores both.
             (when recompute
               (sqlite-execute db "DELETE FROM events WHERE kind='attempt-fulfilled' AND payload=?"
@@ -309,8 +311,10 @@ fulfilled commitments."
               (org-workflow-store--event (car row) "attempt-fulfilled" (list :date date)))
             (when (or (not existing) recompute)
               (org-workflow-store-put-day date record))
-            (sqlite-execute db "COMMIT"))
-	(error (sqlite-execute db "ROLLBACK") (signal (car err) (cdr err))))
+            (let ((inhibit-quit t))
+              (sqlite-execute db "COMMIT")
+              (setq committed t)))
+        (when (and started (not committed)) (sqlite-execute db "ROLLBACK")))
       (when org-workflow-history--fulfillment-dates
         (dolist (row recorded-attempts)
           (let ((previous (gethash (car row) org-workflow-history--fulfillment-dates)))
@@ -448,17 +452,21 @@ replay them.  Past finalized totals require explicit recomputation."
            (dates (delete-dups (append (mapcar #'car previous)
                                       (org-workflow-habits-dates))))
            (records (org-workflow-habits-records-for-dates dates))
-           (db (org-workflow-store--db)))
-      (sqlite-execute db "BEGIN IMMEDIATE")
-      (condition-case err
+           (db (org-workflow-store--db)) started committed)
+      (unwind-protect
           (progn
+            (let ((inhibit-quit t))
+              (sqlite-execute db "BEGIN IMMEDIATE")
+              (setq started t))
             (dolist (record records)
               (sqlite-execute db "INSERT OR REPLACE INTO habit_days VALUES(?,?)"
                               (list (car record) (org-workflow-store--encode (cdr record)))))
             (when (file-exists-p (org-workflow-habits-file))
               (org-workflow-store-set-meta "habit-source" (org-workflow-habits-file)))
-            (sqlite-execute db "COMMIT"))
-        (error (sqlite-execute db "ROLLBACK") (signal (car err) (cdr err)))))))
+            (let ((inhibit-quit t))
+              (sqlite-execute db "COMMIT")
+              (setq committed t)))
+        (when (and started (not committed)) (sqlite-execute db "ROLLBACK"))))))
 
 (defun org-workflow-history-setup ()
   "Install history adapters, synchronize habits and schedule daily settlement.

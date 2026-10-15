@@ -49,6 +49,9 @@ An explicit file keeps the dedicated habit document behavior."
 (defvar org-workflow-habits-saved-hook nil
   "Run after a habit source has been saved; database adapters may synchronize.")
 
+(defvar-local org-workflow-habits--had-habits nil
+  "Non-nil when this source has contained habits since its last saved sync.")
+
 (defun org-workflow-habit-p ()
   "Whether the current heading is a native habit, without inheriting STYLE."
   (equal (org-entry-get nil "STYLE") "habit"))
@@ -66,7 +69,10 @@ An explicit file keeps the dedicated habit document behavior."
         ;; Disabling the cache makes `org-map-entries' rebuild it on every scan.
         (org-with-wide-buffer
          (org-map-entries
-          (lambda () (when (org-workflow-habit-p) (funcall function))) nil 'file))))))
+          (lambda ()
+            (when (org-workflow-habit-p)
+              (setq org-workflow-habits--had-habits t)
+              (funcall function))) nil 'file))))))
 
 (defun org-workflow-habits--direct-end ()
   "Return the position of the next heading, excluding nested habit content."
@@ -384,11 +390,19 @@ or weekly (1 to 7 completion days per Sunday-based week)."
 
 (defun org-workflow-habits--after-save ()
   "Notify adapters after saving a dedicated or embedded habit source."
-  (when (and (derived-mode-p 'org-mode)
-             (or (equal buffer-file-name (org-workflow-habits-file))
-                 (save-excursion (save-restriction (widen) (goto-char (point-min))
-                                                 (re-search-forward "^:STYLE:[ \t]+habit[ \t]*$" nil t)))))
-    (run-hooks 'org-workflow-habits-saved-hook)))
+  (when (derived-mode-p 'org-mode)
+    (let ((has-habits
+           (save-excursion
+             (save-restriction
+               (widen) (goto-char (point-min))
+               (re-search-forward "^:STYLE:[ \t]+habit[ \t]*$" nil t)))))
+      (when (or (equal buffer-file-name (org-workflow-habits-file))
+                org-workflow-habits--had-habits has-habits)
+        ;; Keep the previous state if synchronization fails, so a later save
+        ;; retries removal even though the source no longer contains habits.
+        (setq org-workflow-habits--had-habits t)
+        (run-hooks 'org-workflow-habits-saved-hook)
+        (setq org-workflow-habits--had-habits (and has-habits t))))))
 
 (defun org-workflow-habits--after-clock-out ()
   "Save completed habit CLOCKs so the statistics adapter can replay them."
