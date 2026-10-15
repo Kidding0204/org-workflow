@@ -77,4 +77,27 @@
       (when-let* ((buffer (get-file-buffer file))) (kill-buffer buffer))
       (delete-file file))))
 
+(ert-deftest workflow-target-collect-reuses-cache-and-sees-live-edits ()
+  (let* ((file (make-temp-file "workflow-target-cache-" nil ".org"
+                              "#+filetags: :project:\n* Stage\n** TODO Task\nSCHEDULED: <2020-01-01 Wed>\n"))
+         (org-agenda-files (list file))
+         (org-element-use-cache t))
+    (unwind-protect
+        (with-current-buffer (find-file-noselect file)
+          (org-element-at-point (point-max))
+          (cl-letf (((symbol-function 'org-workflow-collection-inbox--scheduled-files)
+                     (lambda () nil))
+                    ((symbol-function 'org-element-cache-reset)
+                     (lambda (&rest _) (ert-fail "Warm target cache was reset"))))
+            (dotimes (_ 2)
+              (should (= 1 (length (org-workflow-target--collect)))))
+            (goto-char (point-min))
+            (search-forward "TODO Task")
+            (replace-match "DONE Task")
+            (should-not (org-workflow-target--collect))))
+      (when-let* ((buffer (get-file-buffer file)))
+        (with-current-buffer buffer (set-buffer-modified-p nil))
+        (kill-buffer buffer))
+      (delete-file file))))
+
 ;;; org-workflow-element-cache-test.el ends here

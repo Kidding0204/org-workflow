@@ -586,8 +586,7 @@ REPLACEMENT is newly created by `org-workflow-target-step'."
       (when (file-readable-p file)
         (with-current-buffer (find-file-noselect file)
           (org-with-wide-buffer
-           (let ((org-element-use-cache nil)
-                 (kind (cond
+           (let ((kind (cond
                         ((member "project" org-file-tags) 'project)
                         ((member "area" org-file-tags) 'area))))
              (when kind

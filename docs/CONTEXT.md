@@ -132,9 +132,8 @@ Sprint 右侧项目循环用 `org-workflow-agenda-previous-project` / `org-workf
 
 - Org element cache 的绕过只属于有界的只读扫描。不要在完成、归档、保存、文件访问
   或刷新通知外层绑定 `org-element-use-cache` 为 nil：Org 的修改钩子也受此变量控制，
-  会导致正文已变而原生查询仍返回旧 TODO、属性或日程。core 在访问文件之后才局部
-  关闭扫描缓存；habits 的 `org-map-entries` 保留原生缓存，避免 Org 9.8 的临时缓存
-  反复解析。items 的源适配器继续只读绕过，写操作保留原生变更追踪。
+  会导致正文已变而原生查询仍返回旧 TODO、属性或日程。任务队列收集和 habits 的
+  `org-map-entries` 保留原生缓存，避免 Org 9.8 的临时缓存反复解析。items 的源适配器继续只读绕过，写操作保留原生变更追踪。
 - 保存习惯来源时，日期发现与多日期事实收集各遍历一次来源；逐日复用条目元数据与
   共用 day-record 读取，保留缺失来源／ID 校验、已删除日期清空及 SQLite 事务回滚。
 - 不全局关闭或每次强制重置 Org 缓存。缓存回归须先预热原生解析，再执行真实操作，
