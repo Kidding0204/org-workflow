@@ -10,9 +10,16 @@ on that day, or an actually completed goal. Its full-bar feedback acknowledges
 daily attempts; unfinished tasks remain unfinished and can still be selected.
 The commitment streak uses the same daily-attempt rule for commitment tasks.
 
-The title-bar menu keeps **Open in Emacs** as a direct action and groups the
-desktop workflow commands under **Workflow Actions**.  Both the menu and GNOME
-shortcuts call `bin/org-workflow-client`.  For frame-aware actions the bridge
+The left right-click popup uses a Tasklane-inspired dark rounded surface. It shows
+current task/project and elapsed time, direct **打开任务 / 完成** buttons, **任务 / 习惯**
+tabs, and bottom **取消计时 / 补记番茄钟** actions. The task page contains scrollable
+notes/resume text, task selection and **更多操作**; the habit page keeps the existing
+selection, completion indicators and today's skip command. Refresh preserves the
+selected tab. The backend reports whole minutes, so the clock explicitly says
+“按分钟更新”. No timer or task state is stored in the popup. The right popup and
+panel gestures are unchanged.
+
+Both the menu and GNOME shortcuts call `bin/org-workflow-client`.  For frame-aware actions the bridge
 first runs a no-wait client without `--eval`, leaving a persistent graphical
 frame, and only then dispatches the action through a second client request.
 For `visit`, `step`, and `prerequisite`, an existing graphical frame is reused; closing a newly created client frame
@@ -80,6 +87,7 @@ Run the contract tests with:
 gjs -m tests/state.test.js
 gjs -m tests/workflow-state.test.js
 gjs -m tests/ui.test.js
+gjs -m tests/menu.test.js
 gjs -m tests/panel-placement.test.js
 gjs -m tests/sync.test.js
 gjs -m tests/startup.test.js
@@ -227,3 +235,11 @@ journal. Left click on the right indicator still opens Sprint.
 Week indicators use a compact translucent rounded backing, soft state fills
 and a warm underline for today. The existing green/gray/amber achievement
 colors and continuous recorded-time intensity remain unchanged in meaning.
+
+### Left popup acceptance
+
+After installing and starting a new Shell session, right-click the left indicator.
+Check task/习惯 tab switching, long Chinese titles and scrolling notes, task open/complete,
+habit selection and today's skip, and the two timer tools. Check keyboard focus and
+Escape under your display scaling. Local GJS tests verify presentation and action
+routing; native Shell layout and pointer behavior still require this manual check.

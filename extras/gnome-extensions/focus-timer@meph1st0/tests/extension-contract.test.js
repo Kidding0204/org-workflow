@@ -17,9 +17,9 @@ assertContains(source, 'WORKFLOW_MENU_ACTIONS',
     'extension consumes the shared workflow menu model');
 assertContains(source, 'workflowCommandArgv',
     'extension consumes the shared emacsclient argv builder');
-assertContains(source, "new PopupMenu.PopupSubMenuMenuItem('任务操作')",
+assertContains(source, "new PopupMenu.PopupSubMenuMenuItem('更多操作')",
     'extension exposes a grouped workflow action menu');
-assertContains(source, "this._runWorkflowAction('visit')",
+assertContains(source, "run('visit')",
     '打开当前任务 uses the frame-aware workflow command path');
 assertContains(source, 'for (const action of WORKFLOW_MENU_ACTIONS)',
     'every modeled workflow action is added to the title-bar menu');
@@ -46,10 +46,8 @@ for (const oldName of ['focus-timer-status-json', 'focus-timer-finish-phase', 'f
 assertContains(source, "this._runWorkflowAction('select')",
     '选择任务 uses the dedicated selector client path');
 
-const directLabels = ['选择任务', '打开当前任务', '完成当前任务', '取消计时', '补记番茄钟', '任务操作'];
-const positions = directLabels.map(label => source.indexOf(`'${label}'`));
-if (positions.some((position, index) => position < 0 || (index > 0 && position <= positions[index - 1])))
-    throw new Error('direct actions precede the task submenu in the requested order');
+assertContains(source, "menu.actor.add_style_class_name('workflow-task-menu')", 'left popup has scoped styling');
+assertContains(source, "this._selectMenuTab('task')", 'task page is the initial tab');
 if (source.includes("PopupSeparatorMenuItem('计时')") || source.includes("PopupSubMenuMenuItem('今日习惯')"))
     throw new Error('timer header and habit submenu must not remain');
 assertContains(source, 'new PopupMenu.PopupMenuSection()', 'habit rows are exposed directly');

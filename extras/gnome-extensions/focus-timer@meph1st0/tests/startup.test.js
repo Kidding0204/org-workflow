@@ -24,7 +24,7 @@ Object.assign(extension, {
     _setTimerUnavailable() {},
     _setWorkflowUnavailable() {},
     _syncRefreshTimer() {},
-    _updatePlanning() {},
+    _updatePlanning() {}, _updateLeftMenu() {},
 });
 let calls = 0;
 let workflowReads = 0;

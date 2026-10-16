@@ -13,6 +13,7 @@ import {planningPresentation, weekTrackStyle} from './planning.js';
 import {formatWorkflowTitle, parseWorkflowStatus, currentHabitReminder, workflowTitleState} from './workflow-state.js';
 import {titleLayout} from './layout.js';
 import {
+    leftMenuPresentation,
     applyStatus,
     applyUnavailable,
     commitmentStreakText,
@@ -170,36 +171,7 @@ export default class FocusTimerExtension extends Extension {
         this._releaseRightPlacement = keepFirstInRightPanel(Main.panel, this._rightIndicator);
         this._bindPanelClicks(this._indicator, 'toggle');
         this._bindPanelClicks(this._rightIndicator, 'agenda');
-        this._habitMenu = new PopupMenu.PopupMenuSection();
-
-
-        this._bodyItem = new PopupMenu.PopupMenuItem('', {
-            reactive: false, can_focus: false,
-        });
-        this._bodyItem.label.add_style_class_name('org-workflow-body');
-        this._bodyItem.label.clutter_text.line_wrap = true;
-
-        this._indicator.menu.addAction('选择任务',
-            () => this._runWorkflowAction('select'));
-        this._indicator.menu.addAction('打开当前任务',
-            () => this._runWorkflowAction('visit'));
-        this._indicator.menu.addAction('完成当前任务',
-            () => this._runWorkflowAction('complete'));
-        this._indicator.menu.addAction('取消计时',
-            () => this._runWorkflowAction('cancel'));
-        this._indicator.menu.addAction('补记番茄钟',
-            () => this._runWorkflowAction('record-last-pomodoro'));
-        this._workflowMenuItem = new PopupMenu.PopupSubMenuMenuItem('任务操作');
-        for (const action of WORKFLOW_MENU_ACTIONS)
-            this._workflowMenuItem.menu.addAction(action.label,
-                () => this._runWorkflowAction(action.id));
-        this._indicator.menu.addMenuItem(this._workflowMenuItem);
-        this._indicator.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem('状态与习惯'));
-        this._indicator.menu.addMenuItem(this._habitMenu);
-        this._skipHabitItem = this._indicator.menu.addAction('跳过当前习惯（仅今天）',
-            () => this._runCommand("(org-workflow-panel-habit-action 'skip)"));
-        this._indicator.menu.addMenuItem(this._bodyItem);
-        this._indicator.menu.addAction('刷新状态', () => this._refresh());
+        this._buildLeftMenu();
         addToLeftPanel(Main.panel, Main.sessionMode.panel.left,
             this.uuid, this._indicator);
         for (const actor of [Main.panel._centerBox, this._indicator.container])
@@ -208,6 +180,135 @@ export default class FocusTimerExtension extends Extension {
 
         this._subscribeToEmacsChanges();
         this._refresh({restartSchedule: true});
+    }
+
+    _buildLeftMenu() {
+        const menu = this._indicator.menu;
+        menu.actor.add_style_class_name('workflow-task-menu');
+        const row = style => {
+            const item = new PopupMenu.PopupBaseMenuItem({reactive: false, can_focus: false});
+            item.add_style_class_name(style);
+            return item;
+        };
+        const label = (style, wrap = false) => {
+            const actor = new St.Label({style_class: style, x_expand: true});
+            actor.clutter_text.line_wrap = wrap;
+            if (wrap)
+                actor.clutter_text.ellipsize = 0;
+            return actor;
+        };
+        const button = (text, action, style = '') => {
+            const actor = new St.Button({label: text, style_class: `workflow-menu-button ${style}`,
+                can_focus: true, reactive: true, y_align: Clutter.ActorAlign.CENTER});
+            actor.connect('clicked', action);
+            return actor;
+        };
+        const run = action => {
+            menu.close();
+            this._runWorkflowAction(action);
+        };
+        const header = row('workflow-menu-header');
+        header.add_child(new St.Label({text: 'Org Workflow', x_expand: true,
+            style_class: 'workflow-menu-brand'}));
+        const refresh = new St.Button({style_class: 'workflow-menu-icon', can_focus: true, reactive: true,
+            accessible_name: '刷新状态'});
+        refresh.set_child(new St.Icon({icon_name: 'view-refresh-symbolic', icon_size: 16}));
+        refresh.connect('clicked', () => this._refresh());
+        header.add_child(refresh);
+        menu.addMenuItem(header);
+
+        const summary = row('workflow-menu-summary');
+        const summaryBox = new St.BoxLayout({orientation: Clutter.Orientation.VERTICAL, x_expand: true});
+        this._menuTitle = label('workflow-menu-title', true);
+        this._menuParent = label('workflow-menu-muted', true);
+        this._menuTime = label('workflow-menu-time');
+        this._menuPhase = label('workflow-menu-muted');
+        for (const actor of [this._menuTitle, this._menuParent, this._menuTime, this._menuPhase])
+            summaryBox.add_child(actor);
+        summary.add_child(summaryBox);
+        menu.addMenuItem(summary);
+        const actions = row('workflow-menu-summary-actions');
+        this._menuVisit = button('打开任务', () => run('visit'));
+        this._menuComplete = button('完成', () => run('complete'), 'workflow-menu-primary');
+        actions.add_child(this._menuVisit);
+        actions.add_child(this._menuComplete);
+        menu.addMenuItem(actions);
+
+        const tabs = row('workflow-menu-tabs');
+        this._menuTabs = {};
+        for (const [id, text] of [['task', '任务'], ['habit', '习惯']]) {
+            const tab = button(text, () => this._selectMenuTab(id), 'workflow-menu-tab');
+            tab.x_expand = true;
+            tab.toggle_mode = true;
+            this._menuTabs[id] = tab;
+            tabs.add_child(tab);
+        }
+        menu.addMenuItem(tabs);
+        this._taskPage = new PopupMenu.PopupMenuSection();
+        this._bodyItem = row('workflow-menu-notes');
+        const scroll = new St.ScrollView({style_class: 'workflow-menu-notes-scroll', x_expand: true});
+        scroll.set_policy(St.PolicyType.NEVER, St.PolicyType.AUTOMATIC);
+        const notesBox = new St.BoxLayout({orientation: Clutter.Orientation.VERTICAL, x_expand: true});
+        this._menuNotes = label('workflow-menu-notes-text', true);
+        notesBox.add_child(this._menuNotes);
+        scroll.set_child(notesBox);
+        this._bodyItem.add_child(scroll);
+        this._taskPage.addMenuItem(this._bodyItem);
+        this._taskPage.addAction('＋ 选择任务…', () => this._runWorkflowAction('select'));
+        this._workflowMenuItem = new PopupMenu.PopupSubMenuMenuItem('更多操作');
+        for (const action of WORKFLOW_MENU_ACTIONS)
+            this._workflowMenuItem.menu.addAction(action.label,
+                () => this._runWorkflowAction(action.id));
+        this._taskPage.addMenuItem(this._workflowMenuItem);
+        menu.addMenuItem(this._taskPage);
+
+        this._habitPage = new PopupMenu.PopupMenuSection();
+        this._habitEmpty = new PopupMenu.PopupMenuItem('暂无今日习惯', {reactive: false, can_focus: false});
+        this._habitPage.addMenuItem(this._habitEmpty);
+        this._habitMenu = new PopupMenu.PopupMenuSection();
+        this._habitPage.addMenuItem(this._habitMenu);
+        this._skipHabitItem = this._habitPage.addAction('跳过当前习惯（仅今天）',
+            () => this._runCommand("(org-workflow-panel-habit-action 'skip)"));
+        menu.addMenuItem(this._habitPage);
+        menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
+        this._menuCancel = menu.addAction('取消计时', () => this._runWorkflowAction('cancel'));
+        this._menuRecord = menu.addAction('补记番茄钟', () => this._runWorkflowAction('record-last-pomodoro'));
+        this._selectMenuTab('task');
+        this._updateLeftMenu();
+    }
+
+    _selectMenuTab(id) {
+        this._taskPage.actor.visible = id === 'task';
+        this._habitPage.actor.visible = id === 'habit';
+        // Hidden submenu actors live beside their parent item in PopupMenuSection.
+        if (id !== 'task')
+            this._workflowMenuItem.menu.close();
+        for (const [key, tab] of Object.entries(this._menuTabs)) {
+            tab.checked = key === id;
+            if (key === id)
+                tab.add_style_pseudo_class('checked');
+            else
+                tab.remove_style_pseudo_class('checked');
+        }
+    }
+
+    _updateLeftMenu() {
+        const view = leftMenuPresentation(this._timerStatus, this._workflowStatus);
+        this._menuTitle.set_text(view.title);
+        this._menuParent.set_text(view.parent);
+        this._menuParent.visible = Boolean(view.parent);
+        this._menuTime.set_text(view.time);
+        this._menuPhase.set_text(view.phase);
+        this._menuNotes.set_text(view.details);
+        for (const actor of [this._menuVisit, this._menuComplete]) {
+            actor.reactive = view.canAct;
+            actor.can_focus = view.canAct;
+            actor.opacity = view.canAct ? 255 : 100;
+        }
+        this._workflowMenuItem.setSensitive(view.canAct);
+        this._menuCancel.setSensitive(view.canCancel);
+        this._menuRecord.setSensitive(view.canAct);
+        this._habitEmpty.visible = !(this._workflowStatus?.panel?.habits?.length);
     }
 
     disable() {
@@ -233,6 +334,10 @@ export default class FocusTimerExtension extends Extension {
         this._streakLabel = null;
         this._label = null;
         this._fill = null;
+        for (const key of ['_menuTitle', '_menuParent', '_menuTime', '_menuPhase', '_menuNotes',
+            '_menuVisit', '_menuComplete', '_menuCancel', '_menuRecord', '_menuTabs',
+            '_taskPage', '_habitPage', '_habitEmpty', '_habitMenu', '_skipHabitItem'])
+            this[key] = null;
         this._bodyItem = null;
         this._workflowMenuItem = null;
     }
@@ -345,8 +450,7 @@ export default class FocusTimerExtension extends Extension {
         const reminder = currentHabitReminder(this._workflowStatus, this._timerStatus);
         this._skipHabitItem.visible = Boolean(reminder);
         this._workflowMenuItem.visible = !reminder;
-        if (reminder)
-            this._bodyItem.label.set_text(`习惯：${reminder.title}\n已提醒；可完成或跳过今天。`);
+
         this._accessoryGroup.visible = !idle || this._parentLabel.visible;
         this._queueLayout();
         const days = view.days ?? [];
@@ -365,6 +469,7 @@ export default class FocusTimerExtension extends Extension {
         this._rightIndicator.visible = Boolean(view.right);
         this._rightBody.label.set_text([view.details,
             this._workflowStatus?.resume ? `下次从这里开始：${this._workflowStatus.resume}` : ''].filter(Boolean).join('\n\n'));
+        this._updateLeftMenu();
         const signature = JSON.stringify(panel?.habits ?? []);
         if (signature !== this._habitMenuSignature) {
             this._habitMenuSignature = signature;
@@ -548,10 +653,6 @@ export default class FocusTimerExtension extends Extension {
         this._parentLabel.set_text(status.parent);
         this._parentLabel.visible = this._timerStatus?.phase === 'inactive' &&
             status.available && Boolean(status.parent);
-        this._bodyItem.label.set_text([status.task,
-            [status.parent, status.parentProgress].filter(Boolean).join(' '),
-            status.body || 'No task notes.',
-            status.resume ? `下次从这里开始：${status.resume}` : ''].filter(Boolean).join('\n\n'));
         const {width, text, variant} = dailyProgressState(status);
         this._dailyFill.set_size(width, PROGRESS_HEIGHT);
         this._dailyLabel.set_text(text);
@@ -571,7 +672,7 @@ export default class FocusTimerExtension extends Extension {
         this._workflowStatus = null;
         this._taskLabel.set_text(isServerUnavailable(message)
             ? 'Waiting for Emacs' : 'Workflow unavailable');
-        this._bodyItem.label.set_text('Org Workflow is temporarily unavailable.');
+
         this._dailyFill.set_size(0, PROGRESS_HEIGHT);
         this._dailyLabel.set_text('0/0');
         this._dailyLabel.accessible_name = 'Stage attempts unavailable';
