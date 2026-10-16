@@ -58,7 +58,7 @@
 
 (ert-deftest org-workflow-dive-recognized-in-local-keywords-and-statistics ()
   (with-temp-buffer
-    (insert "#+TODO: TODO READY | DONE HOLD\n* DIVE Stage\n** TODO Child\n")
+    (insert "#+TODO: TODO | DONE HOLD\n* DIVE Stage\n** TODO Child\n")
     (org-mode)
     (org-workflow-dive-test--goto "Stage")
     (should (equal "DIVE" (org-get-todo-state)))

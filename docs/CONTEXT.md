@@ -270,6 +270,11 @@ make package         # dist/org-workflow-<Version>.tar
 compile 分支先暂存全部源码，优先从暂存目录加载较新源码，避免宿主旧字节码干扰编译。
 bootstrap 安装 Evil 等开发测试工具，不等于把它们写入运行时依赖。
 
+日常交互与选择器测试使用现行 TODO／DIVE／DONE／HOLD 夹具；已退役的 READY 操作
+不再作为日常功能测试。旧 READY 日志、历史结果和迁移读取的兼容性验证仍保留。
+涉及 Agenda／DIVE 的测试依赖 runner 的 Workflow 初始化；裸加载单个测试文件
+出现状态识别或 Agenda 入口缺失时，应先核对测试环境。
+
 User Lisp 会递归处理仓库。宿主 early-init 必须排除 `.ci`、`dist`、`test`、`scripts`、
 `extras`、`docs`、`recipes`、`.github`，并在编译前激活依赖。
 源码更新后运行 `M-x prepare-user-lisp`；前缀参数可强制重新编译。

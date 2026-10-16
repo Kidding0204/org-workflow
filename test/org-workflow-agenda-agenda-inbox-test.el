@@ -5,7 +5,7 @@
                            (file-name-directory (or load-file-name buffer-file-name))))
 
 (defconst org-workflow-agenda-inbox-test-source
-  "#+filetags: :area:\n#+TODO: TODO READY | DONE HOLD\n* 收集箱\n:PROPERTIES:\n:JOURNAL_INBOX: 2020-01-06\n:END:\n** TODO Old note :@tiny:\n:PROPERTIES:\n:CAPTURED_ON: 2020-01-07\n:END:\nKeep the original body.\n** TODO Current idea :@deep:\n:PROPERTIES:\n:CAPTURED_ON: 2026-08-17\n:END:\n** TODO [#A] Already arranged\nSCHEDULED: <2026-08-17 Mon>\n** TODO Future arranged\nSCHEDULED: <2026-08-19 Wed>\n** DONE Finished\n** HOLD Deferred\n** TODO Parent collection\n*** TODO Nested detail\n* Outside\n** TODO Not collected\n")
+  "#+filetags: :area:\n#+TODO: TODO DIVE | DONE HOLD\n* 收集箱\n:PROPERTIES:\n:JOURNAL_INBOX: 2020-01-06\n:END:\n** TODO Old note :@tiny:\n:PROPERTIES:\n:CAPTURED_ON: 2020-01-07\n:END:\nKeep the original body.\n** TODO Current idea :@deep:\n:PROPERTIES:\n:CAPTURED_ON: 2026-08-17\n:END:\n** TODO [#A] Already arranged\nSCHEDULED: <2026-08-17 Mon>\n** TODO Future arranged\nSCHEDULED: <2026-08-19 Wed>\n** DONE Finished\n** HOLD Deferred\n** TODO Parent collection\n*** TODO Nested detail\n* Outside\n** TODO Not collected\n")
 
 (defmacro org-workflow-agenda-inbox-test-with-files (contents &rest body)
   (declare (indent 1))

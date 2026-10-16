@@ -50,7 +50,7 @@
 (ert-deftest org-workflow-live-queries-ignore-all-retired-properties ()
   "Legacy batch, blocker, phase, and seal facts do not affect live results."
   (org-workflow-target-test-with-files
-   '("#+filetags: :area:\n#+TODO: TODO READY | DONE HOLD\n* Area :promise:\n** TODO [#A] Pending\nSCHEDULED: <2026-08-17 Mon>\n:PROPERTIES:\n:WORKFLOW_BATCH: [2026-08-17]/optional\n:WORKFLOW_BLOCKED_BY: missing-id\n:WORKFLOW_PHASE: optional\n:WORKFLOW_MINIMUM_SEALED_AT: [2026-08-17 Mon 09:00]\n:END:\n** DONE [#A] Finished\nCLOSED: [2026-08-17 Mon 10:00] SCHEDULED: <2026-08-17 Mon>\n")
+   '("#+filetags: :area:\n#+TODO: TODO DIVE | DONE HOLD\n* Area :promise:\n** TODO [#A] Pending\nSCHEDULED: <2026-08-17 Mon>\n:PROPERTIES:\n:WORKFLOW_BATCH: [2026-08-17]/optional\n:WORKFLOW_BLOCKED_BY: missing-id\n:WORKFLOW_PHASE: optional\n:WORKFLOW_MINIMUM_SEALED_AT: [2026-08-17 Mon 09:00]\n:END:\n** DONE [#A] Finished\nCLOSED: [2026-08-17 Mon 10:00] SCHEDULED: <2026-08-17 Mon>\n")
    (should (equal '("Pending")
                   (mapcar #'org-workflow-target-entry-title
                           (org-workflow-target--collect))))
@@ -62,7 +62,7 @@
                   (org-workflow--promise-progress "2026-08-17")))))
 
 (ert-deftest org-workflow-stage-progress-counts-only-todays-rolling-outcomes ()
-  "Progress counts direct scheduled work and outcomes resolved on DATE."
+  "Legacy history includes READY facts alongside scheduled work and DONE/HOLD."
   (org-workflow-target-test-with-files
    '("#+filetags: :area:\n#+TODO: TODO READY | DONE HOLD\n* Area\n** TODO [#A] Overdue pending\nSCHEDULED: <2026-08-15 Sat>\n** DONE [#A] Done today\nCLOSED: [2026-08-17 Mon 10:00] SCHEDULED: <2026-08-15 Sat>\n** DONE [#A] Done yesterday\nCLOSED: [2026-08-16 Sun 10:00] SCHEDULED: <2026-08-14 Fri>\n** READY [#B] Ready today\n:PROPERTIES:\n:WORKFLOW_READY_ON: [2026-08-17 Mon 11:00]\n:END:\n** HOLD [#C] Held today\nCLOSED: [2026-08-17 Mon 12:00] SCHEDULED: <2026-08-16 Sun>\n")
    (should (equal '(:stageSatisfied 1 :stageTotal 2)
@@ -86,7 +86,7 @@
 (ert-deftest org-workflow-promise-progress-inherits-and-ignores-priority ()
   "Inherited promise, rather than priority, selects minimum commitments."
   (org-workflow-target-test-with-files
-   '("#+filetags: :project:\n#+TODO: TODO READY | DONE HOLD\n* Stage :promise:\n** TODO Group\n*** TODO [#C] Pending\nSCHEDULED: <2026-08-16 Sun>\n*** DONE [#A] Finished\nCLOSED: [2026-08-17 Mon 09:00] SCHEDULED: <2026-08-17 Mon>\n")
+   '("#+filetags: :project:\n#+TODO: TODO DIVE | DONE HOLD\n* Stage :promise:\n** TODO Group\n*** TODO [#C] Pending\nSCHEDULED: <2026-08-16 Sun>\n*** DONE [#A] Finished\nCLOSED: [2026-08-17 Mon 09:00] SCHEDULED: <2026-08-17 Mon>\n")
    (should (equal '(:minimumSatisfied 1 :minimumTotal 2
                     :phase "minimum" :commitmentComplete :false)
                   (org-workflow--promise-progress "2026-08-17")))))
@@ -142,14 +142,14 @@
     (org-mode)
     (insert "* HOLD Branch
 ** TODO Child
-*** READY Leaf
+*** TODO Leaf
 * TODO Visible
 ")
     (goto-char (point-min))
     (should (org-workflow--held-p))
     (re-search-forward "TODO Child")
     (should (org-workflow--held-p))
-    (re-search-forward "READY Leaf")
+    (re-search-forward "TODO Leaf")
     (should (org-workflow--held-p))
     (re-search-forward "TODO Visible")
     (should-not (org-workflow--held-p))))
@@ -175,7 +175,7 @@ SCHEDULED: <2026-08-17 Mon>
   "A selected leaf below HOLD satisfies its daily commitment."
   (org-workflow-target-test-with-files
    '("#+filetags: :project:
-#+TODO: TODO READY | DONE HOLD
+#+TODO: TODO DIVE | DONE HOLD
 * HOLD Deferred
 CLOSED: [2026-08-17 Mon 10:00]
 ** TODO [#A] Selected leaf
@@ -338,7 +338,7 @@ SCHEDULED: <2026-08-17 Mon>
 (ert-deftest org-workflow-normalization-does-not-select-held-subtrees ()
   "Schedule transfer excludes HOLD descendants without creating batches."
   (org-workflow-target-test-with-files
-   '("#+filetags: :project:\n#+TODO: TODO READY | DONE HOLD\n* TODO [#A] Stage\nSCHEDULED: <2026-08-17 Mon>\n** TODO Visible\n** HOLD Deferred\n*** TODO Hidden\n")
+   '("#+filetags: :project:\n#+TODO: TODO DIVE | DONE HOLD\n* TODO [#A] Stage\nSCHEDULED: <2026-08-17 Mon>\n** TODO Visible\n** HOLD Deferred\n*** TODO Hidden\n")
    (with-current-buffer (find-file-noselect (car org-agenda-files))
      (goto-char (point-min))
      (re-search-forward "^\\* TODO \\[#A\\] Stage")
@@ -514,7 +514,7 @@ SCHEDULED: <2026-08-17 Mon>
 (defmacro org-workflow-test-with-leaf (&rest body)
   `(with-temp-buffer
      (org-mode)
-     (insert "#+filetags: :area:\n#+TODO: TODO READY | DONE HOLD\n* Area\n** TODO Current\nSCHEDULED: <2026-08-17 Mon>\n")
+     (insert "#+filetags: :area:\n#+TODO: TODO DIVE | DONE HOLD\n* Area\n** TODO Current\nSCHEDULED: <2026-08-17 Mon>\n")
      (goto-char (point-min))
      (re-search-forward "^\\*\\* TODO Current")
      (beginning-of-line)
@@ -636,60 +636,6 @@ SCHEDULED: <2026-08-17 Mon>
    (org-workflow-target-complete)
    (should (equal "DONE" (org-get-todo-state)))
    (should (org-entry-get nil "CLOSED"))))
-
-(ert-deftest org-workflow-manual-ready-records-ready-fact-on-scheduled-leaf ()
-  "A direct TODO-to-READY change records its date and clears its schedule."
-  (org-workflow-target-test-with-files
-   '("#+filetags: :area:\n#+TODO: TODO READY | DONE HOLD\n* Area\n** TODO Current\nSCHEDULED: <2026-08-17 Mon>\n")
-   (with-current-buffer (find-file-noselect (car org-agenda-files))
-     (goto-char (point-min))
-     (re-search-forward "^\\*\\* TODO Current")
-     (beginning-of-line)
-     (org-todo "READY")
-     (should (equal "2026-08-17"
-                    (org-workflow-target--timestamp-date
-                     (org-entry-get nil "WORKFLOW_READY_ON"))))
-     (should-not (org-entry-get nil "SCHEDULED")))))
-
-(ert-deftest org-workflow-manual-ready-leaves-unscheduled-note-unannotated ()
-  "An unscheduled READY transition is not a Workflow planning outcome."
-  (org-workflow-target-test-with-files
-   '("#+filetags: :area:\n#+TODO: TODO READY | DONE HOLD\n* Area\n** TODO Note\n")
-   (with-current-buffer (find-file-noselect (car org-agenda-files))
-     (goto-char (point-min))
-     (re-search-forward "^\\*\\* TODO Note")
-     (beginning-of-line)
-     (org-todo "READY")
-     (should-not (org-entry-get nil "WORKFLOW_READY_ON"))
-     (should-not (org-entry-get nil "WORKFLOW_BATCH")))))
-
-(ert-deftest org-workflow-manual-ready-does-not-annotate-top-level-task ()
-  "A top-level task remains outside Workflow READY mutation policy."
-  (org-workflow-target-test-with-files
-   '("#+filetags: :area:\n#+TODO: TODO READY | DONE HOLD\n* TODO Top-level\nSCHEDULED: <2026-08-17 Mon>\n")
-   (with-current-buffer (find-file-noselect (car org-agenda-files))
-     (goto-char (point-min))
-     (re-search-forward "^\\* TODO Top-level")
-     (beginning-of-line)
-     (org-todo "READY")
-     (should-not (org-entry-get nil "WORKFLOW_READY_ON"))
-     (should (equal "2026-08-17"
-                    (org-workflow-target--timestamp-date
-                     (org-entry-get nil "SCHEDULED")))))))
-
-(ert-deftest org-workflow-manual-ready-does-not-annotate-held-subtree ()
-  "A task below HOLD remains outside Workflow READY mutation policy."
-  (org-workflow-target-test-with-files
-   '("#+filetags: :area:\n#+TODO: TODO READY | DONE HOLD\n* Area\n** HOLD Paused\n*** TODO Child\nSCHEDULED: <2026-08-17 Mon>\n")
-   (with-current-buffer (find-file-noselect (car org-agenda-files))
-     (goto-char (point-min))
-     (re-search-forward "^\\*\\*\\* TODO Child")
-     (beginning-of-line)
-     (org-todo "READY")
-     (should-not (org-entry-get nil "WORKFLOW_READY_ON"))
-     (should (equal "2026-08-17"
-                    (org-workflow-target--timestamp-date
-                     (org-entry-get nil "SCHEDULED")))))))
 
 (ert-deftest org-workflow-target-step-empty-reveals-without-changing-the-task ()
   "An empty Executed Part is an editing handoff, not a mutation."
@@ -995,7 +941,7 @@ SCHEDULED: <2026-08-17 Mon>
 (ert-deftest org-workflow-direct-schedule-ignores-legacy-blocker-metadata ()
   "A direct rolling schedule admits a task without inspecting its blocker."
   (org-workflow-target-test-with-files
-   '("#+filetags: :area:\n#+TODO: TODO READY | DONE HOLD\n* Area\n** TODO Group\n*** TODO Prepare\nSCHEDULED: <2026-08-17 Mon>\n:PROPERTIES:\n:ID: blocker-id\n:END:\n*** TODO Current\nSCHEDULED: <2026-08-17 Mon>\n:PROPERTIES:\n:WORKFLOW_BLOCKED_BY: blocker-id\n:END:\n")
+   '("#+filetags: :area:\n#+TODO: TODO DIVE | DONE HOLD\n* Area\n** TODO Group\n*** TODO Prepare\nSCHEDULED: <2026-08-17 Mon>\n:PROPERTIES:\n:ID: blocker-id\n:END:\n*** TODO Current\nSCHEDULED: <2026-08-17 Mon>\n:PROPERTIES:\n:WORKFLOW_BLOCKED_BY: blocker-id\n:END:\n")
    (should (equal '("Current" "Prepare")
                   (mapcar #'org-workflow-target-entry-title
                           (org-workflow-target--collect))))
@@ -1003,7 +949,7 @@ SCHEDULED: <2026-08-17 Mon>
      (goto-char (point-min))
      (re-search-forward "^\\*\\*\\* TODO Prepare")
      (beginning-of-line)
-     (org-todo "READY")
+     (org-todo "DONE")
      (should (equal '("Current")
                     (mapcar #'org-workflow-target-entry-title
                             (org-workflow-target--collect))))
@@ -1504,7 +1450,7 @@ SCHEDULED: <2026-08-17 Mon>
   (org-workflow-target-test-with-files
    '("#+filetags: :project:
 #+category: Lute-reborn
-#+TODO: TODO READY | DONE HOLD
+#+TODO: TODO DIVE | DONE HOLD
 * DIVE Milestone
 ** DIVE [#A] Relating :promise:@deep:
 *** TODO [#A] Packages, Please
@@ -1514,7 +1460,6 @@ SCHEDULED: <2026-08-17 Mon>
 SCHEDULED: <2026-08-18 Tue>
 ** DIVE Container only
 *** TODO Leaf to plan
-** READY Ready leaf
 ** HOLD Paused
 *** TODO Hidden unscheduled
 * Backlog
@@ -1522,7 +1467,7 @@ SCHEDULED: <2026-08-18 Tue>
 "
      "#+filetags: :area:
 #+category: CS_61C
-#+TODO: TODO READY | DONE HOLD
+#+TODO: TODO DIVE | DONE HOLD
 * DIVE Practice
 ** TODO [#B] Summary
 SCHEDULED: <2026-08-17 Mon>
@@ -1601,7 +1546,7 @@ SCHEDULED: <2026-08-17 Mon>
   (org-workflow-target-test-with-files
    '("#+filetags: :area:
 #+category: emacs
-#+TODO: TODO READY | DONE HOLD
+#+TODO: TODO DIVE | DONE HOLD
 * DIVE Configuration
 ** TODO Agenda View Customization
 ")
@@ -1632,7 +1577,7 @@ SCHEDULED: <2026-08-17 Mon>
   (org-workflow-target-test-with-files
    '("#+filetags: :area:
 #+category: emacs
-#+TODO: TODO READY | DONE HOLD
+#+TODO: TODO DIVE | DONE HOLD
 * DIVE Configuration
 ** TODO Plan tomorrow
 ")
@@ -1661,7 +1606,7 @@ SCHEDULED: <2026-08-17 Mon>
   (org-workflow-target-test-with-files
    '("#+filetags: :area:
 #+category: emacs
-#+TODO: TODO READY | DONE HOLD
+#+TODO: TODO DIVE | DONE HOLD
 * DIVE Configuration
 ** TODO Reschedule me
 SCHEDULED: <2026-08-17 Mon>
@@ -1689,7 +1634,7 @@ SCHEDULED: <2026-08-17 Mon>
   "Flat priority actions persist changes and clearing restores inheritance."
   (org-workflow-target-test-with-files
    '("#+filetags: :area:
-#+TODO: TODO READY | DONE HOLD
+#+TODO: TODO DIVE | DONE HOLD
 * DIVE [#C] Configuration
 ** TODO Reprioritize
 SCHEDULED: <2026-08-17 Mon>
@@ -1746,7 +1691,7 @@ SCHEDULED: <2026-08-17 Mon>
   (org-workflow-target-test-with-files
    '("#+filetags: :area:
 #+category: Test
-#+TODO: TODO READY | DONE HOLD
+#+TODO: TODO DIVE | DONE HOLD
 * DIVE Parent :@flow:
 ** TODO [#C] Tomorrow evening
 SCHEDULED: <2026-08-18 Tue>
@@ -1822,7 +1767,7 @@ SCHEDULED: <2026-08-19 Wed>
   "Completion opens only the immediate next group and Agenda sees its leaves."
   (org-workflow-target-test-with-files
    '("#+filetags: :project:
-#+TODO: TODO READY | DONE HOLD
+#+TODO: TODO DIVE | DONE HOLD
 * Milestone
 ** DIVE Chapter one :promise:
 *** TODO First
@@ -1854,16 +1799,16 @@ SCHEDULED: <2026-08-19 Wed>
      (should (string-match-p "Plan next" (buffer-string)))
      (should-not (string-match-p "Later" (buffer-string))))))
 
-(ert-deftest org-workflow-dive-counts-direct-ready-and-scheduled-leaves ()
+(ert-deftest org-workflow-dive-counts-direct-unscheduled-and-scheduled-leaves ()
   "Count direct unfinished leaves independent of scheduling, ignoring depth."
   (org-workflow-target-test-with-files
    '("#+filetags: :area:
-#+TODO: TODO READY | DONE HOLD
+#+TODO: TODO DIVE | DONE HOLD
 * Milestone
 ** DIVE Group
 *** TODO Scheduled
 SCHEDULED: <2026-08-17 Mon>
-*** READY Ready leaf
+*** TODO Unscheduled leaf
 *** TODO Remaining
 *** DONE Finished
 *** Subgroup
@@ -1889,7 +1834,7 @@ SCHEDULED: <2026-08-17 Mon>
   "One sync cannot cascade through small groups or jump a held sibling."
   (org-workflow-target-test-with-files
    '("#+filetags: :area:
-#+TODO: TODO READY | DONE HOLD
+#+TODO: TODO DIVE | DONE HOLD
 * Milestone
 ** DIVE One
 *** TODO First
@@ -2072,17 +2017,16 @@ SCHEDULED: <2026-08-17 Mon>
      (should-not (string-match-p ":promise:" (buffer-string))))))
 
 (ert-deftest note-gtd-agenda-planning-scope-is-view-only-and-keeps-exclusions ()
-  "All scope reveals backlog leaves but not held, ready, scheduled or foreign tasks."
+  "All scope reveals backlog leaves but not held, scheduled or foreign tasks."
   (org-workflow-target-test-with-files
    '("#+filetags: :project:
-#+TODO: TODO READY | DONE HOLD
+#+TODO: TODO DIVE | DONE HOLD
 * DIVE Current
 ** TODO Current leaf
 * Backlog
 ** TODO Backlog leaf
 ** TODO Container
 *** TODO Nested leaf
-** READY Ready leaf
 ** TODO Scheduled leaf
 SCHEDULED: <2026-08-18 Tue>
 ** HOLD Paused
@@ -2103,7 +2047,7 @@ SCHEDULED: <2026-08-18 Tue>
      (should org-workflow-agenda-planning-all)
      (should (string-match-p "Backlog leaf" (buffer-string)))
      (should (string-match-p "Nested leaf" (buffer-string)))
-     (dolist (hidden '("Ready leaf" "Scheduled leaf" "Held leaf" "Foreign leaf"))
+     (dolist (hidden '("Scheduled leaf" "Held leaf" "Foreign leaf"))
        (should-not (string-match-p hidden (buffer-string))))
      (org-workflow-agenda-toggle-planning-scope)
      (should-not (string-match-p "Backlog leaf" (buffer-string))))

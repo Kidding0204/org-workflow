@@ -35,7 +35,7 @@
        (mapc #'delete-file files))))
 
 (defconst org-workflow-workbench-test-source
-  "#+filetags: :project:\n#+CATEGORY: Work\n#+TODO: TODO READY | DONE HOLD\n* Stage\n** DIVE Group\n*** TODO First :@deep:\n*** TODO Second :@flow:\n*** TODO Overdue\nSCHEDULED: <2026-08-15 Sat>\n*** TODO Today\nSCHEDULED: <2026-08-17 Mon>\n*** TODO Tomorrow\nSCHEDULED: <2026-08-18 Tue>\n*** TODO Later\nSCHEDULED: <2026-08-19 Wed>\n** DIVE Other\n*** TODO Third\n")
+  "#+filetags: :project:\n#+CATEGORY: Work\n#+TODO: TODO DIVE | DONE HOLD\n* Stage\n** DIVE Group\n*** TODO First :@deep:\n*** TODO Second :@flow:\n*** TODO Overdue\nSCHEDULED: <2026-08-15 Sat>\n*** TODO Today\nSCHEDULED: <2026-08-17 Mon>\n*** TODO Tomorrow\nSCHEDULED: <2026-08-18 Tue>\n*** TODO Later\nSCHEDULED: <2026-08-19 Wed>\n** DIVE Other\n*** TODO Third\n")
 
 (defun org-workflow-workbench-test-open ()
   (org-agenda nil "d")
@@ -81,7 +81,7 @@
 
 (ert-deftest org-workflow-workbench-candidate-scope-excludes-held-done-and-parents ()
   (org-workflow-workbench-test-with-files
-      '("#+filetags: :area:\n#+TODO: TODO READY | DONE HOLD\n* DIVE Current\n** TODO Live\n** TODO Parent\n*** DONE Child\n** READY Ready\n** HOLD Held\n*** TODO Hidden\n** TODO Scheduled\nSCHEDULED: <2026-08-18 Tue>\n* Inactive\n** TODO Backlog\n"
+      '("#+filetags: :area:\n#+TODO: TODO DIVE | DONE HOLD\n* DIVE Current\n** TODO Live\n** TODO Parent\n*** DONE Child\n** HOLD Held\n*** TODO Hidden\n** TODO Scheduled\nSCHEDULED: <2026-08-18 Tue>\n* Inactive\n** TODO Backlog\n"
         "* DIVE Unscoped\n** TODO Outside\n")
     (should (equal '("Live") (mapcar (lambda (r) (org-workflow-target-entry-title (car r)))
                                      (org-workflow-agenda--candidate-entries))))
@@ -141,7 +141,7 @@
 
 (ert-deftest org-workflow-workbench-completed-bands-use-valid-scoped-inherited-priority ()
   (org-workflow-workbench-test-with-files
-      '("#+filetags: :area:\n#+TODO: TODO READY | DONE HOLD\n* [#A] Area\n** Group\n*** DONE Finished\nCLOSED: [2026-08-17 Mon 10:00] SCHEDULED: <2026-08-16 Sun>\n*** DONE [#B] Future\nCLOSED: [2026-08-17 Mon 10:00] SCHEDULED: <2026-08-18 Tue>\n*** DONE [#B] No schedule\nCLOSED: [2026-08-17 Mon 10:00]\n*** DONE [#B] Yesterday\nCLOSED: [2026-08-16 Sun 10:00] SCHEDULED: <2026-08-16 Sun>\n** HOLD [#C] Hold\n*** DONE Hidden\nCLOSED: [2026-08-17 Mon 10:00] SCHEDULED: <2026-08-16 Sun>\n** DONE [#C] Parent\nCLOSED: [2026-08-17 Mon 10:00] SCHEDULED: <2026-08-16 Sun>\n*** TODO Child\n"
+      '("#+filetags: :area:\n#+TODO: TODO DIVE | DONE HOLD\n* [#A] Area\n** Group\n*** DONE Finished\nCLOSED: [2026-08-17 Mon 10:00] SCHEDULED: <2026-08-16 Sun>\n*** DONE [#B] Future\nCLOSED: [2026-08-17 Mon 10:00] SCHEDULED: <2026-08-18 Tue>\n*** DONE [#B] No schedule\nCLOSED: [2026-08-17 Mon 10:00]\n*** DONE [#B] Yesterday\nCLOSED: [2026-08-16 Sun 10:00] SCHEDULED: <2026-08-16 Sun>\n** HOLD [#C] Hold\n*** DONE Hidden\nCLOSED: [2026-08-17 Mon 10:00] SCHEDULED: <2026-08-16 Sun>\n** DONE [#C] Parent\nCLOSED: [2026-08-17 Mon 10:00] SCHEDULED: <2026-08-16 Sun>\n*** TODO Child\n"
         "* Area\n** DONE [#C] Outside\nCLOSED: [2026-08-17 Mon 10:00] SCHEDULED: <2026-08-16 Sun>\n")
     (should (equal '(?A) (org-workflow-agenda--completed-periods "2026-08-17")))
     (with-temp-buffer

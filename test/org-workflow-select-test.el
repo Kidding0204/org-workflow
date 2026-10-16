@@ -4,7 +4,7 @@
 
 (ert-deftest org-workflow-select-scope-and-refresh ()
   (let* ((file (make-temp-file "workflow-select" nil ".org"
-                "#+filetags: :project:\n#+TODO: TODO READY | DONE HOLD\n* DIVE Work\n** TODO [#A] Scheduled\nSCHEDULED: <2026-09-14 Mon>\n** READY [#B] Other\n** DONE Finished\n** HOLD Paused\n*** TODO Hidden\n* Outside\n** TODO Excluded\n"))
+                "#+filetags: :project:\n#+TODO: TODO DIVE | DONE HOLD\n* DIVE Work\n** TODO [#A] Scheduled\nSCHEDULED: <2026-09-14 Mon>\n** TODO [#B] Other\n** DONE Finished\n** HOLD Paused\n*** TODO Hidden\n* Outside\n** TODO Excluded\n"))
          (org-agenda-files (list file))
          (org-workflow-target-stack nil)
          (org-workflow-target-selected-marker nil)
