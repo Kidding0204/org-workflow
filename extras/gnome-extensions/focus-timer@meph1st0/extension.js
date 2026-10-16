@@ -74,6 +74,7 @@ export default class FocusTimerExtension extends Extension {
         this._timerStatus = null;
         this._workflowStatus = null;
         this._habitMenuSignature = null;
+        this._taskMenuSignature = null;
         this._layoutSignals = [];
         this._layoutIdle = null;
         this._layoutStyle = null;
@@ -217,16 +218,16 @@ export default class FocusTimerExtension extends Extension {
         header.add_child(refresh);
         menu.addMenuItem(header);
 
-        const summary = row('workflow-menu-summary');
+        this._menuSummary = row('workflow-menu-summary');
         const summaryBox = new St.BoxLayout({orientation: Clutter.Orientation.VERTICAL, x_expand: true});
-        this._menuTitle = label('workflow-menu-title', true);
-        this._menuParent = label('workflow-menu-muted', true);
-        this._menuTime = label('workflow-menu-time');
-        this._menuPhase = label('workflow-menu-muted');
-        for (const actor of [this._menuTitle, this._menuParent, this._menuTime, this._menuPhase])
-            summaryBox.add_child(actor);
-        summary.add_child(summaryBox);
-        menu.addMenuItem(summary);
+        this._menuPreview = Array.from({length: 3}, () => {
+            const line = label('workflow-menu-preview');
+            line.clutter_text.ellipsize = 3;
+            summaryBox.add_child(line);
+            return line;
+        });
+        this._menuSummary.add_child(summaryBox);
+        menu.addMenuItem(this._menuSummary);
         const actions = row('workflow-menu-summary-actions');
         this._menuVisit = button('打开任务', () => run('visit'));
         this._menuComplete = button('完成', () => run('complete'), 'workflow-menu-primary');
@@ -245,15 +246,16 @@ export default class FocusTimerExtension extends Extension {
         }
         menu.addMenuItem(tabs);
         this._taskPage = new PopupMenu.PopupMenuSection();
-        this._bodyItem = row('workflow-menu-notes');
-        const scroll = new St.ScrollView({style_class: 'workflow-menu-notes-scroll', x_expand: true});
-        scroll.set_policy(St.PolicyType.NEVER, St.PolicyType.AUTOMATIC);
-        const notesBox = new St.BoxLayout({orientation: Clutter.Orientation.VERTICAL, x_expand: true});
-        this._menuNotes = label('workflow-menu-notes-text', true);
-        notesBox.add_child(this._menuNotes);
-        scroll.set_child(notesBox);
-        this._bodyItem.add_child(scroll);
-        this._taskPage.addMenuItem(this._bodyItem);
+        this._taskEmpty = new PopupMenu.PopupMenuItem('暂无今日任务', {reactive: false, can_focus: false});
+        this._taskPage.addMenuItem(this._taskEmpty);
+        this._taskMenu = new PopupMenu.PopupMenuSection();
+        // Keep the native section's item registration and lifetime, with a bounded viewport.
+        const taskScroll = new St.ScrollView({style_class: 'workflow-menu-task-scroll', x_expand: true});
+        taskScroll.set_policy(St.PolicyType.NEVER, St.PolicyType.AUTOMATIC);
+        taskScroll.set_child(this._taskMenu.box);
+        this._taskMenu.actor = taskScroll;
+        taskScroll._delegate = this._taskMenu;
+        this._taskPage.addMenuItem(this._taskMenu);
         this._taskPage.addAction('＋ 选择任务…', () => this._runWorkflowAction('select'));
         this._workflowMenuItem = new PopupMenu.PopupSubMenuMenuItem('更多操作');
         for (const action of WORKFLOW_MENU_ACTIONS)
@@ -294,12 +296,29 @@ export default class FocusTimerExtension extends Extension {
 
     _updateLeftMenu() {
         const view = leftMenuPresentation(this._timerStatus, this._workflowStatus);
-        this._menuTitle.set_text(view.title);
-        this._menuParent.set_text(view.parent);
-        this._menuParent.visible = Boolean(view.parent);
-        this._menuTime.set_text(view.time);
-        this._menuPhase.set_text(view.phase);
-        this._menuNotes.set_text(view.details);
+        this._menuSummary.accessible_name = view.title;
+        this._menuPreview.forEach((line, index) => {
+            line.set_text(view.preview[index] ?? '');
+            line.visible = index < view.preview.length;
+        });
+        const tasks = this._workflowStatus?.tasks ?? [];
+        const taskSignature = JSON.stringify(tasks);
+        this._taskEmpty.visible = tasks.length === 0;
+        if (taskSignature !== this._taskMenuSignature) {
+            this._taskMenuSignature = taskSignature;
+            this._taskMenu.removeAll();
+            tasks.forEach(task => {
+                const item = this._taskMenu.addAction(`${task.selected ? '●' : '○'} ${task.title}`,
+                    () => {
+                        if (!task.selected)
+                            this._runCommand(`(org-workflow-panel-select-task ${JSON.stringify(task.key)})`);
+                    });
+                item.label.clutter_text.ellipsize = 3;
+                item.accessible_name = [task.title, task.parent, task.selected ? '当前任务' : ''].filter(Boolean).join(' · ');
+                if (task.selected)
+                    item.add_style_class_name('workflow-menu-current-task');
+            });
+        }
         for (const actor of [this._menuVisit, this._menuComplete]) {
             actor.reactive = view.canAct;
             actor.can_focus = view.canAct;
@@ -334,11 +353,10 @@ export default class FocusTimerExtension extends Extension {
         this._streakLabel = null;
         this._label = null;
         this._fill = null;
-        for (const key of ['_menuTitle', '_menuParent', '_menuTime', '_menuPhase', '_menuNotes',
+        for (const key of ['_menuSummary', '_menuPreview', '_taskMenu', '_taskEmpty',
             '_menuVisit', '_menuComplete', '_menuCancel', '_menuRecord', '_menuTabs',
             '_taskPage', '_habitPage', '_habitEmpty', '_habitMenu', '_skipHabitItem'])
             this[key] = null;
-        this._bodyItem = null;
         this._workflowMenuItem = null;
     }
 

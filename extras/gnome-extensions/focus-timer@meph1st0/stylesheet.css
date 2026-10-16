@@ -161,19 +161,9 @@
 .workflow-task-menu .workflow-menu-icon:hover,
 .workflow-task-menu .workflow-menu-icon:focus { background-color: #33333a; color: #ffffff; }
 .workflow-task-menu .workflow-menu-summary { padding: 6px 12px 0; }
-.workflow-task-menu .workflow-menu-title {
-    font-size: 17px;
-    font-weight: 600;
-    padding-bottom: 5px;
-}
-.workflow-task-menu .workflow-menu-muted { font-size: 12px; color: #a5a5ae; }
-.workflow-task-menu .workflow-menu-time {
-    font-family: monospace;
-    font-size: 30px;
-    font-weight: 700;
-    padding-top: 10px;
-    padding-bottom: 2px;
-}
+.workflow-task-menu .workflow-menu-preview { font-size: 14px; color: #c8c8d0; }
+.workflow-task-menu .workflow-menu-task-scroll { max-height: 240px; }
+.workflow-task-menu .workflow-menu-current-task { background-color: #242429; font-weight: 600; }
 .workflow-task-menu .workflow-menu-summary-actions { padding: 12px; }
 .workflow-task-menu .workflow-menu-button {
     padding: 9px 16px;
@@ -195,6 +185,3 @@
 .workflow-task-menu .workflow-menu-tab:checked:focus { background-color: #d8d8df; color: #111115; }
 .workflow-task-menu .workflow-menu-tabs { padding: 6px 0 12px; spacing: 6px; }
 .workflow-task-menu .workflow-menu-tab { background-color: transparent; }
-.workflow-task-menu .workflow-menu-notes { padding: 6px 12px 12px; }
-.workflow-task-menu .workflow-menu-notes-scroll { max-height: 200px; }
-.workflow-task-menu .workflow-menu-notes-text { font-size: 14px; color: #c8c8d0; }

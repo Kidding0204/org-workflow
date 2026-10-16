@@ -119,21 +119,18 @@ testCommitmentStreakTextAlwaysUsesACompactZeroBasedLabel();
 
 print('org-workflow-focus-timer UI tests passed');
 
-// The menu must describe the real minute-based backend without inventing seconds.
 const {leftMenuPresentation} = await import('../ui.js');
-const task = {available: true, task: '读 SICP', parent: '课程', parentProgress: '2/4',
-    body: '先看例子', resume: '练习 1.2'};
-const active = leftMenuPresentation({phase: 'focus', elapsed: 7, expired: false}, task);
-assertEqual(active.time, '07:00', 'elapsed minutes shown as a clock');
-assertEqual(active.phase, '专注中 · 按分钟更新', 'honest timer precision');
-assertEqual(active.title, '读 SICP', 'current task title');
+const task = {available: true, task: '读 SICP', body: '第一行\n第二行\n第三行\n第四行'};
+const active = leftMenuPresentation({phase: 'focus'}, task);
+assertEqual(active.preview.join('|'), '第一行|第二行|第三行…', 'only first three source lines with a truncation hint');
 assertEqual(active.canAct, true, 'available target accepts actions');
-assertEqual(active.details, '先看例子\n\n下次从这里开始：练习 1.2', 'notes and resume stay on task page');
-assertEqual(leftMenuPresentation({phase: 'short-break', elapsed: 2, expired: true}, task).phase,
-    '短休息 · 已到时', 'break overtime remains explicit');
-assertEqual(leftMenuPresentation({phase: 'inactive'}, task).time, '—', 'idle does not fabricate elapsed time');
+assertEqual(active.canCancel, true, 'active clock can be cancelled');
+assertEqual(leftMenuPresentation(null, {available: true, body: 'a\r\nb'}).preview.join('|'),
+    'a|b', 'CRLF body lines stay readable');
+assertEqual(leftMenuPresentation(null, {available: true, body: '  '}).preview[0],
+    '暂无任务备注。', 'empty notes have a compact fallback');
 assertEqual(leftMenuPresentation(null, null).canAct, false, 'unavailable state disables writes');
 assertEqual(leftMenuPresentation(null, null).title, '等待 Emacs', 'unavailable state is readable');
 assertEqual(leftMenuPresentation({phase: 'inactive'}, {available: false}).title,
     '暂无当前任务', 'empty queue is distinct from disconnection');
-print('left menu presentation tests passed');
+print('left menu body preview tests passed');

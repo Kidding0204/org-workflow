@@ -10,8 +10,8 @@ const source = new TextDecoder().decode(bytes);
 const [, metadataBytes] = GLib.file_get_contents('metadata.json');
 const metadata = JSON.parse(new TextDecoder().decode(metadataBytes));
 
-if (metadata.version !== 22)
-    throw new Error(`canonical Workflow API release version: expected 22, got ${metadata.version}`);
+if (metadata.version !== 23)
+    throw new Error(`canonical Workflow API release version: expected 23, got ${metadata.version}`);
 
 assertContains(source, 'WORKFLOW_MENU_ACTIONS',
     'extension consumes the shared workflow menu model');

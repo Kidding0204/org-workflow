@@ -18,14 +18,15 @@ class Actor {
     setSensitive(value) { this.sensitive = value; }
 }
 class Menu {
-    constructor() { this.actor = new Actor(); this.items = []; }
+    constructor() { this.actor = new Actor(); this.box = this.actor; this.items = []; }
     addMenuItem(item) { this.items.push(item); }
     addAction(text, callback) {
-        const item = new Actor({label: text, activate: callback});
+        const item = new Actor({label: new Actor({text}), activate: callback});
         this.addMenuItem(item);
         return item;
     }
     close() { this.closed = true; }
+    removeAll() { this.items = []; }
 }
 const PopupMenu = {
     PopupBaseMenuItem: Actor, PopupMenuItem: Actor, PopupSeparatorMenuItem: Actor,
@@ -47,7 +48,7 @@ function assert(value, message) { if (!value) throw new Error(message); }
 const extension = Object.create(ExtensionClass.prototype);
 const commands = [];
 Object.assign(extension, {_indicator: {menu: new Menu()}, _timerStatus: null, _workflowStatus: null,
-    _runWorkflowAction(action) { commands.push(action); }, _runCommand() {}, _refresh() {}});
+    _runWorkflowAction(action) { commands.push(action); }, _runCommand(expression) { commands.push(expression); }, _refresh() {}});
 extension._buildLeftMenu();
 assert(extension._taskPage.actor.visible && !extension._habitPage.actor.visible, 'opens on task page');
 assert(!extension._menuComplete.reactive && !extension._menuRecord.sensitive, 'disconnected task actions disabled');
@@ -56,10 +57,10 @@ extension._selectMenuTab('habit');
 assert(!extension._taskPage.actor.visible && extension._habitPage.actor.visible, 'habit tab changes visible page');
 assert(extension._menuTabs.habit.checked && !extension._menuTabs.task.checked, 'tab selection follows page');
 assert(extension._workflowMenuItem.menu.closed && commands.length === 0, 'switching closes submenu without a task action');
-extension._workflowStatus = {available: true, task: 'Task', body: 'Notes', panel: {habits: [{key: 'one'}]}};
+extension._workflowStatus = {available: true, task: 'Task', body: 'Notes', tasks: [{key: 'first', title: 'Task', selected: true}, {key: 'second', title: 'Other', selected: false}], panel: {habits: [{key: 'one'}]}};
 extension._timerStatus = {phase: 'focus', elapsed: 12};
 extension._updateLeftMenu();
-assert(extension._menuTitle.text === 'Task' && extension._menuTime.text === '12:00', 'refresh updates summary');
+assert(extension._menuSummary.accessible_name === 'Task' && extension._menuPreview[0].text === 'Notes', 'refresh updates summary');
 assert(extension._menuComplete.reactive && extension._menuCancel.sensitive, 'available actions enabled');
 assert(!extension._habitEmpty.visible && extension._habitPage.actor.visible, 'refresh preserves selected tab');
 extension._menuVisit.activate();
@@ -71,3 +72,18 @@ extension._updateLeftMenu();
 assert(!extension._menuComplete.reactive && !extension._menuCancel.sensitive && !extension._workflowMenuItem.sensitive,
     'disconnect removes stale action availability');
 print('Left popup tab, summary and command behavior passed');
+
+extension._workflowStatus = {available: true, body: '1\n2\n3\n4',
+    tasks: [{key: 'first', title: 'Same', selected: true}, {key: 'second', title: 'Same', selected: false}]};
+extension._updateLeftMenu();
+assert(extension._menuPreview[2].text === '3…' && extension._menuPreview.length === 3, 'summary contains only three body rows');
+assert(extension._taskMenu.items.length === 2 && !extension._taskEmpty.visible, 'task page renders the supplied stack');
+const before = commands.length;
+extension._taskMenu.items[0].activate();
+assert(commands.length === before, 'clicking the selected task does not interrupt its clock');
+extension._taskMenu.items[1].activate();
+assert(commands.at(-1) === '(org-workflow-panel-select-task "second")', 'direct row selection sends the exact source key');
+const items = extension._taskMenu.items;
+extension._updateLeftMenu();
+assert(items === extension._taskMenu.items, 'unchanged refresh does not rebuild task rows');
+print('Direct task stack selection and preview passed');

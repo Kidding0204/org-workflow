@@ -839,26 +839,33 @@ is deferred, or the day changes.  Do not start timing automatically."
                       (complete-with-action action candidates string pred))))
            (choice (completing-read "当前任务：" table nil t nil
                                     'org-workflow-target-selection-history))
-           (marker (cdr (assoc choice candidates)))
-           (old-marker org-workflow-target-selected-marker)
-           (old-date org-workflow-target-selected-date)
-           (old-habit-selection org-workflow-habit-selection))
-      (setq org-workflow-target-selected-marker (copy-marker marker)
-            org-workflow-target-selected-date (org-workflow-target--today-string))
-      (condition-case err
-          (progn
-            (unless (org-workflow-target--selected-entry)
-              (user-error "任务已不在可选范围，请重新选择"))
-            (org-workflow--release-execution)
-            (setq org-workflow-habit-selection (cons (org-workflow-target--today-string) nil))
-            (setq org-workflow-executing-marker (copy-marker marker))
-            (org-workflow-target-refresh t)
-            (org-workflow--request-gnome-refresh))
-        (error (setq org-workflow-target-selected-marker old-marker
-                     org-workflow-target-selected-date old-date
-                     org-workflow-habit-selection old-habit-selection)
-               (signal (car err) (cdr err))))
-      (message "当前任务：%s" (org-with-point-at marker (org-workflow-target--entry-title))))))
+           (marker (cdr (assoc choice candidates))))
+      (org-workflow-target-select-marker marker))))
+
+(defun org-workflow-target-select-marker (marker)
+  "Select eligible MARKER through the shared desktop/minibuffer boundary.
+Stop the previous execution normally; never start a new clock."
+  (unless (and (markerp marker) (marker-buffer marker))
+    (user-error "任务已变化，请重新选择"))
+  (let ((old-marker org-workflow-target-selected-marker)
+        (old-date org-workflow-target-selected-date)
+        (old-habit-selection org-workflow-habit-selection))
+    (setq org-workflow-target-selected-marker (copy-marker marker)
+          org-workflow-target-selected-date (org-workflow-target--today-string))
+    (condition-case err
+        (progn
+          (unless (org-workflow-target--selected-entry)
+            (user-error "任务已不在可选范围，请重新选择"))
+          (org-workflow--release-execution)
+          (setq org-workflow-habit-selection (cons (org-workflow-target--today-string) nil))
+          (setq org-workflow-executing-marker (copy-marker marker))
+          (org-workflow-target-refresh t)
+          (org-workflow--request-gnome-refresh))
+      (error (setq org-workflow-target-selected-marker old-marker
+                   org-workflow-target-selected-date old-date
+                   org-workflow-habit-selection old-habit-selection)
+             (signal (car err) (cdr err))))
+    (message "当前任务：%s" (org-with-point-at marker (org-workflow-target--entry-title)))))
 
 (defun org-workflow--select-in-dedicated-frame (frame)
   "Read a target in FRAME, deleting it on success, error or quit."

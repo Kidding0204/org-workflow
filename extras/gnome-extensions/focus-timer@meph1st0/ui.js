@@ -53,23 +53,19 @@ export function applyUnavailable(indicator, label, _message) {
     indicator.accessible_name = 'Focus Timer unavailable';
 }
 
-// Menu-only presentation: the backend reports elapsed whole minutes.
+// Three source lines, each rendered on one ellipsized visual row by the menu.
 export function leftMenuPresentation(timer, workflow) {
     const canAct = workflow?.available === true;
-    const active = timer && timer.phase !== 'inactive';
-    const elapsed = timer?.elapsed ?? 0;
-    const phase = {focus: '专注中', 'short-break': '短休息', 'long-break': '长休息'}[timer?.phase];
+    const body = !workflow ? '暂时无法读取任务，请稍后刷新。' : canAct
+        ? (workflow.body?.trim() || '暂无任务备注。') : '选择一个任务，开始今天的工作。';
+    const lines = body.split(/\r?\n/);
+    const preview = lines.slice(0, 3);
+    if (lines.length > 3)
+        preview[2] += '…';
     return {
         title: !workflow ? '等待 Emacs' : canAct ? workflow.task : '暂无当前任务',
-        parent: [workflow?.parent, workflow?.parentProgress].filter(Boolean).join(' · '),
-        time: active ? `${String(Math.floor(elapsed)).padStart(2, '0')}:00` : '—',
-        phase: !timer ? '计时状态暂不可用' : active
-            ? `${phase} · ${timer.expired ? '已到时' : '按分钟更新'}` : '尚未计时',
-        details: !workflow ? '暂时无法读取任务，请稍后刷新。' : canAct
-            ? [workflow.body || '暂无任务备注。', workflow.resume
-                ? `下次从这里开始：${workflow.resume}` : ''].filter(Boolean).join('\n\n')
-            : '选择一个任务，开始今天的工作。',
+        preview,
         canAct,
-        canCancel: Boolean(active),
+        canCancel: Boolean(timer && timer.phase !== 'inactive'),
     };
 }

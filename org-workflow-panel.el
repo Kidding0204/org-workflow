@@ -220,10 +220,38 @@
       (setq org-workflow-panel--key key))
     org-workflow-panel--cache))
 
+(defun org-workflow-panel--task-key (entry)
+  "Return a presentation-only key distinguishing same-title task ENTRYs."
+  (secure-hash 'sha256
+               (format "%s:%s:%s" (org-workflow-target-entry-file entry)
+                       (marker-position (org-workflow-target-entry-marker entry))
+                       (org-workflow-target-entry-title entry))))
+
+(defun org-workflow-panel--tasks (current)
+  "Present today's full ordered task stack, marking CURRENT without writes."
+  (vconcat
+   (mapcar (lambda (entry)
+             (list :key (org-workflow-panel--task-key entry)
+                   :title (org-workflow-target-entry-title entry)
+                   :parent (or (org-workflow-target-entry-group-title entry) "")
+                   :selected (if (org-workflow-target--same-marker-p
+                                  current (org-workflow-target-entry-marker entry))
+                                 t :false)))
+           (org-workflow-target--ordered-entries))))
+
+(defun org-workflow-panel-select-task (key)
+  "Select task KEY from a freshly validated stack without starting timing."
+  (let ((entry (seq-find (lambda (candidate)
+                           (equal key (org-workflow-panel--task-key candidate)))
+                         (org-workflow-target--ordered-entries))))
+    (unless entry (user-error "任务栈已变化，请刷新菜单"))
+    (org-workflow-target-select-marker (org-workflow-target-entry-marker entry))))
+
 (defun org-workflow-panel--augment (status)
   "Add desktop facts and the shared current item's resume hint to STATUS."
   (let ((marker (org-workflow-target-current-marker)))
-    (append status (list :panel (org-workflow-panel-status)
+    (append status (list :tasks (org-workflow-panel--tasks marker)
+                         :panel (org-workflow-panel-status)
                          :habitReminderPaused (if (org-clocking-p) t :false)
                          :resume (or (and marker (org-with-point-at marker (org-entry-get nil "WORKFLOW_RESUME"))) "")))))
 
