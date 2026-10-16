@@ -1400,7 +1400,7 @@ pass MARKER after arranging their own UI, or omit it for a pure transformation."
     (set-buffer (marker-buffer marker)) (goto-char marker) (org-back-to-heading t)))
 
 (defun org-workflow-target--reveal (marker focused-frame-p)
-  "Reveal MARKER's current workflow leaf.
+  "Reveal MARKER's current workflow leaf and all its descendants.
 
 When FOCUSED-FRAME-P is non-nil, make the source buffer the only window in
 the selected frame, including removal of protected side windows."
@@ -1415,7 +1415,7 @@ the selected frame, including removal of protected side windows."
   (goto-char marker)
   (org-back-to-heading t)
   (org-fold-show-context 'agenda)
-  (org-fold-show-entry))
+  (org-fold-show-subtree))
 
 (defun org-workflow-target--visit (focused-frame-p)
   "Reveal the shared current item, alone when FOCUSED-FRAME-P is non-nil."

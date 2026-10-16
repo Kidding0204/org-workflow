@@ -997,8 +997,12 @@ SCHEDULED: <2026-08-17 Mon>
        (kill-buffer other-buffer)))))
 
 (ert-deftest org-workflow-new-graphical-frame-visits-current-target ()
-  "A new graphical frame should show today's target in its only window."
+  "A marked frame shows the full target subtree in its only window."
   (org-workflow-test-with-leaf
+   (save-excursion
+     (goto-char (point-max))
+     (insert "Task body\n*** Learning\nChild body\n**** Perceptron\nDeep body\n*** Greedy\nSibling body\n** TODO Other\nUnrelated body\n"))
+   (org-fold-hide-subtree)
    (let ((target-buffer (current-buffer))
          (scratch-buffer (generate-new-buffer " *org-workflow-scratch*"))
          (sidebar-buffer (generate-new-buffer " *org-workflow-sidebar*")))
@@ -1021,7 +1025,14 @@ SCHEDULED: <2026-08-17 Mon>
                (org-workflow--visit-current-target-in-new-frame))
              (should (= 1 (length (window-list))))
              (should (eq target-buffer (window-buffer (selected-window))))
-             (should (buffer-narrowed-p))))
+             (should (buffer-narrowed-p))
+             (save-excursion
+               (goto-char (point-min))
+               (dolist (text '("Task body" "Learning" "Child body"
+                               "Perceptron" "Deep body" "Greedy" "Sibling body"))
+                 (search-forward text)
+                 (should-not (org-invisible-p (1- (point)))))
+               (should-not (search-forward "Other" nil t)))))
        (kill-buffer scratch-buffer)
        (kill-buffer sidebar-buffer)))))
 
