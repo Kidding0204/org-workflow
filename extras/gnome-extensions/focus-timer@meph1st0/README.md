@@ -19,8 +19,11 @@ item. Clicking another row selects that source through the same transition used
 by the Emacs selector: stop previous execution normally, never auto-start a timer.
 Duplicate titles use distinct source keys; stale/completed rows are revalidated
 before selection. **选择任务** also offers the existing wider Emacs selector.
-The **习惯** tab and bottom **取消计时 / 补记番茄钟** actions retain their behavior.
-Long task lists scroll; refresh preserves the selected tab. No timer or task state
+The action row is **打开任务 / 完成 / 取消 / 补记**; the last two retain the full
+accessible names **取消计时 / 补记番茄钟**. **更多操作** is a third tab beside
+**任务 / 习惯**, with the existing task-planning actions. The default tab remains
+**任务**; refresh preserves the selected tab. Task-only actions are disabled for habits.
+Long task lists scroll. No timer or task state
 is stored in the popup. The right popup and panel gestures are unchanged.
 
 Both the menu and GNOME shortcuts call `bin/org-workflow-client`.  For frame-aware actions the bridge

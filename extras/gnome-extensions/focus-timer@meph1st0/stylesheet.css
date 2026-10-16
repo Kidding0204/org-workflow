@@ -164,7 +164,8 @@
 .workflow-task-menu .workflow-menu-preview { font-size: 14px; color: #c8c8d0; }
 .workflow-task-menu .workflow-menu-task-scroll { max-height: 240px; }
 .workflow-task-menu .workflow-menu-current-task { background-color: #242429; font-weight: 600; }
-.workflow-task-menu .workflow-menu-summary-actions { padding: 12px; }
+.workflow-task-menu .workflow-menu-summary-actions { padding: 12px; spacing: 6px; }
+.workflow-task-menu .workflow-menu-summary-actions .workflow-menu-button { padding: 9px 12px; }
 .workflow-task-menu .workflow-menu-button {
     padding: 9px 16px;
     border-radius: 9px;

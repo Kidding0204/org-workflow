@@ -10,14 +10,14 @@ const source = new TextDecoder().decode(bytes);
 const [, metadataBytes] = GLib.file_get_contents('metadata.json');
 const metadata = JSON.parse(new TextDecoder().decode(metadataBytes));
 
-if (metadata.version !== 23)
-    throw new Error(`canonical Workflow API release version: expected 23, got ${metadata.version}`);
+if (metadata.version !== 24)
+    throw new Error(`canonical Workflow API release version: expected 24, got ${metadata.version}`);
 
 assertContains(source, 'WORKFLOW_MENU_ACTIONS',
     'extension consumes the shared workflow menu model');
 assertContains(source, 'workflowCommandArgv',
     'extension consumes the shared emacsclient argv builder');
-assertContains(source, "new PopupMenu.PopupSubMenuMenuItem('更多操作')",
+assertContains(source, "['more', '更多操作']",
     'extension exposes a grouped workflow action menu');
 assertContains(source, "run('visit')",
     '打开当前任务 uses the frame-aware workflow command path');
@@ -34,9 +34,9 @@ if (source.includes('_habitButton'))
 
 assertContains(source, "const TIMER_STATUS_EXPRESSION = '(org-workflow-focus-timer-status-json)'",
     'timer status uses the standalone package API');
-assertContains(source, "this._runWorkflowAction('cancel')",
+assertContains(source, "run('cancel')",
     'cancel uses the configured clock backend');
-assertContains(source, "this._runWorkflowAction('record-last-pomodoro')",
+assertContains(source, "run('record-last-pomodoro')",
     'retrospective recording resolves the shared current item');
 for (const oldName of ['focus-timer-status-json', 'focus-timer-finish-phase', 'focus-timer-stop']) {
     if (source.includes(`(${oldName}`))

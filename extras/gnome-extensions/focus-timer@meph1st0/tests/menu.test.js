@@ -27,6 +27,7 @@ class Menu {
     }
     close() { this.closed = true; }
     removeAll() { this.items = []; }
+    setSensitive(value) { this.sensitive = value; }
 }
 const PopupMenu = {
     PopupBaseMenuItem: Actor, PopupMenuItem: Actor, PopupSeparatorMenuItem: Actor,
@@ -51,17 +52,20 @@ Object.assign(extension, {_indicator: {menu: new Menu()}, _timerStatus: null, _w
     _runWorkflowAction(action) { commands.push(action); }, _runCommand(expression) { commands.push(expression); }, _refresh() {}});
 extension._buildLeftMenu();
 assert(extension._taskPage.actor.visible && !extension._habitPage.actor.visible, 'opens on task page');
-assert(!extension._menuComplete.reactive && !extension._menuRecord.sensitive, 'disconnected task actions disabled');
+assert(!extension._menuComplete.reactive && !extension._menuRecord.reactive, 'disconnected task actions disabled');
 assert(extension._habitEmpty.visible, 'empty habit page has explanation');
 extension._selectMenuTab('habit');
 assert(!extension._taskPage.actor.visible && extension._habitPage.actor.visible, 'habit tab changes visible page');
 assert(extension._menuTabs.habit.checked && !extension._menuTabs.task.checked, 'tab selection follows page');
-assert(extension._workflowMenuItem.menu.closed && commands.length === 0, 'switching closes submenu without a task action');
+assert(commands.length === 0, 'switching pages does not execute an action');
+extension._selectMenuTab('more');
+assert(extension._morePage.actor.visible && !extension._taskPage.actor.visible && !extension._habitPage.actor.visible, 'more actions have an independent page');
+extension._selectMenuTab('habit');
 extension._workflowStatus = {available: true, task: 'Task', body: 'Notes', tasks: [{key: 'first', title: 'Task', selected: true}, {key: 'second', title: 'Other', selected: false}], panel: {habits: [{key: 'one'}]}};
 extension._timerStatus = {phase: 'focus', elapsed: 12};
 extension._updateLeftMenu();
 assert(extension._menuSummary.accessible_name === 'Task' && extension._menuPreview[0].text === 'Notes', 'refresh updates summary');
-assert(extension._menuComplete.reactive && extension._menuCancel.sensitive, 'available actions enabled');
+assert(extension._menuComplete.reactive && extension._menuCancel.reactive, 'available actions enabled');
 assert(!extension._habitEmpty.visible && extension._habitPage.actor.visible, 'refresh preserves selected tab');
 extension._menuVisit.activate();
 extension._menuComplete.activate();
@@ -69,7 +73,7 @@ assert(commands.join(',') === 'visit,complete' && extension._indicator.menu.clos
 extension._workflowStatus = null;
 extension._timerStatus = null;
 extension._updateLeftMenu();
-assert(!extension._menuComplete.reactive && !extension._menuCancel.sensitive && !extension._workflowMenuItem.sensitive,
+assert(!extension._menuComplete.reactive && !extension._menuCancel.reactive && !extension._morePage.sensitive,
     'disconnect removes stale action availability');
 print('Left popup tab, summary and command behavior passed');
 
@@ -87,3 +91,14 @@ const items = extension._taskMenu.items;
 extension._updateLeftMenu();
 assert(items === extension._taskMenu.items, 'unchanged refresh does not rebuild task rows');
 print('Direct task stack selection and preview passed');
+
+extension._selectMenuTab('more');
+extension._morePage.items[0].activate();
+assert(commands.at(-1) === 'step', 'more page routes existing task commands');
+extension._menuCancel.activate();
+extension._menuRecord.activate();
+assert(commands.slice(-2).join(',') === 'cancel,record-last-pomodoro', 'compact timer buttons retain existing actions');
+assert(extension._menuCancel.accessible_name === '取消计时' && extension._menuRecord.accessible_name === '补记番茄钟', 'short labels retain full accessible names');
+extension._workflowStatus.kind = 'habit';
+extension._updateLeftMenu();
+assert(!extension._morePage.sensitive && extension._morePage.actor.visible, 'habit targets disable task-only actions without switching tabs');

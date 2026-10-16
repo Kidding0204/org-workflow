@@ -233,11 +233,17 @@ export default class FocusTimerExtension extends Extension {
         this._menuComplete = button('完成', () => run('complete'), 'workflow-menu-primary');
         actions.add_child(this._menuVisit);
         actions.add_child(this._menuComplete);
+        this._menuCancel = button('取消', () => run('cancel'));
+        this._menuCancel.accessible_name = '取消计时';
+        this._menuRecord = button('补记', () => run('record-last-pomodoro'));
+        this._menuRecord.accessible_name = '补记番茄钟';
+        actions.add_child(this._menuCancel);
+        actions.add_child(this._menuRecord);
         menu.addMenuItem(actions);
 
         const tabs = row('workflow-menu-tabs');
         this._menuTabs = {};
-        for (const [id, text] of [['task', '任务'], ['habit', '习惯']]) {
+        for (const [id, text] of [['task', '任务'], ['habit', '习惯'], ['more', '更多操作']]) {
             const tab = button(text, () => this._selectMenuTab(id), 'workflow-menu-tab');
             tab.x_expand = true;
             tab.toggle_mode = true;
@@ -257,11 +263,6 @@ export default class FocusTimerExtension extends Extension {
         taskScroll._delegate = this._taskMenu;
         this._taskPage.addMenuItem(this._taskMenu);
         this._taskPage.addAction('＋ 选择任务…', () => this._runWorkflowAction('select'));
-        this._workflowMenuItem = new PopupMenu.PopupSubMenuMenuItem('更多操作');
-        for (const action of WORKFLOW_MENU_ACTIONS)
-            this._workflowMenuItem.menu.addAction(action.label,
-                () => this._runWorkflowAction(action.id));
-        this._taskPage.addMenuItem(this._workflowMenuItem);
         menu.addMenuItem(this._taskPage);
 
         this._habitPage = new PopupMenu.PopupMenuSection();
@@ -272,9 +273,10 @@ export default class FocusTimerExtension extends Extension {
         this._skipHabitItem = this._habitPage.addAction('跳过当前习惯（仅今天）',
             () => this._runCommand("(org-workflow-panel-habit-action 'skip)"));
         menu.addMenuItem(this._habitPage);
-        menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
-        this._menuCancel = menu.addAction('取消计时', () => this._runWorkflowAction('cancel'));
-        this._menuRecord = menu.addAction('补记番茄钟', () => this._runWorkflowAction('record-last-pomodoro'));
+        this._morePage = new PopupMenu.PopupMenuSection();
+        for (const action of WORKFLOW_MENU_ACTIONS)
+            this._morePage.addAction(action.label, () => this._runWorkflowAction(action.id));
+        menu.addMenuItem(this._morePage);
         this._selectMenuTab('task');
         this._updateLeftMenu();
     }
@@ -282,9 +284,7 @@ export default class FocusTimerExtension extends Extension {
     _selectMenuTab(id) {
         this._taskPage.actor.visible = id === 'task';
         this._habitPage.actor.visible = id === 'habit';
-        // Hidden submenu actors live beside their parent item in PopupMenuSection.
-        if (id !== 'task')
-            this._workflowMenuItem.menu.close();
+        this._morePage.actor.visible = id === 'more';
         for (const [key, tab] of Object.entries(this._menuTabs)) {
             tab.checked = key === id;
             if (key === id)
@@ -319,14 +319,13 @@ export default class FocusTimerExtension extends Extension {
                     item.add_style_class_name('workflow-menu-current-task');
             });
         }
-        for (const actor of [this._menuVisit, this._menuComplete]) {
-            actor.reactive = view.canAct;
-            actor.can_focus = view.canAct;
-            actor.opacity = view.canAct ? 255 : 100;
+        for (const [actor, enabled] of [[this._menuVisit, view.canAct], [this._menuComplete, view.canAct],
+            [this._menuCancel, view.canCancel], [this._menuRecord, view.canAct]]) {
+            actor.reactive = enabled;
+            actor.can_focus = enabled;
+            actor.opacity = enabled ? 255 : 100;
         }
-        this._workflowMenuItem.setSensitive(view.canAct);
-        this._menuCancel.setSensitive(view.canCancel);
-        this._menuRecord.setSensitive(view.canAct);
+        this._morePage.setSensitive(view.canAct && this._workflowStatus?.kind !== 'habit');
         this._habitEmpty.visible = !(this._workflowStatus?.panel?.habits?.length);
     }
 
@@ -357,7 +356,7 @@ export default class FocusTimerExtension extends Extension {
             '_menuVisit', '_menuComplete', '_menuCancel', '_menuRecord', '_menuTabs',
             '_taskPage', '_habitPage', '_habitEmpty', '_habitMenu', '_skipHabitItem'])
             this[key] = null;
-        this._workflowMenuItem = null;
+        this._morePage = null;
     }
 
     _subscribeToEmacsChanges() {
@@ -467,7 +466,6 @@ export default class FocusTimerExtension extends Extension {
             Boolean(title.parent);
         const reminder = currentHabitReminder(this._workflowStatus, this._timerStatus);
         this._skipHabitItem.visible = Boolean(reminder);
-        this._workflowMenuItem.visible = !reminder;
 
         this._accessoryGroup.visible = !idle || this._parentLabel.visible;
         this._queueLayout();
