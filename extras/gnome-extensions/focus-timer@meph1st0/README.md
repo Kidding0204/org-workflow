@@ -20,7 +20,7 @@ by the Emacs selector: stop previous execution normally, never auto-start a time
 Duplicate titles use distinct source keys; stale/completed rows are revalidated
 before selection. **选择任务** also offers the existing wider Emacs selector.
 The action row is **打开任务 / 完成 / 取消 / 补记**; the last two retain the full
-accessible names **取消计时 / 补记番茄钟**. **更多操作** is a third tab beside
+accessible names **取消计时 / 补记番茄钟**. **补记** aligns to the right edge. **操作** is a third tab beside
 **任务 / 习惯**, with the existing task-planning actions. The default tab remains
 **任务**; refresh preserves the selected tab. Task-only actions are disabled for habits.
 Long task lists scroll. No timer or task state
@@ -250,3 +250,8 @@ Check task/习惯 tab switching, three-line body preview, long Chinese lines and
 habit selection and today's skip, and the two timer tools. Check keyboard focus and
 Escape under your display scaling. Local GJS tests verify presentation and action
 routing; native Shell layout and pointer behavior still require this manual check.
+
+Operation availability is applied to each native menu item individually. GNOME's
+section sensitivity signal can stop after the first item returns true, leaving
+later rows disabled on recovery. The menu test uses GJS signals to cover both
+disconnected → task and habit → task recovery for every operation.

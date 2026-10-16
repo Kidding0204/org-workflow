@@ -238,12 +238,13 @@ export default class FocusTimerExtension extends Extension {
         this._menuRecord = button('补记', () => run('record-last-pomodoro'));
         this._menuRecord.accessible_name = '补记番茄钟';
         actions.add_child(this._menuCancel);
+        actions.add_child(new St.Widget({x_expand: true}));
         actions.add_child(this._menuRecord);
         menu.addMenuItem(actions);
 
         const tabs = row('workflow-menu-tabs');
         this._menuTabs = {};
-        for (const [id, text] of [['task', '任务'], ['habit', '习惯'], ['more', '更多操作']]) {
+        for (const [id, text] of [['task', '任务'], ['habit', '习惯'], ['more', '操作']]) {
             const tab = button(text, () => this._selectMenuTab(id), 'workflow-menu-tab');
             tab.x_expand = true;
             tab.toggle_mode = true;
@@ -274,8 +275,8 @@ export default class FocusTimerExtension extends Extension {
             () => this._runCommand("(org-workflow-panel-habit-action 'skip)"));
         menu.addMenuItem(this._habitPage);
         this._morePage = new PopupMenu.PopupMenuSection();
-        for (const action of WORKFLOW_MENU_ACTIONS)
-            this._morePage.addAction(action.label, () => this._runWorkflowAction(action.id));
+        this._moreActions = WORKFLOW_MENU_ACTIONS.map(action =>
+            this._morePage.addAction(action.label, () => this._runWorkflowAction(action.id)));
         menu.addMenuItem(this._morePage);
         this._selectMenuTab('task');
         this._updateLeftMenu();
@@ -325,7 +326,11 @@ export default class FocusTimerExtension extends Extension {
             actor.can_focus = enabled;
             actor.opacity = enabled ? 255 : 100;
         }
-        this._morePage.setSensitive(view.canAct && this._workflowStatus?.kind !== 'habit');
+        // GNOME's section notification stops at the first callback returning true.
+        // Update each native item directly so every operation recovers together.
+        const canPlan = view.canAct && this._workflowStatus?.kind !== 'habit';
+        for (const item of this._moreActions)
+            item.setSensitive(canPlan);
         this._habitEmpty.visible = !(this._workflowStatus?.panel?.habits?.length);
     }
 
@@ -357,6 +362,7 @@ export default class FocusTimerExtension extends Extension {
             '_taskPage', '_habitPage', '_habitEmpty', '_habitMenu', '_skipHabitItem'])
             this[key] = null;
         this._morePage = null;
+        this._moreActions = null;
     }
 
     _subscribeToEmacsChanges() {

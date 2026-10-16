@@ -1,5 +1,7 @@
 import GLib from 'gi://GLib';
 import {leftMenuPresentation} from '../ui.js';
+import {WORKFLOW_MENU_ACTIONS} from '../sync.js';
+const Signals = imports.signals;
 
 // Only the GNOME actors are replaced; exercise the extension's real menu builder,
 // tab transitions and action callbacks without a compositor or personal Org data.
@@ -15,20 +17,30 @@ class Actor {
     connect(_signal, callback) { this.activate = callback; }
     set_text(text) { this.text = text; }
     set_policy() {}
-    setSensitive(value) { this.sensitive = value; }
+    syncSensitive() {
+        this.sensitive = this._sensitive && (this.parent?._sensitive ?? true);
+        this.reactive = this.sensitive;
+        return this.sensitive;
+    }
+    setSensitive(value) { this._sensitive = value; this.syncSensitive(); }
 }
 class Menu {
-    constructor() { this.actor = new Actor(); this.box = this.actor; this.items = []; }
+    constructor() { this.actor = new Actor(); this.box = this.actor; this.items = []; this._sensitive = true; }
     addMenuItem(item) { this.items.push(item); }
     addAction(text, callback) {
         const item = new Actor({label: new Actor({text}), activate: callback});
+        item.parent = this;
+        item._sensitive = true;
+        // Native PopupMenuBase hooks this return value into imports.signals.
+        this.connect('notify::sensitive', () => item.syncSensitive());
         this.addMenuItem(item);
         return item;
     }
     close() { this.closed = true; }
     removeAll() { this.items = []; }
-    setSensitive(value) { this.sensitive = value; }
+    setSensitive(value) { this._sensitive = value; this.emit('notify::sensitive'); }
 }
+Signals.addSignalMethods(Menu.prototype);
 const PopupMenu = {
     PopupBaseMenuItem: Actor, PopupMenuItem: Actor, PopupSeparatorMenuItem: Actor,
     PopupMenuSection: Menu,
@@ -36,11 +48,10 @@ const PopupMenu = {
         constructor(text) { super({label: text}); this.menu = new Menu(); }
     },
 };
-const St = {Label: Actor, Button: Actor, Icon: Actor, BoxLayout: Actor, ScrollView: Actor,
+const St = {Label: Actor, Button: Actor, Icon: Actor, BoxLayout: Actor, ScrollView: Actor, Widget: Actor,
     PolicyType: {NEVER: 0, AUTOMATIC: 1}};
 const Clutter = {ActorAlign: {CENTER: 0}, Orientation: {VERTICAL: 1}};
 const Extension = class {};
-const WORKFLOW_MENU_ACTIONS = [{id: 'step', label: '添加步骤…'}];
 const [, bytes] = GLib.file_get_contents('extension.js');
 const source = new TextDecoder().decode(bytes).replace(/^import [\s\S]*?;\n/gm, '')
     .replace('export default class', 'class');
@@ -66,6 +77,7 @@ extension._timerStatus = {phase: 'focus', elapsed: 12};
 extension._updateLeftMenu();
 assert(extension._menuSummary.accessible_name === 'Task' && extension._menuPreview[0].text === 'Notes', 'refresh updates summary');
 assert(extension._menuComplete.reactive && extension._menuCancel.reactive, 'available actions enabled');
+assert(extension._morePage.items.every(item => item.reactive), 'all operations recover after initial disconnection');
 assert(!extension._habitEmpty.visible && extension._habitPage.actor.visible, 'refresh preserves selected tab');
 extension._menuVisit.activate();
 extension._menuComplete.activate();
@@ -73,7 +85,7 @@ assert(commands.join(',') === 'visit,complete' && extension._indicator.menu.clos
 extension._workflowStatus = null;
 extension._timerStatus = null;
 extension._updateLeftMenu();
-assert(!extension._menuComplete.reactive && !extension._menuCancel.reactive && !extension._morePage.sensitive,
+assert(!extension._menuComplete.reactive && !extension._menuCancel.reactive && extension._morePage.items.every(item => !item.reactive),
     'disconnect removes stale action availability');
 print('Left popup tab, summary and command behavior passed');
 
@@ -101,4 +113,12 @@ assert(commands.slice(-2).join(',') === 'cancel,record-last-pomodoro', 'compact 
 assert(extension._menuCancel.accessible_name === '取消计时' && extension._menuRecord.accessible_name === '补记番茄钟', 'short labels retain full accessible names');
 extension._workflowStatus.kind = 'habit';
 extension._updateLeftMenu();
-assert(!extension._morePage.sensitive && extension._morePage.actor.visible, 'habit targets disable task-only actions without switching tabs');
+assert(extension._morePage.items.every(item => !item.reactive) && extension._morePage.actor.visible, 'habit targets disable task-only actions without switching tabs');
+
+extension._workflowStatus.kind = 'task';
+extension._updateLeftMenu();
+assert(extension._morePage.items.every(item => item.reactive), 'all four operations recover after a disabled state');
+for (const item of extension._morePage.items)
+    item.activate();
+assert(commands.slice(-4).join(',') === WORKFLOW_MENU_ACTIONS.map(action => action.id).join(','), 'every restored operation routes its own command');
+print('All operation rows recover from disabled states');

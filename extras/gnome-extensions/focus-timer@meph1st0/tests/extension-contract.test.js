@@ -10,18 +10,18 @@ const source = new TextDecoder().decode(bytes);
 const [, metadataBytes] = GLib.file_get_contents('metadata.json');
 const metadata = JSON.parse(new TextDecoder().decode(metadataBytes));
 
-if (metadata.version !== 24)
-    throw new Error(`canonical Workflow API release version: expected 24, got ${metadata.version}`);
+if (metadata.version !== 25)
+    throw new Error(`canonical Workflow API release version: expected 25, got ${metadata.version}`);
 
 assertContains(source, 'WORKFLOW_MENU_ACTIONS',
     'extension consumes the shared workflow menu model');
 assertContains(source, 'workflowCommandArgv',
     'extension consumes the shared emacsclient argv builder');
-assertContains(source, "['more', '更多操作']",
+assertContains(source, "['more', '操作']",
     'extension exposes a grouped workflow action menu');
 assertContains(source, "run('visit')",
     '打开当前任务 uses the frame-aware workflow command path');
-assertContains(source, 'for (const action of WORKFLOW_MENU_ACTIONS)',
+assertContains(source, 'WORKFLOW_MENU_ACTIONS.map(action =>',
     'every modeled workflow action is added to the title-bar menu');
 assertContains(source, 'Commitment streak:',
     'extension gives the streak an accessible name');
