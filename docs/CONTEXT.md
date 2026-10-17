@@ -98,6 +98,12 @@ Sprint 右侧项目循环用 `org-workflow-agenda-previous-project` / `org-workf
 ### 任务、范围与承诺
 
 - 状态模型为 `TODO / DIVE | DONE / HOLD`；DIVE 是活跃任务组，HOLD 排除对应子树。
+- `org-workflow-task-type-keywords` 默认提供独立 Org type 序列 `QA / LAB / HW`，
+  表示问题、实验、作业等附属内容。这些状态不参与任务叶子、队列和日期下放判定，
+  也不计入执行任务统计；仅含这些节点的父 TODO 仍是执行叶子。类型节点下若有
+  真正 TODO 后代，该后代仍按原规则计入。`[0/0]` 不触发父任务自动完成。
+  有文件级 TODO 定义时须同时声明 `#+TYP_TODO: QA LAB HW |`，遵循 Org 的局部覆盖规则；
+  使用示例见任务与历史模型。
 - Agenda 中 project/area 文件提供任务。默认未安排候选要求直接父标题为 DIVE；
   习惯、HOLD 子树等排除。执行队列另按安排日期和时段筛选，不以 DIVE 标签继承准入。
 - 原生 priority A/B/C 表达上午／下午／晚上的安排意图。

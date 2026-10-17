@@ -18,6 +18,32 @@
 当前状态序列为 `TODO / DIVE | DONE / HOLD`；READY 已退役。
 DIVE 表示活跃任务组，DONE 表示实际完成，HOLD 将该标题和子树移出当前执行路径。
 
+`QA / LAB / HW` 是平行的 Org 类型状态，用于问题、实验和作业等附属内容，
+由 `org-workflow-task-type-keywords` 配置（只填关键字名称，修改后重新启用 Workflow）。
+它们在 Org 中可被识别、选择，但不是 Workflow 执行任务，不独立进入执行队列，
+不接收父任务的日期下放，也不使父任务失去执行叶子资格。真正的 TODO 后代
+无论是否隔着类型标题，仍按任务拆分规则处理。原有任务统计排除类型状态；
+仅含类型节点产生的 `[0/0]` 不会自动完成父 TODO。
+
+```org
+* DIVE 课程
+** TODO Training Part I
+SCHEDULED: <2026-10-17 Sat>
+*** QA 超平面为什么能划分空间？
+*** LAB 实验记录
+*** HW 课后练习
+```
+
+这里仍以 `Training Part I` 作为执行单位。类型状态使用独立的原生 `type` 集合，
+不插入 TODO → DIVE → DONE 的状态序列，也不共用 DONE 作为其结束状态。
+文件若已有 `#+TODO`、`#+SEQ_TODO` 或 `#+TYP_TODO`，会按 Org 原生规则覆盖全局定义。
+需要本地定义时应同时声明两套状态，避免只声明类型集合后丢失普通 TODO：
+
+```org
+#+TODO: TODO(t) DIVE(v) | DONE(d) HOLD(h)
+#+TYP_TODO: QA LAB HW |
+```
+
 ## 任务范围、安排与执行
 
 Workflow 队列读取 Agenda 中具有 project 或 area 文件标签的任务。

@@ -61,6 +61,10 @@
   (setq org-todo-keywords '((sequence "TODO(t)" "DIVE(v)" "|" "DONE(d)" "HOLD(h)"))
         org-provide-todo-statistics '(("TODO" "DIVE") ("DONE"))
         org-log-into-drawer nil org-log-done 'time)
+  (when org-workflow-task-type-keywords
+    (setq org-todo-keywords
+          (append org-todo-keywords
+                  (list (append '(type) org-workflow-task-type-keywords '("|"))))))
   (let ((owned '("@tiny" "@flow" "@deep" "#Prone" "FLAGGED")))
     (setq org-tag-alist
           (append '((:startgroup . nil) ("@tiny" . ?t) ("@flow" . ?f)

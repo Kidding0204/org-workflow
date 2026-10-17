@@ -43,11 +43,12 @@
      'normal org-agenda-mode-map (car binding) (cdr binding))))
 
 (defun org-workflow-summary-todo (n-done n-not-done)
-  "Set a statistics parent to DONE when N-NOT-DONE is zero.
-N-DONE is the completed child count supplied by Org and is ignored."
-  (ignore n-done)
+  "Set a statistics parent to DONE when all counted children are done.
+N-DONE and N-NOT-DONE are Org's counted children, excluding typed notes.
+An empty count does not complete a task containing only notes."
   (when-let* ((state (org-get-todo-state)))
-    (when (member state '("TODO" "DIVE" "READY" "DONE"))
+    (when (and (member state '("TODO" "DIVE" "READY" "DONE"))
+               (> (+ n-done n-not-done) 0))
       (let ((target-state (if (zerop n-not-done) "DONE"
                             (if (equal state "DIVE") "DIVE" "TODO"))))
         (unless (equal state target-state)

@@ -188,3 +188,24 @@ GNOME 目录的 10 个 `tests/*.test.js` 均经 `gjs -m` 通过，包含新增�
 未修改真实 Org 数据或为真实数据库建索引，未热加载 Emacs、部署 GNOME 或注销会话。
 包更新由宿主 User Lisp 在后续启动处理；数据库索引在新版重新打开库后生效。
 GNOME 配套源码需另行安装并进入新 Shell 会话，尚未完成实际桌面验收。
+
+
+## 2026-10-17：平行类型状态与执行任务边界
+
+- 新增 Org 原生 type 集合 QA / LAB / HW，通过
+  `org-workflow-task-type-keywords` 配置；统一叶子／未完成任务判定排除类型状态，
+  仍扫描类型标题中的真正任务后代。父任务日期不向类型节点下放。
+- 进度统计为空时不再自动完成父任务，真实任务仍按原统计规则完成。
+  文件级状态定义保留 Org 的局部覆盖行为，使用方法见任务与历史模型。
+- 在临时 Org fixture 中，新增 7 项 ERT 全部通过，包含暖缓存编辑与保存路径。
+  修改前源码副本能够复现类型识别、父队列、日期下放和空统计的 4 项失败。
+- 使用宿主现有 elpa 依赖运行 `make test`：638/642，通过项包含全部新增测试。
+  以下 4 项历史面板测试失败，在修改前 HEAD 源码副本中逐项复现相同失败；
+  不属于本次类型状态改动：
+  - `workflow-history-command-tracer`
+  - `workflow-history-panel-refresh-reopen-one-read-and-external-update`
+  - `workflow-history-panel-select-one-complete-root-update`
+  - `workflow-history-tracer-read-render`
+- `make compile` 成功（已有编译警告仍存在），`git diff --check` 通过。
+  独立代码复核没有发现需要处理的问题。未重载运行中的 Emacs，
+  未在真实 Org／SQLite 数据上演练；实际状态选择与 Agenda 刷新留待用户验收。

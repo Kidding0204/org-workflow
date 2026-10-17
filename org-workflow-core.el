@@ -46,6 +46,14 @@
                  (const :tag "Focus Timer" org-workflow-focus-timer))
   :group 'org)
 
+(defcustom org-workflow-task-type-keywords '("QA" "LAB" "HW")
+  "Org type keywords for notes that are not Workflow execution tasks.
+These headings do not disqualify an ancestor from being a task leaf.
+Use bare keyword names.  Re-enable Workflow after changing this option.
+Files with local TODO definitions must also declare their type keywords."
+  :type '(repeat string)
+  :group 'org-workflow)
+
 (defvaralias 'org-workflow-curr-lookahead-threshold 'org-workflow-dive-lookahead-threshold)
 
 (defcustom org-workflow-dive-lookahead-threshold 2
@@ -179,20 +187,27 @@ the minibuffer, so other clients such as the GNOME status reader stay usable."
      (org-workflow-target--timestamp-date (org-entry-get nil "SCHEDULED"))
      date)))
 
+(defun org-workflow-target--task-p ()
+  "Return non-nil for a TODO heading other than a typed note."
+  (let ((state (org-get-todo-state)))
+    (and state (not (member state org-workflow-task-type-keywords)))))
+
 (defun org-workflow-target--unfinished-p ()
   "Return non-nil when the current heading has an unfinished TODO state."
-  (member (org-get-todo-state) org-not-done-keywords))
+  (and (org-workflow-target--task-p)
+       (member (org-get-todo-state) org-not-done-keywords)))
 
 (defun org-workflow-target--task-leaf-p ()
-  "Return non-nil when the current TODO has no TODO descendants."
-  (and (org-get-todo-state)
+  "Return non-nil when the current task has no task descendants.
+Typed notes are not tasks, but real tasks nested below them still count."
+  (and (org-workflow-target--task-p)
        (not (equal (org-entry-get nil "STYLE") "habit"))
        (save-excursion
          (let ((end (save-excursion (org-end-of-subtree t t))))
            (forward-line 1)
            (not (catch 'task
                   (while (re-search-forward org-heading-regexp end t)
-                    (when (org-get-todo-state)
+                    (when (org-workflow-target--task-p)
                       (throw 'task t)))))))))
 
 (defun org-workflow-target--unfinished-leaf-p ()
@@ -267,6 +282,7 @@ DIVE is not inherited through intermediate headings or by a leaf itself."
 (defun org-workflow--eligible-heading-p (kind _date)
   "Return non-nil when KIND identifies a heading eligible for schedule transfer."
   (and kind
+       (not (member (org-get-todo-state) org-workflow-task-type-keywords))
        (not (equal (org-entry-get nil "STYLE") "habit"))
        (>= (org-outline-level) 1)
        (not (org-workflow--held-p))))
