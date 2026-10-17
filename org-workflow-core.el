@@ -355,7 +355,8 @@ DIVE is not inherited through intermediate headings or by a leaf itself."
   (equal date (org-workflow-target--timestamp-date timestamp)))
 
 (defun org-workflow--ready-on-date-p (date &optional marker)
-  "Return non-nil when MARKER entered READY on DATE."
+  "Read whether legacy MARKER entered READY on DATE.
+This is read-only compatibility for pre-migration facts; new facts use CLOCK."
   (org-with-point-at (or marker (point-marker))
     (and (equal (org-get-todo-state) "READY")
          (org-workflow--timestamp-on-date-p
@@ -1181,7 +1182,7 @@ Return the newly opened sibling marker, or nil.  Preserve all existing tags."
              (not (equal (org-entry-get nil "STYLE") "habit"))
              (not org-workflow--advancing-curr)
              (not (equal org-state org-last-state))
-             (member org-state '("DONE" "READY" "HOLD"))
+             (member org-state '("DONE" "HOLD"))
              (org-workflow--curr-scope-p))
     (let ((org-workflow--advancing-curr t) roots)
       (org-with-wide-buffer
@@ -1221,7 +1222,7 @@ state change inside them.  Modified Org buffers remain available for saving."
 (defalias 'org-workflow-sync-curr #'org-workflow-sync-dive)
 
 (defun org-workflow--after-todo-state-change ()
-  "Release changed task selections, record legacy facts and refresh state."
+  "Release changed task selections, advance active groups and refresh state."
   ;; Org runs this hook with point after the heading stars, whereas Workflow
   ;; markers identify the beginning of the heading.  Compare those anchors.
   (save-excursion
@@ -1230,18 +1231,6 @@ state change inside them.  Modified Org buffers remain available for saving."
       (org-workflow--release-execution))
     (when (org-workflow-target--same-marker-p (point-marker) org-workflow-target-selected-marker)
       (setq org-workflow-target-selected-marker nil)))
-  (when (and (not org-workflow-store-enabled) (equal org-last-state "TODO")
-             (equal org-state "READY"))
-    (let ((kind (org-workflow--file-kind))
-          (today (org-workflow-target--today-string)))
-      (when (and (org-workflow-target--task-leaf-p)
-                 (org-workflow-target--eligible-leaf-p kind today)
-                 (org-workflow--scheduled-on-or-before-p today))
-        (org-entry-put nil "WORKFLOW_READY_ON"
-                       (format-time-string "[%Y-%m-%d %a %H:%M]"
-                                           (current-time)))
-        (org-remove-timestamp-with-keyword org-scheduled-string)
-        (org-workflow--request-gnome-refresh))))
   (org-workflow--advance-curr-after-state-change)
   (org-workflow-target--refresh-after-change))
 

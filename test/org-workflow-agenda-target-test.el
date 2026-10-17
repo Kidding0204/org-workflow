@@ -1527,7 +1527,7 @@ SCHEDULED: <2026-08-17 Mon>
            (goto-char (point-min)) (search-forward title) (beginning-of-line)
            (should (org-get-at-bol 'org-marker))))
        (dolist (hidden '("Day-agenda" "Project Current Tasks"
-                         "Area Current Tasks" "Tomorrow book" "Ready leaf"
+                         "Area Current Tasks" "Tomorrow book"
                          "Hidden unscheduled" "Outside current"
                          "TODO" ":CURR:" "===="))
          (should-not (string-match-p hidden text)))

@@ -238,4 +238,30 @@
       (should (equal before (with-temp-buffer
                              (insert-file-contents (car org-agenda-files)) (buffer-string)))))))
 
+(ert-deftest org-workflow-retired-ready-state-change-does-not-mutate-source ()
+  "A locally defined retired state must not write facts or open task groups."
+  (org-workflow-dive-test--with-files
+      '("#+filetags: :project:\n#+TODO: TODO DIVE READY | DONE HOLD\n* Course\n** DIVE Current\n*** TODO Legacy task\nSCHEDULED: <2000-01-01 Sat>\n** TODO Next\n*** TODO Next task\n")
+    (with-current-buffer (find-file-noselect (car org-agenda-files))
+      (org-workflow-dive-test--goto "Legacy task")
+      (let ((before (buffer-string))
+            (org-after-todo-state-change-hook
+             '(org-workflow--after-todo-state-change))
+            (org-workflow-executing-marker nil))
+        (org-todo "READY")
+        (should (equal (replace-regexp-in-string
+                        "TODO Legacy task" "READY Legacy task" before t t)
+                       (buffer-string)))))))
+
+(ert-deftest org-workflow-retired-ready-statistics-preserve-local-state ()
+  "Statistics do not convert a local legacy state to the current TODO model."
+  (with-temp-buffer
+    (insert "#+TODO: TODO READY | DONE HOLD\n* READY Legacy parent [0/1]\n** TODO Child\n")
+    (org-mode)
+    (goto-char (point-min))
+    (re-search-forward "^\\* READY")
+    (beginning-of-line)
+    (org-update-statistics-cookies nil)
+    (should (equal "READY" (org-get-todo-state)))))
+
 (provide 'org-workflow-dive-test)

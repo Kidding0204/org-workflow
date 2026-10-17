@@ -221,6 +221,10 @@ Status 专用的 `org-workflow-focus-timer-notify-status` 和无人复用的 `--
 旧任务 mode-line 格式函数、专用宽度选项及标签辅助函数已删除；Sprint 局部
 “安排：今天／明天”提示仍有用途并保留。未被 UI 使用的 inbox-state-ready 也已删除，
 迁移及旧历史读取中的 READY 处理保留，不因入口清理改写历史数据。
+日常状态变更不再写入 `WORKFLOW_READY_ON` 或因 READY 删除安排、推进 DIVE；
+统计回调也不把本地旧 READY 标题改回 TODO／DONE。保留的 READY 分支只用于
+迁移及旧事实读取，历史 JSON 的 `ready` 结果继续兼容；面板加载状态 `ready`
+与任务状态无关。
 
 每日统计按本地午夜分界，跨日 CLOCK 分摊；历史后端负责结算／补结算。
 已结算快照按既有规则读取，missing 不等于零，旧规则边界也不能随意重写。

@@ -47,7 +47,7 @@
 N-DONE and N-NOT-DONE are Org's counted children, excluding typed notes.
 An empty count does not complete a task containing only notes."
   (when-let* ((state (org-get-todo-state)))
-    (when (and (member state '("TODO" "DIVE" "READY" "DONE"))
+    (when (and (member state '("TODO" "DIVE" "DONE"))
                (> (+ n-done n-not-done) 0))
       (let ((target-state (if (zerop n-not-done) "DONE"
                             (if (equal state "DIVE") "DIVE" "TODO"))))

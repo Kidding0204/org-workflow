@@ -209,3 +209,21 @@ GNOME 配套源码需另行安装并进入新 Shell 会话，尚未完成实际�
 - `make compile` 成功（已有编译警告仍存在），`git diff --check` 通过。
   独立代码复核没有发现需要处理的问题。未重载运行中的 Emacs，
   未在真实 Org／SQLite 数据上演练；实际状态选择与 Agenda 刷新留待用户验收。
+
+
+## 2026-10-17：移除 READY 的日常状态处理
+
+- 删除 TODO → READY 的旧事实写入／安排日期移除、READY 触发 DIVE 推进、
+  READY 统计父节点转回 TODO／DONE 的日常分支；移除对不存在的 Ready leaf 的旧断言。
+- 保留旧 READY 日期事实、日志／JSON 结果读取、显式迁移和属性清理；
+  `WORKFLOW_READY_ON` 已无运行时写入者。加载状态 `ready` 不属于任务状态。
+- 两项新回归通过真实 `org-todo`／统计更新验证旧局部状态不会被特殊处理，
+  同一测试在修改前 HEAD 副本均失败，修改后通过。
+- `make test`：640/644，新增测试、旧历史兼容及迁移相关测试通过。
+  仍有上一轮已经在基线复现的四项历史面板失败：
+  `workflow-history-command-tracer`、
+  `workflow-history-panel-refresh-reopen-one-read-and-external-update`、
+  `workflow-history-panel-select-one-complete-root-update`、
+  `workflow-history-tracer-read-render`。
+- `make compile` 成功，已有编译警告保留；`git diff --check` 通过。
+  代码复核无待处理问题。仅使用临时数据，未重载实际 Emacs 或改写用户历史。
