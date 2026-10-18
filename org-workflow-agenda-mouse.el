@@ -313,7 +313,6 @@ When EVENT is nil, visit the task at point."
       (message "任务已在该时段，无需修改")
     (org-agenda-bulk-unmark-all)
     (dolist (marker markers) (org-workflow-agenda-mouse--mark marker))
-    (org-workflow-agenda--goto-task (car markers))
     (org-workflow-agenda-plan-at date priority)
     (org-workflow-agenda-mouse--clear-anchors)))
 

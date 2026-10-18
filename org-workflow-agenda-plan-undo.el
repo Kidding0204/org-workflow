@@ -120,7 +120,6 @@ Capture undo state only after the transaction succeeds."
            (org-workflow-store--event id status))))))
     (setq org-workflow-agenda-last-plan nil)
     (org-agenda-redo)
-    (when (car markers) (org-workflow-agenda--goto-task (car markers)))
     (message "已撤销上次安排（%d 项）；计时与历史记录保留" (length markers))))
 
 (defun org-workflow-agenda-plan-undo--enable ()

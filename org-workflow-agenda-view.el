@@ -598,19 +598,10 @@ Use native Agenda markers and the existing parent progress renderer."
   "Button map for day selection and completion section headers.")
 
 (defun org-workflow-agenda--redo-at-task (marker)
-  "Rebuild Sprint and restore MARKER's row when visible."
-  ;; Redo releases the previous Agenda markers; keep an independent anchor.
-  (setq marker (copy-marker marker))
+  "Rebuild Sprint without following MARKER, reporting its scheduled date."
   (let ((date (org-with-point-at marker
                 (org-workflow-target--timestamp-date (org-entry-get nil "SCHEDULED")))))
     (org-agenda-redo)
-    (let ((position (point-min)) found)
-      (while (and (< position (point-max)) (not found))
-        (if (equal marker (get-text-property position 'org-hd-marker))
-            (setq found position)
-          (setq position (next-single-property-change
-                          position 'org-hd-marker nil (point-max)))))
-      (when found (goto-char found)))
     (when date
       (message "已安排至 %s" date))))
 

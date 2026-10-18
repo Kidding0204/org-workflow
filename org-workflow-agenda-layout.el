@@ -132,23 +132,21 @@
     (apply original args)))
 
 (defun org-workflow-agenda--buffer-position (position)
-  "Describe POSITION by source task identity and line fallback."
+  "Describe POSITION by its line and column, independently of task identity."
   (save-excursion
     (goto-char position)
-    (list (when-let* ((marker (org-get-at-bol 'org-hd-marker)))
-            (copy-marker marker))
-          (line-number-at-pos))))
+    (list (line-number-at-pos) (current-column))))
 
 (defun org-workflow-agenda--restore-position (anchor)
-  "Return the rebuilt position corresponding to ANCHOR."
+  "Return ANCHOR's line and column, clamped to the rebuilt buffer."
   (save-excursion
     (goto-char (point-min))
-    (unless (and (car anchor) (org-workflow-agenda--goto-task (car anchor)))
-      (forward-line (1- (cadr anchor))))
+    (forward-line (1- (car anchor)))
+    (move-to-column (cadr anchor))
     (point)))
 
 (defun org-workflow-agenda--redo-pane (original buffer args)
-  "Call ORIGINAL with ARGS to rebuild BUFFER, retaining task and scroll anchors."
+  "Call ORIGINAL with ARGS to rebuild BUFFER, retaining cursor and scroll coordinates."
   (with-current-buffer buffer
     (let* ((windows (get-buffer-window-list buffer nil t))
            (point-anchor (org-workflow-agenda--buffer-position (point)))
@@ -167,9 +165,7 @@
       (dolist (row starts)
         (when (window-live-p (car row))
           (set-window-start (car row) (org-workflow-agenda--restore-position (cadr row)) t)
-          (set-window-point (car row) (org-workflow-agenda--restore-position (caddr row)))))
-      (dolist (anchor (cons point-anchor (apply #'append (mapcar #'cdr starts))))
-        (when (markerp (car anchor)) (set-marker (car anchor) nil))))))
+          (set-window-point (car row) (org-workflow-agenda--restore-position (caddr row))))))))
 
 (defun org-workflow-agenda--redo-workbench (original &rest args)
   "Call ORIGINAL with ARGS to refresh both panes for native Agenda redo."
