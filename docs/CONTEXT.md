@@ -97,6 +97,8 @@ Sprint 右侧项目循环用 `org-workflow-agenda-previous-project` / `org-workf
 作用的 declarations 库；使用跨模块变量作 let 绑定的模块须保留自己的 defvar，
 或在编译时加载其定义库。不要把这些本地声明误删为冗余，也不要用 nil 初始化
 覆盖所属模块的默认值。
+函数跨越互相引用的模块时，在调用方用 `declare-function` 指向实际定义库；
+结构体访问器直接依赖拥有 `cl-defstruct` 的库，不把它们声明成普通外部函数。
 
 ## 4. 数据和行为约束
 
@@ -292,6 +294,9 @@ make package         # dist/org-workflow-<Version>.tar
 [build 脚本](../scripts/build-package.el) 的 test 分支先复制源码，避开宿主 User Lisp
 字节码与隔离依赖中 Org 版本不同的干扰；测试时间 locale 为 C，导出时间 fixture 指定上海时区。
 compile 分支先暂存全部源码，优先从暂存目录加载较新源码，避免宿主旧字节码干扰编译。
+构建初始化只激活包头声明的依赖图及已有开发测试工具，不激活宿主 ELPA 中的其他包。
+第三方依赖自身的过时宏警告仍保留，不在本包中屏蔽或修改依赖源码。
+安装 smoke 的包目录和 quickstart 缓存均落在临时目录，不触碰用户现有缓存。
 bootstrap 安装 Evil 等开发测试工具，不等于把它们写入运行时依赖。
 
 日常交互与选择器测试使用现行 TODO／DIVE／DONE／HOLD 夹具；已退役的 READY 操作

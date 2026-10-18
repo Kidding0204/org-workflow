@@ -118,7 +118,8 @@ No IDs, schedules or database facts are created by this query."
 (defvar-local org-workflow-planning--selected nil)
 
 (define-derived-mode org-workflow-planning-preview-mode tabulated-list-mode "规划建议"
-  "SPC selects a row, a applies selected rows; source edits require a fresh preview."
+  "SPC selects a row and a applies selected rows.
+Source edits require a fresh preview."
   (setq tabulated-list-format [("选" 3) ("任务" 26) ("当前 → 建议" 46) ("依据与不确定性" 40)]
         tabulated-list-padding 1)
   (tabulated-list-init-header))
@@ -197,7 +198,8 @@ No IDs, schedules or database facts are created by this query."
   (org-workflow-planning--render))
 
 (defun org-workflow-planning-accept (&optional replace)
-  "Apply selected rows atomically.  Prefix REPLACE explicitly permits replacing manual values."
+  "Apply selected rows atomically.
+Prefix REPLACE explicitly permits replacing manual values."
   (interactive "P")
   (unless org-workflow-planning--selected (user-error "先用 SPC 选择建议"))
   (org-workflow-planning--validate org-workflow-planning--proposal)

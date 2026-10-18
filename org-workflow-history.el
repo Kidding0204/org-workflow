@@ -475,7 +475,6 @@ A dated boundary keeps older settlements on their original progress rules."
   (unless (org-workflow-store-meta "attempt-progress-since")
     (org-workflow-store-set-meta "attempt-progress-since" (org-workflow-target--today-string)))
   (org-workflow--add-hook 'org-clock-out-hook #'org-workflow-history--refresh-after-clock)
-  (remove-hook 'org-workflow-journal-finalized-hook #'org-workflow-web-export-after-finalize)
   (org-workflow--add-hook 'org-workflow-habits-saved-hook #'org-workflow-history-sync-habits)
   (org-workflow-history-sync-habits)
   (when (timerp org-workflow-journal-seal-timer) (cancel-timer org-workflow-journal-seal-timer))

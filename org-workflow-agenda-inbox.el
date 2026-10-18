@@ -15,6 +15,9 @@
 ;; A component of org-workflow.  Activation is coordinated by its global mode.
 ;;; Code:
 (require 'org-workflow-lifecycle)
+
+(declare-function org-workflow-agenda--clear-selection "org-workflow-agenda-layout" ())
+(defvar org-workflow-collection-review-count)
 (require 'org-archive)
 (require 'org-workflow-sources)
 ;;; org-workflow-agenda-inbox.el --- Capture classification and continuous collection review -*- lexical-binding: t; -*-
@@ -529,8 +532,9 @@ before visiting any source."
                      (nth (min old-index (1- (length entries))) (nreverse positions)))
                    (point-min)))))
 
-(defun org-workflow-collection-inbox-review (&optional all)
-  "Review recent daily collection items; with prefix ALL, include all dates."
+(defun org-workflow-collection-inbox-review (&optional _all)
+  "Review all pending unified Inbox items.
+The optional _ALL prefix is accepted for compatibility and has no effect."
   (interactive "P")
   (pop-to-buffer (get-buffer-create "*日记收集回顾*"))
   (org-workflow-collection-review-mode)

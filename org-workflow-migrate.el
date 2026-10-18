@@ -33,7 +33,8 @@
 Open roots become DIVE, completed or held roots retain their state.  Only local
 CURR tags are removed; inherited tags never create additional roots.  Applying
 requires clean writable source buffers, creates backups, and rolls back every
-affected file if an edit or save fails.  No commitment or historical facts change."
+affected file if an edit or save fails.
+No commitment or historical facts change."
   (interactive "P")
   (let (plans report)
     (dolist (file (seq-filter #'file-readable-p (org-agenda-files t)))
@@ -132,7 +133,8 @@ affected file if an edit or save fails.  No commitment or historical facts chang
     report))
 
 (defun org-workflow-migrate--legacy-days ()
-  "Validate legacy exports before changing anything.  Do not fabricate missing days."
+  "Validate legacy exports before changing anything.
+Do not fabricate missing days."
   (let ((org-workflow-store-enabled nil) days)
     (dolist (entry (org-workflow-web-export--candidate-records))
       (push (org-workflow-web-export--finalized-day (car entry) (cdr entry)) days))

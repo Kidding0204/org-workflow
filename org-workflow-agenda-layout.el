@@ -15,6 +15,9 @@
 ;; A component of org-workflow.  Activation is coordinated by its global mode.
 ;;; Code:
 (require 'org-workflow-lifecycle)
+
+(declare-function org-workflow-agenda--date-offset "org-workflow-agenda-view" (days))
+(defvar org-workflow-agenda-sprint-view)
 ;;; org-workflow-agenda-layout.el --- Independent Sprint panes -*- lexical-binding: t; -*-
 ;;; Commentary:
 ;; A workbench owns its panes and settings; ordinary Agendas stay independent.
@@ -146,7 +149,7 @@
     (point)))
 
 (defun org-workflow-agenda--redo-pane (original buffer args)
-  "Call ORIGINAL with ARGS to rebuild BUFFER, retaining cursor and scroll coordinates."
+  "Rebuild BUFFER using ORIGINAL and ARGS, retaining cursor and scroll position."
   (with-current-buffer buffer
     (let* ((windows (get-buffer-window-list buffer nil t))
            (point-anchor (org-workflow-agenda--buffer-position (point)))

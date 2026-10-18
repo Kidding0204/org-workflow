@@ -15,6 +15,18 @@
 ;; A component of org-workflow.  Activation is coordinated by its global mode.
 ;;; Code:
 (require 'org-workflow-lifecycle)
+
+(declare-function notifications-notify "notifications" (&rest params))
+(declare-function org-workflow--org-buffer-setup "org-workflow" ())
+(declare-function org-workflow-focus-timer-active-p "org-workflow-focus-timer" ())
+(declare-function org-workflow-focus-timer-cancel "org-workflow-focus-timer" ())
+(declare-function org-workflow-focus-timer-record-last-pomodoro "org-workflow-focus-timer" (&optional marker))
+(declare-function org-workflow-focus-timer-start "org-workflow-focus-timer" (&optional marker select))
+(declare-function org-workflow-focus-timer-stop "org-workflow-focus-timer" ())
+(declare-function org-workflow-focus-timer-toggle "org-workflow-focus-timer" (&optional marker select))
+(defvar org-last-state)
+(defvar org-state)
+(defvar org-workflow-focus-timer-task-marker)
 ;;; org-workflow-core.el --- Org current target workflow -*- lexical-binding: t; -*-
 
 ;;; Code:

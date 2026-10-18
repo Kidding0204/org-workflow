@@ -36,7 +36,12 @@
 
 (defun org-workflow-build--initialize ()
   "Activate dependencies without loading the user's configuration."
-  (package-initialize)
+  ;; Read all descriptors, but activate only this package's dependency graph.
+  ;; A reused host ELPA can contain unrelated autoloads or broken metadata.
+  (package-initialize t)
+  (dolist (name (append (mapcar #'car (package-desc-reqs (org-workflow-build--descriptor)))
+                        '(package-lint evil evil-collection org-modern embark)))
+    (unless (eq name 'emacs) (package-activate name)))
   (add-to-list 'load-path org-workflow-build-root))
 
 (defun org-workflow-build--tar ()
@@ -70,7 +75,7 @@
   (setq command-line-args-left nil)
   (pcase command
     ("bootstrap"
-     (package-initialize)
+     (package-initialize t)
      (package-refresh-contents)
      (dolist (req (package-desc-reqs (org-workflow-build--descriptor)))
        (unless (eq (car req) 'emacs)
@@ -131,9 +136,10 @@
            (princ (format "\nCheckdoc warnings: %d.\n" count))
            (when (> count 0) (error "Checkdoc warnings remain"))))))
     ("smoke"
-     (package-initialize)
+     (org-workflow-build--initialize)
      (let* ((dependency-path load-path)
             (package-user-dir (make-temp-file "org-workflow-install-" t))
+            (package-quickstart-file (expand-file-name "package-quickstart.el" package-user-dir))
             (package-alist (copy-tree package-alist))
             (package-activated-list (copy-sequence package-activated-list))
             (package-selected-packages nil)

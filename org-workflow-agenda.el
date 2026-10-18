@@ -15,6 +15,8 @@
 ;; A component of org-workflow.  Activation is coordinated by its global mode.
 ;;; Code:
 (require 'org-workflow-lifecycle)
+
+(declare-function org-workflow--configure-org "org-workflow" ())
 ;;; org-workflow-agenda.el --- Org-mode configuration for gtd -*- lexical-binding: t; -*-
 ;;; Code:
 (require 'cl-lib)

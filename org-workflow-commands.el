@@ -15,6 +15,8 @@
 ;; A component of org-workflow.  Activation is coordinated by its global mode.
 ;;; Code:
 (require 'org-workflow-lifecycle)
+
+(defvar org-state)
 ;;; org-workflow-commands.el --- Shared command boundaries -*- lexical-binding: t; -*-
 (require 'org-workflow-store)
 

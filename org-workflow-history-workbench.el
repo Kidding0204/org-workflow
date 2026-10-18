@@ -15,6 +15,8 @@
 ;; A component of org-workflow.  Activation is coordinated by its global mode.
 ;;; Code:
 (require 'org-workflow-lifecycle)
+
+(declare-function evil-normalize-keymaps "ext:evil-core" (&optional state))
 ;;; org-workflow-history-workbench.el --- Tabbed native historical workbench -*- lexical-binding: t; -*-
 
 (require 'vui)

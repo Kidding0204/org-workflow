@@ -218,7 +218,7 @@ Preserve the effective dates of historical promises."
     (org-with-point-at source (org-workflow-store--detach))))
 
 (defvar org-workflow-store--extra-source-files nil
-  "Additional participants in the current operation, such as historical collections.")
+  "Additional source files participating in the current operation.")
 
 (defun org-workflow-store--sources ()
   "Capture source buffers for crash recovery, never serialize Agenda buffers."

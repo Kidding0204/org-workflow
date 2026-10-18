@@ -15,6 +15,14 @@
 ;; A component of org-workflow.  Activation is coordinated by its global mode.
 ;;; Code:
 (require 'org-workflow-lifecycle)
+
+(declare-function org-workflow-agenda--setting "org-workflow-agenda-layout" (variable))
+(declare-function org-workflow-agenda-next-project "org-workflow-agenda-view" (&optional count))
+(declare-function org-workflow-agenda-plan-period-label "org-workflow-agenda-actions" ())
+(declare-function org-workflow-agenda-previous-project "org-workflow-agenda-view" (&optional count))
+(declare-function org-workflow-agenda-set-day "org-workflow-agenda-layout" (tomorrow))
+(defvar org-workflow-agenda--pane-role)
+(defvar org-workflow-agenda--sprint-buffer-p)
 ;;; org-workflow-agenda-console.el --- Persistent Workflow controls -*- lexical-binding: t; -*-
 (require 'org-agenda)
 

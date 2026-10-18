@@ -15,6 +15,15 @@
 ;; A component of org-workflow.  Activation is coordinated by its global mode.
 ;;; Code:
 (require 'org-workflow-lifecycle)
+
+(declare-function org-workflow-agenda--apply-planning "org-workflow-agenda-actions" (operation))
+(declare-function org-workflow-agenda--date-offset "org-workflow-agenda-view" (days))
+(declare-function org-workflow-agenda--goto-task "org-workflow-agenda-actions" (marker))
+(declare-function org-workflow-agenda--priority-letter "org-workflow-agenda-view" (priority))
+(declare-function org-workflow-agenda-move-down "org-workflow-agenda-actions" ())
+(declare-function org-workflow-agenda-move-up "org-workflow-agenda-actions" ())
+(declare-function org-workflow-agenda-plan-at "org-workflow-agenda-actions" (date priority))
+(defvar org-workflow-agenda-mouse-mode)
 ;;; org-workflow-agenda-mouse.el --- Sprint mouse interactions -*- lexical-binding: t; -*-
 ;;; Commentary:
 ;; Task identity and selection stay in native Agenda markers and bulk marks.

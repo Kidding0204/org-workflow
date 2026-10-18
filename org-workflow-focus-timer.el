@@ -417,8 +417,8 @@ SELECT carries useful `org-clock-in' prefix behavior."
   "Perform the natural action for the current Focus Timer state.
 
 When inactive, start Focus using MARKER and SELECT exactly as
-`org-workflow-focus-timer-start' does.  Stop an unexpired Focus, finish Focus overflow into
-a break, and finish either break state into the next Focus."
+`org-workflow-focus-timer-start' does.  Stop an unexpired Focus.
+Finish Focus overflow into a break, and either break into the next Focus."
   (interactive (list nil current-prefix-arg))
   (pcase org-workflow-focus-timer-phase
     ((pred null) (org-workflow-focus-timer-start marker select))

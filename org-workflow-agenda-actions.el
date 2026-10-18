@@ -15,6 +15,25 @@
 ;; A component of org-workflow.  Activation is coordinated by its global mode.
 ;;; Code:
 (require 'org-workflow-lifecycle)
+
+(declare-function org-workflow--effective-priority-at-point "org-workflow-core" ())
+(declare-function org-workflow--order-scope "org-workflow-core" (entry))
+(declare-function org-workflow--priority-character "org-workflow-core" (value))
+(declare-function org-workflow-agenda--buffer-position "org-workflow-agenda-layout" (position))
+(declare-function org-workflow-agenda--clear-selection "org-workflow-agenda-layout" ())
+(declare-function org-workflow-agenda--date-offset "org-workflow-agenda-view" (days))
+(declare-function org-workflow-agenda--priority-letter "org-workflow-agenda-view" (priority))
+(declare-function org-workflow-agenda--redo-at-task "org-workflow-agenda-view" (marker))
+(declare-function org-workflow-agenda--restore-position "org-workflow-agenda-layout" (anchor))
+(declare-function org-workflow-agenda--set-setting "org-workflow-agenda-layout" (variable value))
+(declare-function org-workflow-agenda--setting "org-workflow-agenda-layout" (variable))
+(declare-function org-workflow-agenda--workbench-buffers "org-workflow-agenda-layout" (&optional workbench))
+(declare-function org-workflow-agenda-target-date "org-workflow-agenda-layout" ())
+(declare-function org-workflow-target--ordered-entries "org-workflow-core" (&optional through-date))
+(declare-function org-workflow-target--timestamp-date "org-workflow-core" (timestamp))
+(declare-function org-workflow-target--today-string "org-workflow-core" ())
+(declare-function org-workflow-target-refresh "org-workflow-core" (&optional signal-errors))
+(defvar org-workflow-agenda--sprint-buffer-p)
 ;;; org-workflow-agenda-actions.el --- Native task actions and refresh boundaries -*- lexical-binding: t; -*-
 ;;; Commentary:
 ;; Internal implementation module loaded by org-workflow-agenda.
@@ -22,6 +41,7 @@
 (require 'cl-lib)
 
 (require 'org-agenda)
+(require 'org-workflow-items)
 
 (defvar org-workflow-agenda-sprint-view)
 (defvar org-workflow-agenda--laying-out-columns)

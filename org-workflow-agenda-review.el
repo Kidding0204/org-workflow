@@ -15,6 +15,12 @@
 ;; A component of org-workflow.  Activation is coordinated by its global mode.
 ;;; Code:
 (require 'org-workflow-lifecycle)
+
+(declare-function org-workflow-agenda--visible-tags "org-workflow-agenda-view" (tags))
+(declare-function org-workflow-collection-inbox--review-files "org-workflow-agenda-inbox" ())
+(declare-function org-workflow-inbox--same-file-p "org-workflow-agenda-inbox" (file-a file-b))
+(defvar org-workflow-agenda-header-button-map)
+(defvar org-workflow-agenda-sprint-view)
 ;;; org-workflow-agenda-review.el --- Daily review beside Sprint -*- lexical-binding: t; -*-
 (require 'org-clock)
 

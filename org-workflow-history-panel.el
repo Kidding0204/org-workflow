@@ -15,6 +15,12 @@
 ;; A component of org-workflow.  Activation is coordinated by its global mode.
 ;;; Code:
 (require 'org-workflow-lifecycle)
+
+(declare-function evil-local-set-key "ext:evil-core" (state key def))
+(declare-function evil-normalize-keymaps "ext:evil-core" (&optional state))
+(declare-function org-workflow-history-workbench "org-workflow-history-workbench" (&optional now))
+(declare-function org-workflow-history-workbench--publish "org-workflow-history-workbench" (model))
+(declare-function org-workflow-history-workbench-close "org-workflow-history-workbench" ())
 ;;; org-workflow-history-panel.el --- Native read-only history -*- lexical-binding: t; -*-
 (require 'vui)
 

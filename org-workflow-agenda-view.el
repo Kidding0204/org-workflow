@@ -15,6 +15,15 @@
 ;; A component of org-workflow.  Activation is coordinated by its global mode.
 ;;; Code:
 (require 'org-workflow-lifecycle)
+
+(declare-function org-workflow-agenda-completed "org-workflow-agenda-review" (_match))
+(declare-function org-workflow-collection-inbox--pending "org-workflow-agenda-inbox" (files &optional all unscheduled))
+(declare-function org-workflow-collection-inbox--review-files "org-workflow-agenda-inbox" ())
+(declare-function org-workflow-evening--habit-rows "org-workflow-evening" (date))
+(declare-function org-workflow-evening--insert-habits "org-workflow-evening" (rows period edge))
+(declare-function org-workflow-evening-today "org-workflow-evening" (_match))
+(defvar org-super-agenda-header-map)
+(defvar org-workflow-agenda-header-button-map)
 ;;; org-workflow-agenda-view.el --- Sprint sections and display metadata -*- lexical-binding: t; -*-
 ;;; Commentary:
 ;; Internal implementation module loaded by org-workflow-agenda.
@@ -404,8 +413,8 @@ are included; execution queue rules are unchanged."
       (find-file (nth 1 record))
       (widen)
       (goto-char (nth 2 record))
-      (org-show-context)
-      (org-show-entry))))
+      (org-fold-show-context)
+      (org-fold-show-entry))))
 
 (defun org-workflow-agenda-deadline-goals (_match)
   "Insert compact deadline stages before Sprint's daily arrangements.

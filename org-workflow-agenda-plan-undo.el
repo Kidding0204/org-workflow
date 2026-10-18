@@ -15,6 +15,8 @@
 ;; A component of org-workflow.  Activation is coordinated by its global mode.
 ;;; Code:
 (require 'org-workflow-lifecycle)
+
+(declare-function org-workflow-collection-inbox--review-files "org-workflow-agenda-inbox" ())
 ;;; org-workflow-agenda-plan-undo.el --- One-step planning correction -*- lexical-binding: t; -*-
 (require 'org-workflow-store)
 
