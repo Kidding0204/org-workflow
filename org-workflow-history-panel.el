@@ -100,7 +100,7 @@
 
 (defun org-workflow-history-panel--adapt (&optional _window)
   "Redraw cached presentation after geometry, text size or theme changes."
-  (when (and vui--root-instance (not org-workflow-history-panel--adapting)
+  (when (and (vui-get-instance) (not org-workflow-history-panel--adapting)
              (display-graphic-p))
     (let ((style (org-workflow-history-chart-style)))
       (unless (equal style org-workflow-history-panel--style)
@@ -325,7 +325,8 @@ Show EMPTY when no tasks exist, and fulfillment when MINIMUM is non-nil."
       (org-workflow-history-workbench--publish model)
     (setq org-workflow-history-panel--model model
         org-workflow-history-panel--style (when (display-graphic-p) (org-workflow-history-chart-style)))
-  (if vui--root-instance (vui-update vui--root-instance (list :model model))
+  (if-let* ((instance (vui-get-instance)))
+      (vui-update instance (list :model model))
     (vui-mount (vui-component 'org-workflow-history-panel--root :model model) (buffer-name)))))
 
 (defun org-workflow-history-panel--error-text (err)

@@ -91,7 +91,7 @@
         (should (= 1 (cl-count #'org-workflow-history-panel--theme-changed enable-theme-functions)))
         (should (memq #'org-workflow-history-panel--adapt window-size-change-functions))
         (cl-letf (((symbol-function 'quit-window) #'ignore)) (org-workflow-history-panel-close))
-        (should-not vui--root-instance)
+        (should-not (vui-get-instance))
         (should-not (memq #'org-workflow-history-panel--theme-changed enable-theme-functions))
         (should-not (memq #'org-workflow-history-panel--adapt window-size-change-functions))
         (org-workflow-history-panel)))

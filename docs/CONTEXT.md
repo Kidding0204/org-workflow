@@ -71,6 +71,10 @@ Sprint 右侧项目循环用 `org-workflow-agenda-previous-project` / `org-workf
 （`H` / `L`），独立于 tab-line 切换命令；tab-line 只呈现可点击的项目标签。
 右栏局部重映射 Evil 的 buffer 前后切换命令，以兼容宿主 H/L intercept 绑定。
 
+历史面板与双栏工作台使用公开 `vui-get-instance` 查询当前 buffer 的挂载实例，
+通过 `vui-update` 更新同一实例；不读取 VUI 动态回调变量作为 buffer 的实例。
+命令刷新、按钮回调和跨栏更新遵循同一路径，换日仅用已读缓存，不重新读取后端。
+
 图形历史工作台的 `q`（总览和日详情均可）及关闭按钮关闭整个所属 tab，恢复调用者窗口；
 单缓冲区历史跟踪仍只退出自身窗口。Evil 派生模式键位安装后须刷新活动键表。
 

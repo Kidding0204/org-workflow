@@ -224,3 +224,33 @@
             (should (string-match-p "日详情" (buffer-string))))
           (should (= tabs-before (length (funcall tab-bar-tabs-function)))))
       (when (get-buffer "*Workflow History*") (kill-buffer "*Workflow History*")))))
+
+(ert-deftest workflow-history-workbench-date-button-updates-both-mounted-panes ()
+  "A real VUI callback must update each pane's own tree using cached facts."
+  (workflow-history-workbench-test--tabs
+    (let* ((payload (workflow-history-view-test--payload
+                     (workflow-history-view-test--day "2026-09-15" "missing")
+                     (workflow-history-view-test--day "2026-09-16")))
+           (reads 0))
+      (cl-letf (((symbol-function 'org-workflow-history-read)
+                 (lambda (&rest _) (cl-incf reads) payload)))
+        (org-workflow-history-workbench)
+        (let* ((state org-workflow-history-workbench--state)
+               (overview (org-workflow-history-workbench-state-overview state))
+               (detail (org-workflow-history-workbench-state-detail state))
+               (overview-root (vui-get-instance overview))
+               (detail-root (vui-get-instance detail)))
+          (push state states)
+          (select-window (get-buffer-window overview))
+          (goto-char (point-min)) (search-forward "选择日期") (backward-char 2)
+          (cl-letf (((symbol-function 'completing-read)
+                     (lambda (&rest _)
+                       (cdr (assoc "2026-09-15" (org-workflow-history-view-date-options payload))))))
+            (should (vui-activate)))
+          (vui-flush-sync)
+          (should (= 1 reads))
+          (should (eq overview-root (vui-get-instance overview)))
+          (should (eq detail-root (vui-get-instance detail)))
+          (with-current-buffer detail
+            (should (string-match-p "2026-09-15" (buffer-string)))
+            (should (string-match-p "记录缺失" (buffer-string)))))))))
