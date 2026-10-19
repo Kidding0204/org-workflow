@@ -19,9 +19,8 @@
 (declare-function org-workflow-agenda-completed "org-workflow-agenda-review" (_match))
 (declare-function org-workflow-collection-inbox--pending "org-workflow-agenda-inbox" (files &optional all unscheduled))
 (declare-function org-workflow-collection-inbox--review-files "org-workflow-agenda-inbox" ())
-(declare-function org-workflow-evening--habit-rows "org-workflow-evening" (date))
+(autoload 'org-workflow-evening--habit-rows "org-workflow-evening")
 (declare-function org-workflow-evening--insert-habits "org-workflow-evening" (rows period edge))
-(declare-function org-workflow-evening-today "org-workflow-evening" (_match))
 (defvar org-super-agenda-header-map)
 (defvar org-workflow-agenda-header-button-map)
 ;;; org-workflow-agenda-view.el --- Sprint sections and display metadata -*- lexical-binding: t; -*-
@@ -460,14 +459,17 @@ Use native Agenda markers and the existing parent progress renderer."
 
 (defun org-workflow-agenda-workbench-view (_match)
   "Render the independent candidate, schedule or combined workbench pane."
-  (let ((role (or (bound-and-true-p org-workflow-agenda--pane-role) 'combined)))
+  (let* ((role (or (bound-and-true-p org-workflow-agenda--pane-role) 'combined))
+         (habit-rows (when (and (memq role '(combined schedule))
+                                (not (org-workflow-agenda--setting 'org-workflow-agenda-plan-tomorrow)))
+                       (org-workflow-evening--habit-rows (org-workflow-agenda-target-date)))))
     (when (memq role '(combined schedule))
       (org-workflow-agenda-deadline-goals nil)
-      (org-workflow-evening-today nil))
+      (org-workflow-agenda-task-stack nil habit-rows))
     (when (eq role 'candidates)
       (org-workflow-agenda-candidates nil))
     (when (memq role '(combined schedule))
-      (org-workflow-agenda-inbox nil))
+      (org-workflow-agenda-inbox nil habit-rows))
     (when (memq role '(combined schedule))
       (unless (org-workflow-agenda--setting 'org-workflow-agenda-plan-tomorrow)
         (org-workflow-agenda-completed nil)))))
@@ -485,17 +487,19 @@ Use native Agenda markers and the existing parent progress renderer."
           (push entry result))))
     (nreverse result)))
 
-(defun org-workflow-agenda-inbox (_match)
-  "Render all-day choices: free habits, collected tasks, then stage candidates."
+(cl-defun org-workflow-agenda-inbox
+    (_match &optional
+            (habit-rows (unless (org-workflow-agenda--setting 'org-workflow-agenda-plan-tomorrow)
+                          (org-workflow-evening--habit-rows (org-workflow-agenda-target-date)))))
+  "Render all-day choices from HABIT-ROWS, collected tasks and stage candidates.
+Read habits for the selected day when HABIT-ROWS is omitted."
   (require 'org-workflow-agenda-inbox)
   (goto-char (point-max))
   (let* ((start (point)) (inhibit-read-only t)
-         (tomorrow (org-workflow-agenda--setting 'org-workflow-agenda-plan-tomorrow))
-         (habits (unless tomorrow
-                   (seq-filter
-                    (lambda (row) (and (null (car row))
-                                       (not (get-text-property 0 'org-workflow-agenda-habit-done (cdr row)))))
-                    (org-workflow-evening--habit-rows (org-workflow-agenda-target-date)))))
+         (habits (seq-filter
+                  (lambda (row) (and (null (car row))
+                                    (not (get-text-property 0 'org-workflow-agenda-habit-done (cdr row)))))
+                  habit-rows))
          (collected (org-workflow-collection-inbox--pending
                      (org-workflow-collection-inbox--review-files) t t))
          (candidates (org-workflow-agenda--optional-candidates))
