@@ -9,7 +9,7 @@
 (ert-deftest org-workflow-dispatch-connects-native-review-and-capture ()
   "The first entry connects native history, capture and package settings."
   (dolist (entry '(("h" . org-workflow-history-workbench)
-                   ("A" . org-workflow-agenda-open-workbench)
+                   ("SPC" . org-workflow-agenda-open-workbench)
                    ("n" . org-capture)
                    ("C" . org-workflow-customize)
                    ("f t" . org-workflow-focus-timer-toggle)

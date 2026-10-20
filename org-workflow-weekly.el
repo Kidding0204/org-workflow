@@ -215,8 +215,8 @@ Use the timer key sequences to control Focus Timer independently."
   :variable-pitch t
   :column-widths '(16 20)
   [["工作台"
-    ("a" "Sprint" org-workflow-open-agenda)
-    ("A" "双栏工作台" org-workflow-agenda-open-workbench)
+    ("k" "Sprint" org-workflow-open-agenda)
+    ("SPC" "双栏工作台" org-workflow-agenda-open-workbench)
     ("j" "本周日志" org-workflow-week-open)
     ("p" "项目／领域" org-workflow-open-project)
     ("c" "当前任务" org-workflow-target-visit)]
