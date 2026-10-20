@@ -122,3 +122,31 @@ for (const item of extension._morePage.items)
     item.activate();
 assert(commands.slice(-4).join(',') === WORKFLOW_MENU_ACTIONS.map(action => action.id).join(','), 'every restored operation routes its own command');
 print('All operation rows recover from disabled states');
+
+const actionRow = extension._indicator.menu.items.find(row =>
+    row.children?.includes(extension._menuRecord));
+assert(extension._menuVisit.label === '打开' && extension._menuVisit.accessible_name === '打开任务',
+    'open has a short visible label and full accessible name');
+assert(extension._menuSkip?.label === '跳过', 'summary exposes a short skip button');
+assert(actionRow.children.indexOf(extension._menuSkip) === actionRow.children.indexOf(extension._menuRecord) - 1,
+    'skip sits immediately before record');
+assert(!extension._habitPage.items.some(item => item.label?.text?.includes('跳过')),
+    'habit page has no duplicate skip action');
+extension._workflowStatus.kind = 'habit';
+extension._updateLeftMenu();
+assert(extension._menuSkip.reactive, 'current habit can be skipped');
+extension._indicator.menu.closed = false;
+extension._menuSkip.activate();
+assert(commands.at(-1) === "(org-workflow-panel-habit-action 'skip)" && extension._indicator.menu.closed,
+    'habit skip closes the menu and reuses today-only habit operation');
+extension._workflowStatus.kind = 'task';
+extension._workflowStatus.panel = {habitReminder: {key: 'pending', title: 'Other habit'}};
+extension._updateLeftMenu();
+assert(extension._menuSkip.reactive, 'ordinary current task can be deferred');
+extension._menuSkip.activate();
+assert(commands.at(-1) === 'defer', 'ordinary task reuses defer even with a pending habit reminder');
+extension._workflowStatus = null;
+extension._updateLeftMenu();
+assert(!extension._menuSkip.reactive && !extension._menuSkip.can_focus,
+    'unavailable current item disables skip');
+print('Shared skip button placement and routing passed');

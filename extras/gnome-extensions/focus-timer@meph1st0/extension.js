@@ -10,7 +10,7 @@ import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 
 import {parseEmacsclientStatus} from './state.js';
 import {planningPresentation, weekTrackStyle} from './planning.js';
-import {formatWorkflowTitle, parseWorkflowStatus, currentHabitReminder, workflowTitleState} from './workflow-state.js';
+import {formatWorkflowTitle, parseWorkflowStatus, workflowTitleState} from './workflow-state.js';
 import {titleLayout} from './layout.js';
 import {
     leftMenuPresentation,
@@ -229,7 +229,8 @@ export default class FocusTimerExtension extends Extension {
         this._menuSummary.add_child(summaryBox);
         menu.addMenuItem(this._menuSummary);
         const actions = row('workflow-menu-summary-actions');
-        this._menuVisit = button('打开任务', () => run('visit'));
+        this._menuVisit = button('打开', () => run('visit'));
+        this._menuVisit.accessible_name = '打开任务';
         this._menuComplete = button('完成', () => run('complete'), 'workflow-menu-primary');
         actions.add_child(this._menuVisit);
         actions.add_child(this._menuComplete);
@@ -239,6 +240,14 @@ export default class FocusTimerExtension extends Extension {
         this._menuRecord.accessible_name = '补记番茄钟';
         actions.add_child(this._menuCancel);
         actions.add_child(new St.Widget({x_expand: true}));
+        this._menuSkip = button('跳过', () => {
+            menu.close();
+            if (this._workflowStatus?.kind === 'habit')
+                this._runCommand("(org-workflow-panel-habit-action 'skip)");
+            else
+                this._runWorkflowAction('defer');
+        });
+        actions.add_child(this._menuSkip);
         actions.add_child(this._menuRecord);
         menu.addMenuItem(actions);
 
@@ -271,8 +280,6 @@ export default class FocusTimerExtension extends Extension {
         this._habitPage.addMenuItem(this._habitEmpty);
         this._habitMenu = new PopupMenu.PopupMenuSection();
         this._habitPage.addMenuItem(this._habitMenu);
-        this._skipHabitItem = this._habitPage.addAction('跳过当前习惯（仅今天）',
-            () => this._runCommand("(org-workflow-panel-habit-action 'skip)"));
         menu.addMenuItem(this._habitPage);
         this._morePage = new PopupMenu.PopupMenuSection();
         this._moreActions = WORKFLOW_MENU_ACTIONS.map(action =>
@@ -321,11 +328,13 @@ export default class FocusTimerExtension extends Extension {
             });
         }
         for (const [actor, enabled] of [[this._menuVisit, view.canAct], [this._menuComplete, view.canAct],
-            [this._menuCancel, view.canCancel], [this._menuRecord, view.canAct]]) {
+            [this._menuCancel, view.canCancel], [this._menuSkip, view.canAct], [this._menuRecord, view.canAct]]) {
             actor.reactive = enabled;
             actor.can_focus = enabled;
             actor.opacity = enabled ? 255 : 100;
         }
+        this._menuSkip.accessible_name = this._workflowStatus?.kind === 'habit'
+            ? '跳过当前习惯（仅今天）' : '将当前任务移至晚间';
         // GNOME's section notification stops at the first callback returning true.
         // Update each native item directly so every operation recovers together.
         const canPlan = view.canAct && this._workflowStatus?.kind !== 'habit';
@@ -358,8 +367,8 @@ export default class FocusTimerExtension extends Extension {
         this._label = null;
         this._fill = null;
         for (const key of ['_menuSummary', '_menuPreview', '_taskMenu', '_taskEmpty',
-            '_menuVisit', '_menuComplete', '_menuCancel', '_menuRecord', '_menuTabs',
-            '_taskPage', '_habitPage', '_habitEmpty', '_habitMenu', '_skipHabitItem'])
+            '_menuVisit', '_menuComplete', '_menuCancel', '_menuSkip', '_menuRecord', '_menuTabs',
+            '_taskPage', '_habitPage', '_habitEmpty', '_habitMenu'])
             this[key] = null;
         this._morePage = null;
         this._moreActions = null;
@@ -470,8 +479,6 @@ export default class FocusTimerExtension extends Extension {
         this._parentLabel.set_text(title.parent);
         this._parentLabel.visible = idle && this._workflowStatus?.available === true &&
             Boolean(title.parent);
-        const reminder = currentHabitReminder(this._workflowStatus, this._timerStatus);
-        this._skipHabitItem.visible = Boolean(reminder);
 
         this._accessoryGroup.visible = !idle || this._parentLabel.visible;
         this._queueLayout();

@@ -53,7 +53,7 @@ print('focus-timer startup lifecycle tests passed');
 const label = () => ({text: '', set_text(text) { this.text = text; },
     clutter_text: {set_markup(text) { this.markup = text; }}});
 Object.assign(extension, {
-    _progress: {}, _label: {}, _parentLabel: label(), _taskLabel: label(), _skipHabitItem: {},
+    _progress: {}, _label: {}, _parentLabel: label(), _taskLabel: label(),
     _morePage: {}, _bodyItem: {label: label()},
     _focusGroup: {}, _accessoryGroup: {}, _queueLayout() {},
     _weekStrip: {}, _weekCells: Array.from({length: 7}, () => ({track: {set_style(value) { this.style = value; }}, unknown: {}, dot: {}})),
@@ -97,14 +97,14 @@ extension._workflowStatus.kind = 'habit';
 extension._workflowStatus.task = 'Run';
 extension._workflowStatus.panel.habitReminder = {key: 'run', title: 'Run', done: false};
 ExtensionClass.prototype._updatePlanning.call(extension);
-assert(extension._taskLabel.text === '习惯 · Run' && extension._skipHabitItem.visible,
-    'idle shows latest reminder and skip command');
+assert(extension._taskLabel.text === '习惯 · Run',
+    'idle shows latest reminder');
 extension._timerStatus.phase = 'focus';
 extension._workflowStatus.kind = 'task';
 extension._workflowStatus.task = 'Original task';
 ExtensionClass.prototype._updatePlanning.call(extension);
-assert(extension._taskLabel.text === 'Original task' && !extension._skipHabitItem.visible,
-    'focus preserves actual task and hides reminder action');
+assert(extension._taskLabel.text === 'Original task',
+    'focus preserves actual task');
 extension._timerStatus.phase = 'inactive';
 extension._workflowStatus.kind = 'habit';
 extension._workflowStatus.task = 'Run';
@@ -121,12 +121,12 @@ extension._workflowStatus.panel.habitReminder = {key: 'run', title: 'Run', done:
 extension._workflowStatus.kind = 'habit';
 extension._workflowStatus.task = 'Selected habit';
 ExtensionClass.prototype._updatePlanning.call(extension);
-assert(extension._taskLabel.text === '习惯 · Selected habit' && extension._skipHabitItem.visible,
-    'an explicit habit selection controls both title and skip action');
+assert(extension._taskLabel.text === '习惯 · Selected habit',
+    'an explicit habit selection controls title');
 extension._workflowStatus.kind = 'task';
 extension._workflowStatus.task = 'Original task';
 ExtensionClass.prototype._updatePlanning.call(extension);
-assert(extension._taskLabel.text === 'Original task' && !extension._skipHabitItem.visible,
+assert(extension._taskLabel.text === 'Original task',
     'restoring the queue controls title and actions despite the old reminder');
 
 // Keep subprocess lifecycle guards real while controlling action completion order.

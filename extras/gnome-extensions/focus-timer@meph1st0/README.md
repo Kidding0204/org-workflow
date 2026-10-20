@@ -13,14 +13,18 @@ The commitment streak uses the same daily-attempt rule for commitment tasks.
 The left right-click popup uses a Tasklane-inspired dark rounded surface. Its
 summary shows only the first three lines of the current item's body. Each source
 line occupies one ellipsized row; an additional ellipsis marks omitted body lines.
-Use **打开任务** to read the full source. **完成** still applies to the current item.
+Use **打开** to read the full source. **完成** still applies to the current item.
 The **任务** tab lists today's full ordered task stack directly, marking the current
 item. Clicking another row selects that source through the same transition used
 by the Emacs selector: stop previous execution normally, never auto-start a timer.
 Duplicate titles use distinct source keys; stale/completed rows are revalidated
 before selection. **选择任务** also offers the existing wider Emacs selector.
-The action row is **打开任务 / 完成 / 取消 / 补记**; the last two retain the full
-accessible names **取消计时 / 补记番茄钟**. **补记** aligns to the right edge. **操作** is a third tab beside
+The action row is **打开 / 完成 / 取消 / 跳过 / 补记**. **打开**, **取消** and
+**补记** retain the full accessible names **打开任务**, **取消计时** and **补记番茄钟**.
+**跳过** sits immediately left of **补记** on the right: it skips only today's
+occurrence for a current habit, or reuses **移至晚间** for an ordinary task.
+It follows the current item independently of the selected tab or pending reminders,
+and is disabled without a current item. The habit page has no separate skip row. **操作** is a third tab beside
 **任务 / 习惯**, with the existing task-planning actions. The default tab remains
 **任务**; refresh preserves the selected tab. Task-only actions are disabled for habits.
 Long task lists scroll. No timer or task state
