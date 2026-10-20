@@ -134,28 +134,52 @@
           (setq-local org-agenda-this-buffer-is-sticky nil)))
     (apply original args)))
 
-(defun org-workflow-agenda--buffer-position (position)
-  "Describe POSITION by its line and column, independently of task identity."
+(defun org-workflow-agenda--task-row-p ()
+  "Return non-nil when the current line is a visible, actionable task."
+  (let ((marker (org-get-at-bol 'org-hd-marker)))
+    (and (markerp marker) (marker-buffer marker)
+         (not (org-get-at-bol 'org-workflow-agenda-stage-goal))
+         (not (invisible-p (line-beginning-position)))
+         ;; Native incremental edits can leave the row's todo-state stale.
+         (not (org-with-point-at marker (org-entry-is-done-p))))))
+
+(defun org-workflow-agenda--buffer-position (position &optional task-aware)
+  "Describe POSITION by line and column, independently of task identity.
+When TASK-AWARE is non-nil, remember whether the cursor is on a task so
+restoration can skip rebuilt headings.  Viewport anchors omit this flag."
   (save-excursion
     (goto-char position)
-    (list (line-number-at-pos) (current-column))))
+    (list (line-number-at-pos) (current-column)
+          (and task-aware (org-workflow-agenda--task-row-p)))))
 
 (defun org-workflow-agenda--restore-position (anchor)
-  "Return ANCHOR's line and column, clamped to the rebuilt buffer."
+  "Return ANCHOR's position, clamped to the rebuilt buffer.
+A task cursor landing on a heading or empty line selects the next visible
+task, or the previous one at the end.  Other anchors keep their coordinates."
   (save-excursion
     (goto-char (point-min))
     (forward-line (1- (car anchor)))
     (move-to-column (cadr anchor))
+    (when (and (nth 2 anchor) (not (org-workflow-agenda--task-row-p)))
+      (let ((fallback (point)))
+        (while (and (not (org-workflow-agenda--task-row-p))
+                    (zerop (forward-line 1))))
+        (unless (org-workflow-agenda--task-row-p)
+          (goto-char fallback)
+          (while (and (not (org-workflow-agenda--task-row-p))
+                      (zerop (forward-line -1)))))
+        (unless (org-workflow-agenda--task-row-p) (goto-char fallback))
+        (move-to-column (cadr anchor))))
     (point)))
 
 (defun org-workflow-agenda--redo-pane (original buffer args)
   "Rebuild BUFFER using ORIGINAL and ARGS, retaining cursor and scroll position."
   (with-current-buffer buffer
     (let* ((windows (get-buffer-window-list buffer nil t))
-           (point-anchor (org-workflow-agenda--buffer-position (point)))
+           (point-anchor (org-workflow-agenda--buffer-position (point) t))
            (starts (mapcar (lambda (window)
                              (list window (org-workflow-agenda--buffer-position (window-start window))
-                                   (org-workflow-agenda--buffer-position (window-point window))))
+                                   (org-workflow-agenda--buffer-position (window-point window) t)))
                            windows))
            (org-agenda-buffer-name (buffer-name buffer))
            (org-agenda-this-buffer-name (buffer-name buffer))

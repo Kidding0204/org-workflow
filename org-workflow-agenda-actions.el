@@ -19,7 +19,7 @@
 (declare-function org-workflow--effective-priority-at-point "org-workflow-core" ())
 (declare-function org-workflow--order-scope "org-workflow-core" (entry))
 (declare-function org-workflow--priority-character "org-workflow-core" (value))
-(declare-function org-workflow-agenda--buffer-position "org-workflow-agenda-layout" (position))
+(declare-function org-workflow-agenda--buffer-position "org-workflow-agenda-layout" (position &optional task-aware))
 (declare-function org-workflow-agenda--clear-selection "org-workflow-agenda-layout" ())
 (declare-function org-workflow-agenda--date-offset "org-workflow-agenda-view" (days))
 (declare-function org-workflow-agenda--priority-letter "org-workflow-agenda-view" (priority))
@@ -82,7 +82,7 @@ Validate every row first, and roll back source buffers if an operation fails."
                                (list (or (org-get-at-bol 'org-hd-marker)
                                          (org-agenda-error))))))))
          (buffers (delete-dups (mapcar #'marker-buffer markers)))
-         (anchor (org-workflow-agenda--buffer-position (point)))
+         (anchor (org-workflow-agenda--buffer-position (point) t))
          changes accepted)
     (save-excursion
       (dolist (marker markers)
@@ -168,11 +168,11 @@ Standard Agendas retain Org's incremental rendering."
         (org-workflow-agenda--queue-native-refresh (nth 1 args))))))
 
 (defun org-workflow-agenda--track-native-command (original &rest args)
-  "Call native edit ORIGINAL with ARGS, retaining Sprint's cursor coordinates.
+  "Call native edit ORIGINAL with ARGS, retaining a nearby Sprint task cursor.
 Queue the rebuild after the command finishes its incremental line updates."
   (if (not (bound-and-true-p org-workflow-agenda--sprint-buffer-p))
       (apply original args)
-    (let ((anchor (org-workflow-agenda--buffer-position (point)))
+    (let ((anchor (org-workflow-agenda--buffer-position (point) t))
           (marker (org-get-at-bol 'org-hd-marker)))
       (unwind-protect
           (prog1 (apply original args)
