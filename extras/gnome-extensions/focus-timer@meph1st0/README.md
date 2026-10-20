@@ -221,7 +221,11 @@ prove the live Shell loaded v22.
 
 ## Simplified context menu
 
-Left click and Super+s switch timer state. The task submenu offers adding a
+Left click and Super+s switch timer state. Each successful toggle plays the
+short Freedesktop `audio-volume-change` sound at -12 dB through the same
+asynchronous player used for deadline reminders. Customize
+`org-workflow-focus-timer-toggle-sound-event` in Emacs to choose another event,
+or set it to `nil` for silence. Failed actions and status refreshes stay silent. The task submenu offers adding a
 step or prerequisite and deferring a task or group. Direct actions offer
 completion, cancellation (discard the active interval) and recording a past
 Pomodoro ending now on the shared current item. Recording requires an inactive

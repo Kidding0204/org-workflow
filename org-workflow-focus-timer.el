@@ -93,6 +93,14 @@ Set this to nil to silence automatic break reminders."
   :type '(choice (const :tag "Disabled" nil) string)
   :group 'org-workflow-focus-timer)
 
+(defcustom org-workflow-focus-timer-toggle-sound-event "audio-volume-change"
+  "Freedesktop sound event played after a successful manual state toggle.
+
+The desktop panel and Super+s share this feedback.  Playback is reduced
+by 12 dB to keep frequent transitions gentle.  Set nil to disable it."
+  :type '(choice (const :tag "Disabled" nil) string)
+  :group 'org-workflow-focus-timer)
+
 (defvar org-workflow-focus-timer-phase nil
   "Current phase, or nil when Focus Timer is inactive.")
 
@@ -420,15 +428,18 @@ When inactive, start Focus using MARKER and SELECT exactly as
 `org-workflow-focus-timer-start' does.  Stop an unexpired Focus.
 Finish Focus overflow into a break, and either break into the next Focus."
   (interactive (list nil current-prefix-arg))
-  (pcase org-workflow-focus-timer-phase
-    ((pred null) (org-workflow-focus-timer-start marker select))
-    ('focus
-     (if org-workflow-focus-timer-expired-p
-         (org-workflow-focus-timer-finish-phase)
-       (org-workflow-focus-timer-stop)))
-    ((or 'short-break 'long-break)
-     (org-workflow-focus-timer-finish-phase))
-    (_ (user-error "Unknown Focus Timer phase: %S" org-workflow-focus-timer-phase))))
+  (prog1
+      (pcase org-workflow-focus-timer-phase
+        ((pred null) (org-workflow-focus-timer-start marker select))
+        ('focus
+         (if org-workflow-focus-timer-expired-p
+             (org-workflow-focus-timer-finish-phase)
+           (org-workflow-focus-timer-stop)))
+        ((or 'short-break 'long-break)
+         (org-workflow-focus-timer-finish-phase))
+        (_ (user-error "Unknown Focus Timer phase: %S" org-workflow-focus-timer-phase)))
+    (org-workflow-focus-timer--play-sound
+     org-workflow-focus-timer-toggle-sound-event "-12")))
 
 ;;;###autoload
 (defun org-workflow-focus-timer-stop ()
@@ -465,17 +476,22 @@ Finish Focus overflow into a break, and either break into the next Focus."
     (org-workflow-focus-timer--clear-state)
     (run-hooks 'org-workflow-focus-timer-stopped-hook)))
 
+(defun org-workflow-focus-timer--play-sound (event &optional volume)
+  "Play sound EVENT asynchronously, optionally at VOLUME decibels.
+Audio failures must not interrupt timer or Org Clock operations."
+  (when event
+    (condition-case nil
+        (apply #'start-process "org-workflow-focus-timer-sound" nil
+               "canberra-gtk-play" "-i" event
+               (when volume (list "-V" volume)))
+      (error (message "Focus Timer sound player is unavailable")))))
+
 (defun org-workflow-focus-timer--play-phase-sound ()
   "Play the configured sound for the active phase without showing a popup."
-  (let ((event (if (eq org-workflow-focus-timer-phase 'focus)
-                   org-workflow-focus-timer-focus-sound-event
-                 org-workflow-focus-timer-break-sound-event)))
-    (when event
-      (condition-case nil
-          (start-process "org-workflow-focus-timer-sound" nil
-                         "canberra-gtk-play" "-i" event)
-        (file-missing
-         (message "Focus Timer sound player is unavailable"))))))
+  (org-workflow-focus-timer--play-sound
+   (if (eq org-workflow-focus-timer-phase 'focus)
+       org-workflow-focus-timer-focus-sound-event
+     org-workflow-focus-timer-break-sound-event)))
 
 (defun org-workflow-focus-timer--enable ()
   "Install this component while Workflow is being enabled."

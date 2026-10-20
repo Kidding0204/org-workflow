@@ -172,7 +172,8 @@
          (org-workflow-focus-timer-target-minutes nil)
          (org-workflow-focus-timer-expired-p nil)
          (org-workflow-focus-timer-completed-count 0)
-         (org-workflow-focus-timer-task-marker nil))
+         (org-workflow-focus-timer-task-marker nil)
+         (org-workflow-focus-timer-toggle-sound-event nil))
      (with-temp-buffer
        (org-mode)
        (insert "* TODO Focus me\n")
@@ -262,6 +263,50 @@
     (should (org-clocking-p))
     (should (= (marker-position org-workflow-focus-timer-task-marker)
                (marker-position org-clock-hd-marker)))))
+
+(ert-deftest org-workflow-focus-timer-toggle-sounds-once-after-each-transition ()
+  "Missing, early or duplicate feedback must fail across the real cycle."
+  (org-workflow-focus-timer-test-with-org-task
+    (let ((org-workflow-focus-timer-toggle-sound-event "audio-volume-change")
+          phases arguments)
+      (cl-letf (((symbol-function 'start-process)
+                 (lambda (&rest args)
+                   (push org-workflow-focus-timer-phase phases)
+                   (push args arguments))))
+        (org-workflow-focus-timer-toggle task-marker)
+        (setq org-workflow-focus-timer-expired-p t)
+        (org-workflow-focus-timer-toggle)
+        (org-workflow-focus-timer-toggle)
+        (org-workflow-focus-timer-toggle)
+        (should (equal (reverse phases) '(focus short-break focus nil)))
+        (should (= (length arguments) 4))
+        (dolist (args arguments)
+          (should (equal args
+                         '("org-workflow-focus-timer-sound" nil
+                           "canberra-gtk-play" "-i" "audio-volume-change"
+                           "-V" "-12"))))))))
+
+(ert-deftest org-workflow-focus-timer-toggle-silences-disabled-and-failed-actions ()
+  "Disabled feedback and rejected transitions must not launch the player."
+  (org-workflow-focus-timer-test-with-org-task
+    (cl-letf (((symbol-function 'start-process)
+               (lambda (&rest _) (ert-fail "Unexpected sound"))))
+      (let ((org-workflow-focus-timer-toggle-sound-event nil))
+        (org-workflow-focus-timer-toggle task-marker)
+        (should (eq org-workflow-focus-timer-phase 'focus)))
+      (let ((org-workflow-focus-timer-toggle-sound-event "audio-volume-change"))
+        (setq org-workflow-focus-timer-phase 'invalid)
+        (should-error (org-workflow-focus-timer-toggle) :type 'user-error)))))
+
+(ert-deftest org-workflow-focus-timer-toggle-survives-player-failure ()
+  "An unavailable audio service must not turn a successful toggle into an error."
+  (org-workflow-focus-timer-test-with-org-task
+    (let ((org-workflow-focus-timer-toggle-sound-event "audio-volume-change"))
+      (cl-letf (((symbol-function 'start-process)
+                 (lambda (&rest _) (error "Audio unavailable"))))
+        (org-workflow-focus-timer-toggle task-marker)
+        (should (eq org-workflow-focus-timer-phase 'focus))
+        (should (org-clocking-p))))))
 
 (ert-deftest org-workflow-focus-timer-toggle-starts-an-inactive-cycle-on-the-given-task ()
   "Ignoring MARKER would make a desktop toggle prompt for an unavailable context."
