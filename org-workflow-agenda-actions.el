@@ -188,10 +188,13 @@ Queue the rebuild after the command finishes its incremental line updates."
   (interactive)
   (org-workflow-agenda--schedule-and-redo (org-workflow-target--today-string)))
 
+(defvar org-workflow-store--defer-without-draft)
+
 (defun org-workflow-agenda-schedule-tomorrow ()
-  "Schedule the Agenda item at point for tomorrow."
+  "Defer selected Agenda items to tomorrow without creating new commitments."
   (interactive)
-  (org-workflow-agenda--schedule-and-redo (org-workflow-agenda--date-offset 1)))
+  (let ((org-workflow-store--defer-without-draft t))
+    (org-workflow-agenda--schedule-and-redo (org-workflow-agenda--date-offset 1))))
 
 (defun org-workflow-agenda-schedule ()
   "Prompt for a date for the Agenda item, then rebuild the view."

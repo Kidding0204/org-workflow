@@ -140,6 +140,9 @@ Sprint 右侧项目循环用 `org-workflow-agenda-previous-project` / `org-workf
 - 每日“承担并尝试”与实际完成不同，不应因满足当天责任自动将任务改为 DONE。
 - 承诺创建／调整规则由 core、commands、store、history 共同实现。
   不用当前 SCHEDULED 或某个标签重新推算过去承诺集合。
+  午夜／启动 catch-up 封存过去日期后，为未完成的逾期普通叶子建立当天承诺，保留安排日期。
+  `d` 手动延期不新建承诺；已有生效承诺仍关联原责任并记录延期。普通明日规划仍建立草案。
+  自动承诺记录 `carried` 事件及原安排日期，重复补处理和明确撤回均不重建同一安排的承诺。
 - `ID` 和 `WORKFLOW_COMMITMENT_ID` 负责关联；`WORKFLOW_ORDER` 如 `A/0` 保存时段与序号。
   延期计数、原定日期提示和重复承诺时间镜像已退役，不能在渲染中重新写入。
 - `Effort`、`WORKFLOW_BOUNDARY`、`WORKFLOW_RESUME` 等仍有用途；不可按前缀批量删属性。

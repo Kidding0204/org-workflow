@@ -20,6 +20,9 @@
 
 (require 'org-workflow-habits)
 (require 'org-workflow-sources)
+(require 'org-workflow-items)
+
+(declare-function org-workflow-target--collect "org-workflow-core" (&optional through-date))
 (autoload 'org-workflow-inbox-archive-done "org-workflow-agenda-inbox")
 
 (require 'org-workflow-journal)
@@ -329,6 +332,50 @@ fulfilled commitments."
   (interactive (list (org-read-date nil nil nil "重算日期")))
   (org-workflow-history-finalize date t))
 
+(defun org-workflow-history--carried-schedule-p (scheduled)
+  "Whether the task at point already carried its SCHEDULED date.
+Remember explicit withdrawals so repeated catch-up does not recreate them."
+  (when-let* ((task (org-entry-get nil "ID")))
+    (seq-some
+     (lambda (row)
+       (equal scheduled (plist-get (org-workflow-store--decode (car row)) :scheduled)))
+     (sqlite-select (org-workflow-store--db)
+                    "SELECT e.payload FROM events e JOIN commitments c ON e.id=c.id WHERE c.task_id=? AND e.kind='carried'"
+                    (list task)))))
+
+(defun org-workflow-history-carry-over ()
+  "Commit unfinished overdue leaves to today after a natural day boundary.
+Keep SCHEDULED and past snapshots intact.  Existing promises and explicit
+withdrawals are preserved; all source and fact changes share one transaction."
+  (when org-workflow-store-enabled
+    (let* ((today (org-workflow-target--today-string))
+           (entries
+            (seq-filter
+             (lambda (entry)
+               (org-with-point-at (org-workflow-target-entry-marker entry)
+                 (and (not buffer-read-only)
+                      (not (get-text-property (point) 'read-only))
+                      (not (org-workflow-store-promise-p))
+                      (not (org-workflow-history--carried-schedule-p
+                            (org-workflow-target-entry-scheduled-date entry))))))
+             (org-workflow-target--collect
+              (org-workflow-history-add-days today -1)))))
+      (when entries
+        (let ((org-workflow-store--extra-source-files
+               (append (mapcar #'org-workflow-target-entry-file entries)
+                       org-workflow-store--extra-source-files)))
+          (org-workflow-store--operation
+           (lambda ()
+             (dolist (entry entries)
+               (org-with-point-at (org-workflow-target-entry-marker entry)
+                 (let ((id (org-workflow-store-create today)))
+                   (org-workflow-store--event
+                    id "carried"
+                    (list :scheduled (org-workflow-target-entry-scheduled-date entry)
+                          :date today))))))))
+        (message "自然跨日：已为 %d 项未完成任务添加承诺" (length entries)))
+      (length entries))))
+
 (defun org-workflow-history-catch-up (&rest _)
   "Seal all past days from the tracking anchor through yesterday."
   (let ((date (or (org-workflow-store-meta "anchor") (org-workflow-target--today-string)))
@@ -365,6 +412,7 @@ fulfilled commitments."
                         org-workflow-history--catch-up-rows))
       (org-workflow-history-finalize date)
       (setq date (org-workflow-history-add-days date 1)))
+    (org-workflow-history-carry-over)
     (org-workflow-inbox-archive-done (org-workflow-history-add-days today -1))))
 
 (defun org-workflow-history-streak (date daily)

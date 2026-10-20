@@ -37,6 +37,9 @@
 
 (defvar org-workflow-store--in-operation nil)
 
+(defvar org-workflow-store--defer-without-draft nil
+  "Non-nil lets explicit deferral retain responsibility without a new draft.")
+
 (defvar org-workflow-store--read-only nil
   "Non-nil requires an already initialized, matching live connection.")
 
@@ -191,9 +194,12 @@ Preserve the effective dates of historical promises."
         (org-workflow-store--detach) (setq row nil))
        ((or (null after) (string< (nth 3 row) after))
         (org-workflow-store--resolve row (if after "deferred" "withdrawn"))
-        (when (or (null after) (equal after tomorrow))
+        (when (or (null after)
+                  (and (equal after tomorrow)
+                       (not org-workflow-store--defer-without-draft)))
           (org-workflow-store--detach) (setq row nil)))))
-    (when (and (equal after tomorrow) (null row))
+    (when (and (equal after tomorrow) (null row)
+               (not org-workflow-store--defer-without-draft))
       (org-workflow-store-create after))))
 
 (defun org-workflow-store-state (state)
