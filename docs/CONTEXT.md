@@ -4,6 +4,29 @@
 本文是当前代码的阅读地图与维护边界；行为事实以对应源码为准。
 修改入口、数据规则、依赖或验证方法时同步本页，避免继续使用历史方案。
 
+## 2026-10-23 项目工作台与每日底线
+
+新增 `org-workflow-projects.el`（显式项目、目标归属、事务化状态／日期／每日承诺）和
+`org-workflow-project-view.el`（只读原生项目规划视图）。完整使用与数据边界见
+[项目规划](project-workbench.md)。Workflow 菜单 p、Sprint P 打开，今日时段布局保留。
+
+`WORKFLOW_KIND=goal/project` 明确身份，不能把所有旧 DIVE 自动当项目。登记命令创建
+ID；项目可由结构归属或 WORKFLOW_GOAL_ID 跨文件关联。HOLD/DONE 上级阻止执行。
+批量暂停通过 WORKFLOW_PAUSED / WORKFLOW_PAUSE_OWNER 保存批次；手动状态或归属
+调整使旧批次失效。TODO 在暂停期间错过开始日期会以 WORKFLOW_START_DEFERRED 标记
+待重排，恢复目标不自动启动它。普通 DIVE 章节原行为继续保留，不能越过显式项目边界
+自动开放相邻项目。渲染不产生承诺；源命令、启动／午夜和显式同步负责写入。
+
+`project-day:DATE:ID` meta 冻结每日承诺，project-daily 事件识别每天责任，
+project-superseded 以日期边界结束既有逾期责任的继续携带，不改过去结算。
+一天每项目最多一份，完成不追加；暂停立即撤回未完成、恢复复用同日记录。
+
+`completion-floor-since` 标记新规则：承诺恢复完成语义，总投入达到最低时间可单独
+满足当日底线；`daily-minutes:DATE` 保存每日门槛（默认 60，可配置）。新状态字段
+`dailyFloorComplete/dailyFloorBasis/dailyMinimumMinutes/focusTotalMinutes` 与原承诺
+字段并存，不能混为任务 DONE。原有 attempt-progress-since 仅适用于新边界前。
+旧快照不改写。以下较早章节的“尝试兑现”描述只适用于旧日期。
+
 ## 1. 先建立项目边界
 
 `org-workflow` 是独立、多文件 Emacs Lisp 包：把 Org 任务选择、Sprint 安排、

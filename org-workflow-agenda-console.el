@@ -102,6 +102,7 @@
     ("u" "上午" org-workflow-agenda-plan-morning)
     ("i" "下午" org-workflow-agenda-plan-afternoon)
     ("o" "晚上" org-workflow-agenda-plan-evening)
+    ("P" "项目规划" org-workflow-project-view)
     ("y" "切换今天／明天" org-workflow-agenda-console-toggle-day)
     ("R" "按标签推荐" org-workflow-agenda-plan-recommended)
     ("d" "延至明天" org-workflow-agenda-schedule-tomorrow)

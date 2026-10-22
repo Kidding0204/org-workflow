@@ -20,7 +20,20 @@ export function dailyProgressState(status) {
     if (!status)
         return {width: 0, text: '0/0', variant: 'unavailable'};
 
-    // Emacs counts today's valid attempts (or completed goals), not TODO states.
+    if (Number.isInteger(status.dailyMinimumMinutes) && status.dailyMinimumMinutes > 0 &&
+        Number.isFinite(status.focusTotalMinutes)) {
+        const total = status.minimumTotal;
+        const done = status.minimumSatisfied;
+        const minutes = Math.max(0, Math.floor(status.focusTotalMinutes));
+        const target = status.dailyMinimumMinutes;
+        const ratio = Math.max(total > 0 ? done / total : 0, minutes / target);
+        return {
+            width: Math.round(PROGRESS_WIDTH * Math.min(1, ratio)),
+            text: `${done}/${total} · ${minutes}/${target}m`,
+            variant: status.dailyFloorComplete === true ? 'complete' : 'daily',
+        };
+    }
+    // Compatibility with daemons that still expose the previous daily policy.
     const total = status.stageTotal;
     const satisfied = status.stageSatisfied;
     const ratio = total === 0 ? 0 : Math.min(1, satisfied / total);

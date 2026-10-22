@@ -51,11 +51,42 @@
   "Return the calendar date DAYS days after DATE."
   (org-workflow-journal--date-add-days date days))
 
+(defcustom org-workflow-daily-minimum-minutes 60
+  "Whole-day investment floor, an alternative to completing all commitments.
+Recorded closed Org clocks count across tasks and habits.  This is a stopping
+boundary, not a learning score.  Changes take effect on the next unrecorded day."
+  :type '(integer :tag "Minutes") :group 'org-workflow)
+
+(defun org-workflow-history-completion-floor-p (date)
+  "Whether DATE uses completion-only commitments and a global time floor."
+  (when-let* ((since (and org-workflow-store-enabled
+                         (org-workflow-store-meta "completion-floor-since"))))
+    (not (string< date since))))
+
+(defun org-workflow-history-record-floor ()
+  "Record today's time floor once; rendering never writes policy history."
+  (let* ((today (org-workflow-target--today-string))
+         (key (concat "daily-minutes:" today)))
+    (when (and (org-workflow-history-completion-floor-p today)
+               (not (org-workflow-store-meta key)))
+      (org-workflow-store-set-meta key (number-to-string (max 1 org-workflow-daily-minimum-minutes))))))
+
+(defun org-workflow-history--floor (date complete minutes)
+  "Return DATE's daily floor facts from COMPLETE commitments and MINUTES."
+  (when (org-workflow-history-completion-floor-p date)
+    (let* ((value (org-workflow-store-meta (concat "daily-minutes:" date)))
+           (target (and value (string-to-number value)))
+           (invested (and target (> target 0) (>= minutes target))))
+      (list :dailyMinimumMinutes (or target 0)
+            :dailyFloorComplete (if (or complete invested) t :false)
+            :dailyFloorBasis (cond (complete "commitment") (invested "investment") (t "pending"))))))
+
 (defun org-workflow-history-attempt-enabled-p (date)
   "Whether DATE uses recorded investment rather than only final completion."
   (when-let* ((since (and org-workflow-store-enabled
                          (org-workflow-store-meta "attempt-progress-since"))))
-    (not (string< date since))))
+    (and (not (org-workflow-history-completion-floor-p date))
+         (not (string< date since)))))
 
 (defun org-workflow-history-attempted-p (date &optional marker)
   "Whether MARKER has a positive, closed direct CLOCK record on DATE.
@@ -71,8 +102,10 @@ Running clocks and descendants' records cannot satisfy a daily attempt."
   "Read ROW's fulfillment on DATE without changing task lifecycle.
 Use supplied TASKS, including an empty list, or read that day's direct clocks."
   (or (member (org-workflow-history--row-state row date) '("done" "adjusted-done"))
-      (org-workflow-history--attempt-fulfilled-p row date)
-      (and (org-workflow-history-attempt-enabled-p date)
+      (and (not (org-workflow-history-completion-floor-p date))
+           (not (org-workflow-projects-row-p row))
+           (org-workflow-history--attempt-fulfilled-p row date))
+      (and (not (org-workflow-projects-row-p row)) (org-workflow-history-attempt-enabled-p date)
            (seq-some (lambda (task)
                        (and (equal (plist-get task :id) (nth 1 row))
                             (> (plist-get task :focusMinutes) 0)))
@@ -96,14 +129,19 @@ Use supplied TASKS, including an empty list, or read that day's direct clocks."
   (org-workflow-history--request-read 'progress date #'org-workflow-history--read-progress))
 
 (defun org-workflow-history--read-progress (date)
-  "Compute uncached responsibility on DATE."
+  "Compute uncached responsibility and the alternative whole-day floor on DATE."
   (let* ((rows (org-workflow-history--responsibilities date))
          (tasks (org-workflow-history--tasks date))
          (done (seq-count (lambda (row) (org-workflow-history--commitment-satisfied-p row date tasks)) rows))
-         (total (length rows)))
-    (list :minimumSatisfied done :minimumTotal total
-          :phase (if (and (> total 0) (= done total)) "optional" "minimum")
-          :commitmentComplete (if (and (> total 0) (= done total)) t :false))))
+         (total (length rows))
+         (complete (and (> total 0) (= done total)))
+         (minutes (apply #'+ (mapcar (lambda (x) (or (plist-get x :focusMinutes) 0))
+                                    (append tasks (org-workflow-history--habit-records date)))))
+         (floor (org-workflow-history--floor date complete minutes)))
+    (append (list :minimumSatisfied done :minimumTotal total
+                  :phase (if (or complete (eq t (plist-get floor :dailyFloorComplete))) "optional" "minimum")
+                  :commitmentComplete (if complete t :false))
+            (when floor (list :focusTotalMinutes minutes)) floor)))
 
 (defun org-workflow-history--row-state (row date)
   "Read ROW's outcome at DATE's exclusive end from its event history."
@@ -115,6 +153,10 @@ Use supplied TASKS, including an empty list, or read that day's direct clocks."
         (setq state (cadr event))))
     state))
 
+(declare-function org-workflow-projects-row-p "org-workflow-projects" (row))
+(declare-function org-workflow-projects-superseded-p "org-workflow-projects" (row date))
+(declare-function org-workflow-projects-root "org-workflow-projects" ())
+
 (defun org-workflow-history--responsibilities (date)
   "Return commitments due on DATE or carried forward without fulfillment.
 Keep original due dates intact.  Leave records do not discharge commitments."
@@ -122,10 +164,14 @@ Keep original due dates intact.  Leave records do not discharge commitments."
         (tasks-by-date (make-hash-table :test #'equal)))
     (seq-filter
      (lambda (row)
-       (or (and (equal (nth 3 row) date)
-                (not (equal (org-workflow-history--row-state row date) "cancelled")))
+       (and (not (org-workflow-projects-superseded-p row date))
+        (or (and (equal (nth 3 row) date)
+                (not (member (org-workflow-history--row-state row date)
+                             (if (org-workflow-projects-row-p row)
+                                 '("cancelled" "withdrawn") '("cancelled")))))
            (and
             (string< (nth 3 row) date)
+            (not (org-workflow-projects-row-p row))
             (not (member (org-workflow-history--row-state row previous)
                          '("done" "adjusted-done" "withdrawn" "cancelled")))
             (not (org-workflow-history--attempt-fulfilled-p row previous))
@@ -143,7 +189,7 @@ Keep original due dates intact.  Leave records do not discharge commitments."
                                            (> (plist-get task :focusMinutes) 0)))
                                     tasks))))
                 (setq day (org-workflow-history-add-days day 1)))
-              (not fulfilled)))))
+              (not fulfilled))))))
      (sqlite-select
       (org-workflow-store--db)
       "SELECT id,task_id,created_at,due,original_title,title,status,adjusted FROM commitments WHERE due<=? ORDER BY due,rowid"
@@ -229,6 +275,7 @@ Reuse live source caches, preserving unsaved edits and source restrictions."
         (push (list :task (plist-get task :task) :outcome (plist-get task :outcome)
                     :focusMinutes (plist-get task :focusMinutes)) optional)))
     (org-workflow-history--with-leaves
+     (append
      (list :date date :recordState "finalized"
           :commitment (cond ((null commitments) "untouch") ((= fulfilled (length commitments)) "met") (t "unmet"))
           :commitmentFocusMinutes committed-minutes :optionalFocusMinutes optional-minutes
@@ -240,7 +287,9 @@ Reuse live source caches, preserving unsaved edits and source restrictions."
           :focusTotalMinutes (+ committed-minutes optional-minutes habit-minutes)
           :optionalCompleted (seq-count (lambda (row) (equal (plist-get row :outcome) "done")) optional)
           :finalizedAt (format-time-string "%Y-%m-%dT%H:%M:%S%:z")
-          :minimumTasks (vconcat (nreverse minimum)) :optionalTasks (vconcat (nreverse optional))))))
+          :minimumTasks (vconcat (nreverse minimum)) :optionalTasks (vconcat (nreverse optional)))
+     (org-workflow-history--floor date (and commitments (= fulfilled (length commitments)))
+                                  (+ committed-minutes optional-minutes habit-minutes))))))
 
 (defun org-workflow-history--with-leaves (record)
   "Attach leave explanations to RECORD without synthesizing work or settlement."
@@ -356,6 +405,7 @@ withdrawals are preserved; all source and fact changes share one transaction."
                  (and (not buffer-read-only)
                       (not (get-text-property (point) 'read-only))
                       (not (org-workflow-store-promise-p))
+                      (not (org-workflow-projects-root))
                       (not (org-workflow-history--carried-schedule-p
                             (org-workflow-target-entry-scheduled-date entry))))))
              (org-workflow-target--collect
@@ -412,6 +462,7 @@ withdrawals are preserved; all source and fact changes share one transaction."
                         org-workflow-history--catch-up-rows))
       (org-workflow-history-finalize date)
       (setq date (org-workflow-history-add-days date 1)))
+    (org-workflow-history-record-floor)
     (org-workflow-history-carry-over)
     (org-workflow-inbox-archive-done (org-workflow-history-add-days today -1))))
 
@@ -519,6 +570,10 @@ replay them.  Past finalized totals require explicit recomputation."
 (defun org-workflow-history-setup ()
   "Install history adapters, synchronize habits and schedule daily settlement.
 A dated boundary keeps older settlements on their original progress rules."
+  ;; Version policy prospectively; never reinterpret an already settled day.
+  (unless (org-workflow-store-meta "completion-floor-since")
+    (org-workflow-store-set-meta "completion-floor-since" (org-workflow-target--today-string)))
+  (org-workflow-history-record-floor)
   ;; A dated boundary keeps old settlements and old missing days on their rules.
   (unless (org-workflow-store-meta "attempt-progress-since")
     (org-workflow-store-set-meta "attempt-progress-since" (org-workflow-target--today-string)))

@@ -42,8 +42,10 @@ export function planningPresentation(timer, panel, resume = '') {
             ...panel.week.map(day => {
                 const commitment = day.basis === 'commitment';
                 const label = {
-                    complete: commitment ? '承诺已兑现' : '无承诺但有投入',
-                    incomplete: commitment ? '承诺尚未全部兑现' : '无承诺且无投入',
+                    complete: day.basis === 'investment-floor' ? '最低投入已达到'
+                        : commitment ? '承诺已兑现' : '无承诺但有投入',
+                    incomplete: day.basis === 'daily-floor' ? '当日底线尚未达到'
+                        : commitment ? '承诺尚未全部兑现' : '无承诺且无投入',
                     leave: commitment ? '承诺尚未全部兑现 · 已记录请假' : '已记录请假',
                     future: '未来', unknown: '数据不可用',
                 }[day.state] ?? '数据不可用';

@@ -9,6 +9,7 @@
 
 | 要做的事 | 文档 |
 | --- | --- |
+| 管理长期目标、项目状态与每日推进 | [项目规划与每日底线](project-workbench.md) |
 | 挑选、安排、重排、撤销任务；鼠标操作与双栏工作台 | [Sprint 安排工作台](agenda-planning-workbench.md) |
 | 随记、捕获与收集项归类 | [周日志与收集箱](daily-journal-inbox.md) |
 | 理解 DIVE 范围与每日有效投入 | [DIVE 与每日尝试](dive-and-daily-attempts.md) |

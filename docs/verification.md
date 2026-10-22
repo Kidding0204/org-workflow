@@ -227,3 +227,15 @@ GNOME 配套源码需另行安装并进入新 Shell 会话，尚未完成实际�
   `workflow-history-tracer-read-render`。
 - `make compile` 成功，已有编译警告保留；`git diff --check` 通过。
   代码复核无待处理问题。仅使用临时数据，未重载实际 Emacs 或改写用户历史。
+
+
+## 2026-10-23 项目规划与每日底线
+
+- 基线 661/661 ERT；交付 684/684（新增 23 项项目／责任／视图测试）。
+- PACKAGE_USER_DIR 指向宿主 ELPA，使用 package 的隔离源码／临时 Org 与 SQLite runner。
+- 字节编译通过；focus-timer 扩展全部 JavaScript 测试文件通过（从扩展目录运行 gjs -m）。
+- 独立只读审查复现并验证：多项目位置移动、已有承诺复用、逾期责任按日期接管、
+  HOLD 上级、叶子编辑、目标折叠、暂停批次恢复与历史底线字段。
+- 新增收窄缓冲区回归：步骤编辑仍能识别暂停项目，且保留 narrowing。
+- 实际 Org／SQLite 未迁移，daemon 未重载，已安装 GNOME 扩展未覆盖。用户正常重启
+  后登记目标／项目试用；图形布局、字体、快捷键与顶栏宽度尚待现场验收。

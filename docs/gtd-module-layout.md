@@ -8,6 +8,7 @@
 | 文件 | 职责 |
 | --- | --- |
 | `org-workflow.el` / `org-workflow-lifecycle.el` | 全局模式、初始化顺序、hook/advice/key 的启用与撤销、可配置路径 |
+| `org-workflow-projects.el` / `org-workflow-project-view.el` | 显式目标／项目身份、每日责任与批量暂停恢复；只读项目规划工作台 |
 | `org-workflow-core.el` | 任务筛选、执行队列、选择、排序、DIVE 相邻组开放与推进 |
 | `org-workflow-items.el` | 任务／习惯共用条目、唯一当前项解析、执行／完成／导航／跳过接口与每日直接 CLOCK 读取 |
 | `org-workflow-sources.el` | 共用只读源访问：复用现场编辑或短命 Org 读取；子树入口定位 |

@@ -154,6 +154,11 @@
                                     (plist-get record :habitTasks) nil))
                             "complete" "incomplete") :basis "investment"))
           (_ '(:state "unknown")))))
+        (when (plist-member record :dailyFloorComplete)
+          (setq achievement
+                (list :state (if (eq t (plist-get record :dailyFloorComplete)) "complete" "incomplete")
+                      :basis (pcase (plist-get record :dailyFloorBasis)
+                               ("commitment" "commitment") ("investment" "investment-floor") (_ "daily-floor")))))
         (when-let* ((minutes (plist-get record :focusTotalMinutes))
                     ((and (numberp minutes) (>= minutes 0))))
           (setq achievement (plist-put achievement :focusMinutes minutes)))
@@ -165,12 +170,17 @@
            (tasks (org-workflow-history--tasks date))
            (habits (org-workflow-history--habit-records date))
            (committed (> (plist-get progress :minimumTotal) 0)))
-      (list :state (if (if committed
+      (list :state (if (if (plist-member progress :dailyFloorComplete)
+                          (eq t (plist-get progress :dailyFloorComplete))
+                        (if committed
                           (eq t (plist-get progress :commitmentComplete))
                         (org-workflow-panel--invested-p
-                         (append tasks habits)))
+                         (append tasks habits))))
                       "complete" "incomplete")
-            :basis (if committed "commitment" "investment")
+            :basis (if (plist-member progress :dailyFloorBasis)
+                       (pcase (plist-get progress :dailyFloorBasis)
+                         ("commitment" "commitment") ("investment" "investment-floor") (_ "daily-floor"))
+                     (if committed "commitment" "investment"))
             :focusMinutes (apply #'+ (mapcar (lambda (row) (or (plist-get row :focusMinutes) 0))
                                              (append tasks habits)))))))
 

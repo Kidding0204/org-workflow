@@ -319,19 +319,26 @@ Include fulfillment information when MINIMUM is non-nil."
             (vui-vstack (org-workflow-history-workbench--heading "× 记录缺失") (vui-text "投入和任务状态未知。")))
            (t (vui-vstack :spacing 1
                (vui-vstack
-                (org-workflow-history-workbench--text "当日投入" 'org-workflow-history-workbench-muted)
-                (org-workflow-history-workbench--text (format "%d 分钟" (plist-get day :focusTotalMinutes)) 'org-workflow-history-workbench-number)
+                (org-workflow-history-workbench--text
+                 (if (plist-member day :dailyFloorComplete)
+                     (pcase (plist-get day :dailyFloorBasis)
+                       ("commitment" "当天承诺已完成")
+                       ("investment" "最低投入已达到 · 任务进展见下方")
+                       (_ "当天底线未达到"))
+                   "当日记录") 'org-workflow-history-workbench-muted)
                 (org-workflow-history-workbench--badge
                 (concat "承诺" (cdr (assoc (plist-get day :commitment) org-workflow-history-view--commitments)))
                 (pcase (plist-get day :commitment)
                   ("met" 'success) ("unmet" 'warning) (_ 'shadow))))
-               (org-workflow-history-workbench--metrics (org-workflow-history-chart-values day))
                (org-workflow-history-workbench--text
                 (concat (format "可选完成 %d 项 · " (plist-get day :optionalCompleted))
                         (org-workflow-history-panel--habit-metric day :habitCompleted "习惯完成" "项")) 'org-workflow-history-workbench-muted)
                (org-workflow-history-workbench--tasks day :minimumTasks "承诺任务" 0 t)
                (org-workflow-history-workbench--tasks day :optionalTasks "可选任务" 1)
-               (org-workflow-history-workbench--tasks day :habitTasks "习惯" 2))))
+               (org-workflow-history-workbench--tasks day :habitTasks "习惯" 2)
+               (org-workflow-history-workbench--text
+                (format "投入 %d 分钟" (plist-get day :focusTotalMinutes)) 'org-workflow-history-workbench-muted)
+               (org-workflow-history-workbench--metrics (org-workflow-history-chart-values day)))))
      (when day
        (vui-vstack :spacing 1
         (vui-vstack (org-workflow-history-workbench--section "请假")

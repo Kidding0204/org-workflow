@@ -23,9 +23,11 @@
 (require 'org-workflow-history-workbench)
 (require 'org-workflow-screenshot)
 (require 'org-workflow-cleanup)
+(require 'org-workflow-project-view)
 
 (defconst org-workflow--component-enablers
-  '(org-workflow-habits--enable
+  '(org-workflow-projects--enable
+    org-workflow-habits--enable
     org-workflow-history-workbench--enable
     org-workflow-leave--enable
     org-workflow-panel--enable

@@ -134,3 +134,14 @@ assertEqual(leftMenuPresentation(null, null).title, '等待 Emacs', 'unavailable
 assertEqual(leftMenuPresentation({phase: 'inactive'}, {available: false}).title,
     '暂无当前任务', 'empty queue is distinct from disconnection');
 print('left menu body preview tests passed');
+
+const floorProgress = dailyProgressState({minimumSatisfied: 0, minimumTotal: 3,
+    stageSatisfied: 0, stageTotal: 3, focusTotalMinutes: 60,
+    dailyMinimumMinutes: 60, dailyFloorComplete: true});
+assertEqual(floorProgress.variant, 'complete', 'global time meets floor without task completion');
+assertEqual(floorProgress.width, 116, 'time alternative fills the daily floor');
+assertEqual(floorProgress.text, '0/3 · 60/60m', 'counts and time remain separate facts');
+const noFloor = dailyProgressState({minimumSatisfied: 0, minimumTotal: 0,
+    stageSatisfied: 0, stageTotal: 0, focusTotalMinutes: 0,
+    dailyMinimumMinutes: 60, dailyFloorComplete: false});
+assertEqual(noFloor.variant, 'daily', 'empty obligations do not imply success');

@@ -194,6 +194,8 @@ On wide frames, also open the Vulpea sidebar using its usual note check."
   "Open the Workflow Sprint Agenda command."
   (interactive) (org-agenda nil "d"))
 
+(declare-function org-workflow-project-view "org-workflow-project-view" ())
+
 (defun org-workflow-open-project ()
   "Select and visit an existing Workflow project or area source."
   (interactive)
@@ -218,7 +220,7 @@ Use the timer key sequences to control Focus Timer independently."
     ("k" "Sprint" org-workflow-open-agenda)
     ("SPC" "双栏工作台" org-workflow-agenda-open-workbench)
     ("j" "本周日志" org-workflow-week-open)
-    ("p" "项目／领域" org-workflow-open-project)
+    ("p" "项目规划" org-workflow-project-view)
     ("c" "当前任务" org-workflow-target-visit)]
    ["规划与收集"
     ("t" "选择任务" org-workflow-target-select)

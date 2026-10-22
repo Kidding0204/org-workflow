@@ -17,6 +17,7 @@
 (require 'org-workflow-lifecycle)
 
 (defvar org-state)
+(declare-function org-workflow-projects-sync "org-workflow-projects" (&rest _))
 ;;; org-workflow-commands.el --- Shared command boundaries -*- lexical-binding: t; -*-
 (require 'org-workflow-store)
 
@@ -36,7 +37,11 @@
       (prog1 (apply original args)
         (org-with-point-at marker
                            (let ((after (org-workflow-target--timestamp-date (org-entry-get nil "SCHEDULED"))))
-                             (org-workflow-store-schedule before after)
+                             (if (equal (org-entry-get nil "WORKFLOW_KIND") "project")
+                                 (progn
+                                   (org-entry-delete nil "WORKFLOW_START_DEFERRED")
+                                   (org-workflow-projects-sync))
+                               (org-workflow-store-schedule before after))
                              (when (and (not (equal before (org-workflow-target--timestamp-date (org-entry-get nil "SCHEDULED"))))
                                         (org-workflow-target--same-marker-p marker org-workflow-executing-marker))
                                (org-workflow--release-execution))))))))

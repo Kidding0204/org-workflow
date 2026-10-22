@@ -33,7 +33,8 @@ export function parseWorkflowStatus(output) {
 
 export function formatWorkflowTitle(status) {
     if (!status?.available)
-        return status?.commitmentComplete ? 'Commitment fulfilled' : 'No current task';
+        return status?.dailyFloorComplete ? '今日底线已达到'
+            : status?.commitmentComplete ? 'Commitment fulfilled' : 'No current task';
 
     return status.task;
 }
