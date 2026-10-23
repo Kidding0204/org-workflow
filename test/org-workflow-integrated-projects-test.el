@@ -111,6 +111,8 @@
          (progn
            (org-workflow-projects-sync)
            (org-agenda nil "d")
+           (set-buffer (org-workflow-agenda--make-candidates
+                        (org-workflow-agenda--ensure-workbench)))
            (goto-char (point-min)) (search-forward "项目\n")
            (search-forward "DIVE Lexing")
            (org-agenda-todo "HOLD")
@@ -242,7 +244,7 @@
               ((symbol-function 'org-workflow-agenda-inbox) (lambda (&rest _) (push 'inbox calls)))
               ((symbol-function 'org-workflow-agenda-projects) (lambda (_) (push 'projects calls))))
       (org-workflow-agenda-workbench-view nil))
-    (should (equal (nreverse calls) '(schedule inbox projects)))))
+    (should (equal (nreverse calls) '(schedule inbox)))))
 
 (ert-deftest workflow-integrated-agenda-disables-visual-wrapping ()
   (with-temp-buffer

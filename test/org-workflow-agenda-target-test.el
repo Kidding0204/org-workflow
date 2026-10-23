@@ -1585,7 +1585,7 @@ SCHEDULED: <2026-08-17 Mon>
        (should task)
        (should planning)
        (should (< stack task planning))
-       (should (= 2 (how-many "Agenda View Customization"
+       (should (= 1 (how-many "Agenda View Customization"
                               (point-min) (point-max))))))
    (with-current-buffer (find-file-noselect (car org-agenda-files))
      (goto-char (point-min))

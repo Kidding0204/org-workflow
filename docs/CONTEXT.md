@@ -12,7 +12,7 @@
 历史保留。`org-workflow-project-view.el` 仍提供独立只读规划入口（菜单 p、Sprint P）。
 完整使用与数据边界见 [项目规划](project-workbench.md)。
 
-今日主面板现在为安排 → 收集箱 → 项目，时段继续占据安排区主分组。
+今日主面板现在为安排 → 收集箱，时段继续占据安排区主分组。
 `org-workflow-agenda-projects.el` 提供完成任务原位排序、承诺后继预览、项目进度与周
 追踪。完成项简化淡显；后继预览按任务数显示 1–3 项，不生成日期／责任。项目、阶段
 均保留原生 Agenda marker；项目／阶段进度直接使用源 cookie，遵循 Org 原生统计规则。

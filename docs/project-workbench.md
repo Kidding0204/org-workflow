@@ -2,8 +2,8 @@
 
 [文档入口](README.md) · [任务与历史模型](workflow-architecture.md)
 
-今日 Sprint 的顺序是 **安排 → 收集箱 → 项目**。上午／下午／晚上仍是安排区的主要分组。
-项目区是同一张看板上的规划区域；原独立项目视图仍可通过菜单 p、Sprint P 或
+今日 Sprint 的顺序是 **安排 → 收集箱**。上午／下午／晚上仍是安排区的主要分组。
+项目区仅显示在双栏右侧；原独立项目视图仍可通过菜单 p、Sprint P 或
 `M-x org-workflow-project-view` 打开。
 
 ## 文件与大纲
