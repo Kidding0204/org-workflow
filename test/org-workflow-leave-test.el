@@ -281,3 +281,16 @@
        (org-workflow-leave-check-yesterday)
        (should (equal "2026-09-16" org-workflow-leave--checked-day))
        (should (= 1 (length (org-workflow-store-leaves "2026-09-15"))))))))
+
+(ert-deftest workflow-leave-daily-floor-overrides-unfinished-commitments ()
+  (org-workflow-leave-test
+   (dolist (complete '(t :false))
+     (let ((day (list :date "2026-09-15" :commitment "unmet"
+                      :dailyFloorComplete complete :dailyMinimumMinutes 60
+                      :focusTotalMinutes (if (eq complete t) 86 59)
+                      :minimumTasks [(:task "Pending" :outcome "pending" :satisfied :false)])))
+       (org-workflow-store-put-day "2026-09-15" day)
+       (should (equal (org-workflow-leave--required-date)
+                      (unless (eq complete t) "2026-09-15")))
+       (should (equal day (org-workflow-store-day "2026-09-15")))
+       (should (= 0 (length (org-workflow-store-leaves "2026-09-15"))))))))

@@ -43,6 +43,10 @@ project-superseded 以日期边界结束既有逾期责任的继续携带，不�
 字段并存，不能混为任务 DONE。原有 attempt-progress-since 仅适用于新边界前。
 旧快照不改写。以下较早章节的“尝试兑现”描述只适用于旧日期。
 
+次日强制请假补录也遵循每日底线：已结算日期读取快照的 `dailyFloorComplete`，
+尚未结算的新规则日期读取历史 progress 的同一字段；达到最低投入时长后，即使
+`commitment` 为 `unmet` 也不要求补录。旧快照仍按原承诺规则，不重写历史。
+
 ## 1. 先建立项目边界
 
 `org-workflow` 是独立、多文件 Emacs Lisp 包：把 Org 任务选择、Sprint 安排、

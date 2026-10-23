@@ -146,11 +146,17 @@ from historical commitments, not mutable source schedules."
     record))
 
 (defun org-workflow-leave--required-date ()
-  "Return yesterday when its commitments were unmet and have no explanation."
+  "Return yesterday when its daily obligation was unmet and unexplained.
+Prefer the sealed daily floor; before settlement, read the same floor from
+historical progress.  Dates before that policy retain commitment semantics."
   (when org-workflow-store-enabled
     (let* ((date (org-workflow-history-add-days (org-workflow-target--today-string) -1))
-           (day (org-workflow-store-day date)))
+           (day (org-workflow-store-day date))
+           (floor (or day
+                      (when (org-workflow-history-completion-floor-p date)
+                        (org-workflow-history-progress date)))))
       (when (and (= 0 (length (org-workflow-store-leaves date)))
+                 (not (eq t (plist-get floor :dailyFloorComplete)))
                  (if day (equal (plist-get day :commitment) "unmet")
                    (> (length (org-workflow-leave--past-tasks date)) 0)))
         date))))

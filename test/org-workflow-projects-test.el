@@ -255,13 +255,15 @@
    (workflow-project-at "Tokens") (org-end-of-meta-data t)
    (insert "CLOCK: [2026-09-16 Wed 09:00]--[2026-09-16 Wed 09:30] =>  0:30\n")
    (cl-letf (((symbol-function 'org-workflow-target--today-string) (lambda () "2026-09-17")))
+     (should-not (org-workflow-leave--required-date))
      (let ((record (org-workflow-history-finalize "2026-09-16")))
        (should (equal "unmet" (plist-get record :commitment)))
        (should (eq t (plist-get record :dailyFloorComplete)))
        (should (equal "investment" (plist-get record :dailyFloorBasis)))
        (should (eq :false (plist-get (aref (plist-get record :minimumTasks) 0) :satisfied)))
        (should (equal "complete" (plist-get (org-workflow-panel--day-achievement "2026-09-16" "2026-09-17") :state)))
-       (should (stringp (json-serialize record)))))))
+       (should (stringp (json-serialize record)))
+       (should-not (org-workflow-leave--required-date))))))
 
 (ert-deftest workflow-project-old-association-does-not-override-file-goal ()
   (workflow-project-fixture
