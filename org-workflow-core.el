@@ -282,6 +282,8 @@ DIVE is not inherited through intermediate headings or by a leaf itself."
   "Return non-nil when the current leaf belongs to KIND and is not held."
   (and kind
        (not (equal (org-entry-get nil "STYLE") "habit"))
+       (not (and (fboundp 'org-workflow-projects-stage-p)
+                 (org-workflow-projects-stage-p)))
        (>= (org-outline-level) 2)
        (not (org-workflow--held-p))))
 
@@ -289,7 +291,10 @@ DIVE is not inherited through intermediate headings or by a leaf itself."
   "Return the workflow kind declared by the current Org file."
   (cond
    ((member "project" org-file-tags) 'project)
-   ((member "area" org-file-tags) 'area)))
+   ((member "area" org-file-tags) 'area)
+   ((and buffer-file-name
+         (member (file-truename buffer-file-name)
+                 (mapcar #'file-truename (org-agenda-files t)))) 'project)))
 
 (defun org-workflow--eligible-heading-p (kind _date)
   "Return non-nil when KIND identifies a heading eligible for schedule transfer."
@@ -331,7 +336,8 @@ DIVE is not inherited through intermediate headings or by a leaf itself."
            (kind (org-workflow--file-kind))
            (priority (org-workflow--explicit-priority-at-point)))
       (when (and scheduled date kind
-                 (not (equal (org-entry-get nil "WORKFLOW_KIND") "project"))
+                 (not (and (fboundp 'org-workflow-projects-kind)
+                           (equal (org-workflow-projects-kind) "project")))
                  (not (org-workflow--held-p))
                  (org-workflow--eligible-heading-p kind date))
         (let ((leaves (org-workflow--unfinished-leaf-markers-in-subtree)))
@@ -616,9 +622,7 @@ REPLACEMENT is newly created by `org-workflow-target-step'."
       (when (file-readable-p file)
         (with-current-buffer (find-file-noselect file)
           (org-with-wide-buffer
-           (let ((kind (cond
-                        ((member "project" org-file-tags) 'project)
-                        ((member "area" org-file-tags) 'area))))
+           (let ((kind (org-workflow--file-kind)))
              (when kind
                (org-map-entries
                 (lambda ()
@@ -626,7 +630,6 @@ REPLACEMENT is newly created by `org-workflow-target-step'."
                              (or (member file agenda-files)
                                  (org-workflow-collection-inbox-entry-p))
                              (org-workflow-target--unfinished-leaf-p)
-                             (not (org-entry-get nil "WORKFLOW_KIND"))
                              (org-workflow-target--eligible-leaf-p kind today)
                              (org-workflow--scheduled-on-or-before-p (or through-date today)))
                     (push (org-workflow-item-at-marker (point-marker) today) entries)))
@@ -737,22 +740,23 @@ REPLACEMENT is newly created by `org-workflow-target-step'."
               (pop (gethash (org-workflow--order-scope entry) groups)))
             entries)))
 
-(defun org-workflow-target--ordered-entries (&optional through-date)
-  "Return entries through THROUGH-DATE, grouped then in outline order.
-Without THROUGH-DATE, use today as the upper scheduling boundary."
+(defun org-workflow-target--order-entries (entries)
+  "Sort ENTRIES by their shared group, outline and saved manual order."
   (org-workflow--apply-manual-order
    (mapcan
-   (lambda (group)
-     (sort (copy-sequence (cdr group))
-           (lambda (left right)
-             (< (or (org-workflow-target-entry-outline-position left)
-                    (marker-position (org-workflow-target-entry-marker left)))
-                (or (org-workflow-target-entry-outline-position right)
-                    (marker-position (org-workflow-target-entry-marker right)))))))
-   (sort (seq-group-by #'org-workflow-target--group-key
-                       (if through-date (org-workflow-target--collect through-date)
-                         (org-workflow-target--collect)))
-         #'org-workflow-target--group-less-p))))
+    (lambda (group)
+      (sort (copy-sequence (cdr group))
+            (lambda (left right)
+              (< (or (org-workflow-target-entry-outline-position left)
+                     (marker-position (org-workflow-target-entry-marker left)))
+                 (or (org-workflow-target-entry-outline-position right)
+                     (marker-position (org-workflow-target-entry-marker right)))))))
+    (sort (seq-group-by #'org-workflow-target--group-key entries)
+          #'org-workflow-target--group-less-p))))
+
+(defun org-workflow-target--ordered-entries (&optional through-date)
+  "Return eligible entries through THROUGH-DATE in their shared order."
+  (org-workflow-target--order-entries (org-workflow-target--collect through-date)))
 
 (defun org-workflow-target--entries-at-priorities (entries priorities)
   "Return ENTRIES whose effective priority belongs to PRIORITIES."
@@ -1175,13 +1179,11 @@ Return the newly opened sibling marker, or nil.  Preserve all existing tags."
       (org-with-wide-buffer
        (org-back-to-heading t)
        (when (and (> (org-outline-level) 1)
-                  (not (org-entry-get nil "WORKFLOW_KIND"))
                   (equal "DIVE" (org-get-todo-state))
                   (not (org-workflow--held-p)))
          (when-let* ((remaining (org-workflow--curr-remaining))
                      ((<= remaining org-workflow-curr-lookahead-threshold))
                      ((org-get-next-sibling))
-                     ((not (org-entry-get nil "WORKFLOW_KIND")))
                      ((not (org-workflow--held-p)))
                      ((not (org-entry-is-done-p)))
                      ((not (equal "DIVE" (org-get-todo-state))))

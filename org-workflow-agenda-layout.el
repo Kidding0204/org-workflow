@@ -139,6 +139,7 @@
   (let ((marker (org-get-at-bol 'org-hd-marker)))
     (and (markerp marker) (marker-buffer marker)
          (not (org-get-at-bol 'org-workflow-agenda-stage-goal))
+         (not (org-get-at-bol 'org-workflow-agenda-project-row))
          (not (invisible-p (line-beginning-position)))
          ;; Native incremental edits can leave the row's todo-state stale.
          (not (org-with-point-at marker (org-entry-is-done-p))))))

@@ -105,9 +105,9 @@
         (when unassigned
           (org-workflow-project-view--goal (list :title "未归属目标" :id "unassigned") unassigned)))
       (unless items
-        (insert "尚未登记项目。\n\n")
-        (insert-text-button "打开源文件登记" 'action (lambda (_) (call-interactively #'org-workflow-project-view-register)) 'follow-link t)
-        (insert "\n\n在 Org 标题上使用 M-x org-workflow-projects-register，登记 goal 或 project。\n")))
+        (insert "Agenda 文件中尚无一级 TODO 项目。\n\n")
+        (insert-text-button "打开目标文件" 'action (lambda (_) (call-interactively #'org-workflow-project-view-register)) 'follow-link t)
+        (insert "\n\n按一级项目、二级阶段、三级任务编辑 Org 大纲。\n")))
     (goto-char (point-min)) (forward-line (1- line)) (move-to-column column)))
 
 (defun org-workflow-project-view-visit ()
@@ -146,8 +146,7 @@
          (marker (org-workflow-projects-marker item)))
     (if (equal (plist-get item :kind) "goal")
         (org-workflow-projects-goal-state marker
-                                          (org-with-point-at marker
-                                            (not (org-entry-get nil "WORKFLOW_PAUSED"))))
+                                          (not (plist-get item :paused)))
       (org-workflow-projects-set-state marker (completing-read "项目状态：" '("DIVE" "TODO" "HOLD" "DONE") nil t))))
   (org-workflow-project-view-refresh))
 
@@ -165,19 +164,11 @@
   (org-workflow-projects-sync)
   (org-workflow-project-view-refresh))
 
-(defun org-workflow-project-view-set-goal ()
-  "Assign the selected project to a long-term goal."
-  (interactive)
-  (org-workflow-projects-set-goal
-   (org-workflow-projects-marker (org-workflow-project-view--at-point))
-   (org-workflow-projects-read-goal))
-  (org-workflow-project-view-refresh))
-
 (defun org-workflow-project-view-register ()
-  "Visit an Agenda source to register a goal or project heading."
+  "Visit an Agenda file to edit its project/stage/task outline."
   (interactive)
-  (find-file (completing-read "项目源文件：" (org-agenda-files t) nil t))
-  (message "选择标题后 M-x org-workflow-projects-register 登记目标或项目"))
+  (find-file (completing-read "长期目标文件：" (org-agenda-files t) nil t))
+  (message "一级 TODO 项目，二级阶段，三级任务；无需登记"))
 
 (defvar org-workflow-project-view-mode-map
   (let ((map (make-sparse-keymap)))
@@ -188,7 +179,6 @@
     (define-key map (kbd "g") #'org-workflow-project-view-refresh)
     (define-key map (kbd "t") #'org-workflow-project-view-state)
     (define-key map (kbd "s") #'org-workflow-project-view-schedule)
-    (define-key map (kbd "G") #'org-workflow-project-view-set-goal)
     (define-key map (kbd "n") #'org-workflow-project-view-register)
     (define-key map (kbd "D") #'org-workflow-project-view-toggle-done)
     (define-key map (kbd "a") #'org-workflow-open-agenda)
@@ -200,7 +190,7 @@
   "Plan projects using their original Org sources.
 RET visits source; t changes state; s schedules start; TAB expands context."
   (setq-local truncate-lines nil
-              header-line-format " RET 打开  TAB 展开  t 状态／暂停目标  s 开始日期  G 归属  a 今日  g 刷新  q 返回")
+              header-line-format " RET 打开  TAB 展开  t 状态／暂停目标  s 开始日期  a 今日  g 刷新  q 返回")
   (setq-local revert-buffer-function (lambda (&rest _) (org-workflow-project-view-refresh))))
 
 ;;;###autoload

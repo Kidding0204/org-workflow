@@ -1,0 +1,185 @@
+;;; org-workflow-integrated-projects-test.el --- Integrated project contracts -*- lexical-binding: t; -*-
+(require 'ert)
+(load "org-workflow-store-test" nil t)
+(require 'org-workflow-projects)
+(require 'org-workflow-agenda)
+(require 'org-workflow-agenda-projects)
+
+(defmacro workflow-integrated-fixture (&rest body)
+  `(org-workflow-store-test
+    (erase-buffer)
+    (insert "* DIVE Compiler\n** DIVE Lexing\n*** TODO Tokens\n*** TODO Parser\n*** TODO Codegen\n* TODO Algebra\n** TODO Matrices\n*** TODO Product\n* HOLD Old\n** TODO Review\n*** TODO Again\n")
+    (org-mode)
+    (let ((org-workflow-projects--syncing nil))
+      (cl-letf (((symbol-function 'org-workflow-store--now)
+                 (lambda () "2026-09-16T12:00:00+08:00"))) ,@body))))
+
+(ert-deftest workflow-integrated-file-goal-and-outline-discovery ()
+  (workflow-integrated-fixture
+   (let* ((before (buffer-string)) (items (org-workflow-projects-collect))
+          (goal (car items)) (project (cadr items)))
+     (should (= 4 (length items)))
+     (should (equal "project" (plist-get goal :title)))
+     (should (equal "goal" (plist-get goal :kind)))
+     (should (equal "Compiler" (plist-get project :title)))
+     (should (equal (plist-get goal :id) (plist-get project :goal-id)))
+     (should (equal "Tokens" (plist-get (plist-get project :next) :title)))
+     (should (equal before (buffer-string))))))
+
+(ert-deftest workflow-integrated-bootstrap-and-pause ()
+  (workflow-integrated-fixture
+   (org-workflow-projects-sync)
+   (should (= 1 (length (org-workflow-store-due "2026-09-16"))))
+   (let ((goal (car (org-workflow-projects-collect))))
+     (org-workflow-projects-goal-state (org-workflow-projects-marker goal) t)
+     (should-not (org-workflow-history--responsibilities "2026-09-16"))
+     (org-workflow-projects-goal-state (org-workflow-projects-marker goal) nil)
+     (should (= 1 (length (org-workflow-history--responsibilities "2026-09-16"))))
+     (should (equal '("DIVE" "TODO" "HOLD")
+                    (mapcar (lambda (p) (plist-get p :state))
+                            (cdr (org-workflow-projects-collect))))))))
+
+(ert-deftest workflow-integrated-stage-is-not-executable ()
+  (workflow-integrated-fixture
+   (goto-char (point-min)) (search-forward "** TODO Matrices") (beginning-of-line)
+   (org-end-of-subtree t t)
+   (delete-region (save-excursion (forward-line -1) (point)) (point))
+   (goto-char (point-min)) (search-forward "** TODO Matrices") (beginning-of-line)
+   (should-not (org-workflow-target--eligible-leaf-p 'project "2026-09-16"))))
+
+(ert-deftest workflow-integrated-preview-limit ()
+  (should (= 3 (org-workflow-agenda--successor-limit 3)))
+  (should (= 2 (org-workflow-agenda--successor-limit 7)))
+  (should (= 1 (org-workflow-agenda--successor-limit 12))))
+
+(provide 'org-workflow-integrated-projects-test)
+
+(ert-deftest workflow-integrated-completion-retains-successors ()
+  (workflow-integrated-fixture
+   (org-workflow-projects-sync)
+   (let ((source (current-buffer)) (org-workflow-agenda-plan-tomorrow nil))
+     (with-temp-buffer
+       (org-agenda-mode)
+       (let ((inhibit-read-only t))
+         (org-workflow-agenda-task-stack nil)
+         (should (string-match-p "Tokens\n.*Parser\n.*Codegen" (buffer-string)))
+         (let ((before (buffer-string)))
+           (with-current-buffer source
+             (goto-char (point-min)) (search-forward "*** TODO Tokens")
+             (let ((org-log-done nil)) (org-todo "DONE"))
+             (org-add-planning-info 'closed (org-time-string-to-time "2026-09-16")))
+           (erase-buffer)
+           (org-workflow-agenda-task-stack nil)
+           (should (string-match-p "Tokens\n.*Parser\n.*Codegen" (buffer-string)))
+           (should (= (string-match "Tokens" before)
+                      (string-match "Tokens" (buffer-string))))))))))
+
+(ert-deftest workflow-integrated-breadcrumb-is-bounded-and-no-file ()
+  (workflow-integrated-fixture
+   (goto-char (point-min))
+   (org-edit-headline (make-string 50 ?项))
+   (search-forward "** DIVE Lexing") (beginning-of-line)
+   (org-edit-headline (make-string 50 ?阶))
+   (search-forward "*** TODO Tokens") (beginning-of-line)
+   (let* ((entry (org-workflow-item-at-marker (point-marker)))
+          (label (org-workflow-agenda--entry-group-title entry)))
+     (should (<= (string-width label) (- (window-body-width) 8)))
+     (should-not (string-match-p "project" label)))))
+
+(ert-deftest workflow-integrated-stage-pause-withdraws-and-resumes-frozen-step ()
+  (workflow-integrated-fixture
+   (org-workflow-projects-sync)
+   (goto-char (point-min)) (search-forward "** DIVE Lexing") (beginning-of-line)
+   (org-todo "HOLD")
+   (should-not (org-workflow-history--responsibilities "2026-09-16"))
+   (org-todo "DIVE")
+   (should (= 1 (length (org-workflow-history--responsibilities "2026-09-16"))))))
+
+(ert-deftest workflow-integrated-preview-never-offers-empty-stage ()
+  (workflow-integrated-fixture
+   (goto-char (point-min)) (search-forward "* TODO Algebra") (beginning-of-line)
+   (insert "** TODO Empty stage\n")
+   (goto-char (point-min)) (search-forward "*** TODO Codegen") (beginning-of-line)
+   (should-not (org-workflow-agenda--successors (org-workflow-item-at-marker (point-marker)) 3))))
+
+(ert-deftest workflow-integrated-native-project-and-stage-actions ()
+  (workflow-integrated-fixture
+   (let ((org-agenda-buffer-name "*Integrated native*")
+         (org-agenda-window-setup 'current-window)
+         (org-workflow-agenda-columns-enabled nil))
+     (unwind-protect
+         (progn
+           (org-workflow-projects-sync)
+           (org-agenda nil "d")
+           (goto-char (point-min)) (search-forward "项目\n")
+           (search-forward "DIVE Lexing")
+           (org-agenda-todo "HOLD")
+           (org-workflow-agenda--refresh-native-edit)
+           (should-not (org-workflow-history--responsibilities "2026-09-16"))
+           (goto-char (point-min)) (search-forward "项目\n")
+           (search-forward "DIVE Compiler")
+           (org-agenda-todo "HOLD")
+           (should (equal "HOLD" (org-with-point-at (org-get-at-bol 'org-hd-marker) (org-get-todo-state)))))
+       (when-let* ((buffer (get-buffer org-agenda-buffer-name))) (kill-buffer buffer))))))
+
+(ert-deftest workflow-integrated-refile-invalidates-pause-ownership ()
+  (workflow-integrated-fixture
+   (let ((other (expand-file-name "other.org" directory)))
+     (with-temp-file other (insert "#+title: Other\n"))
+     (let ((org-agenda-files (list file other)))
+       (unwind-protect
+           (progn
+             (org-workflow-projects-goal-state (copy-marker (point-min)) t)
+             (goto-char (point-min)) (search-forward "* HOLD Compiler") (beginning-of-line)
+             (org-refile nil nil (list "Other" other nil nil))
+             (with-current-buffer (find-file-noselect other)
+               (goto-char (point-min)) (search-forward "* HOLD Compiler") (beginning-of-line)
+               (org-refile nil nil (list "Original" file nil nil)))
+             (org-workflow-projects-goal-state (copy-marker (point-min)) nil)
+             (goto-char (point-min)) (search-forward "* HOLD Compiler") (beginning-of-line)
+             (should-not (org-entry-get nil "WORKFLOW_PAUSE_OWNER")))
+         (when-let* ((buffer (get-file-buffer other)))
+           (with-current-buffer buffer (set-buffer-modified-p nil)) (kill-buffer buffer)))))))
+
+(ert-deftest workflow-integrated-week-and-progress-use-facts-without-writes ()
+  (workflow-integrated-fixture
+   (org-workflow-projects-sync)
+   (goto-char (point-min)) (search-forward "*** TODO Tokens") (org-todo "DONE")
+   (let* ((project (cadr (org-workflow-projects-collect)))
+          (before (buffer-string))
+          (events (caar (sqlite-select (org-workflow-store--db) "SELECT count(*) FROM events")))
+          (progress (org-workflow-projects-progress project))
+          (days (org-workflow-projects-tracking project "2026-09-16")))
+     (should (= 1 (plist-get progress :done)))
+     (should (= 3 (plist-get progress :total)))
+     (should (equal '("Lexing") (mapcar (lambda (x) (plist-get x :title)) (plist-get progress :stages))))
+     (should (= 1 (org-workflow-projects-streak days "2026-09-16")))
+     (should (string-match-p "三■" (org-workflow-agenda-projects--week days "2026-09-16")))
+     (should (equal before (buffer-string)))
+     (should (= events (caar (sqlite-select (org-workflow-store--db) "SELECT count(*) FROM events")))))))
+
+(ert-deftest workflow-integrated-streak-does-not-bridge-unknown-days ()
+  (should (= 1 (org-workflow-projects-streak
+                '(("2026-09-19" . "done") ("2026-09-17" . "done")) "2026-09-19"))))
+
+(ert-deftest workflow-integrated-breadcrumb-refits-on-resize ()
+  (workflow-integrated-fixture
+   (goto-char (point-min)) (org-edit-headline (make-string 30 ?项))
+   (search-forward "** DIVE Lexing") (beginning-of-line)
+   (org-edit-headline (make-string 30 ?阶))
+   (search-forward "*** TODO Tokens") (beginning-of-line)
+   (let ((label (org-workflow-agenda--entry-group-title (org-workflow-item-at-marker (point-marker)))))
+     (with-temp-buffer
+       (insert "    " label "\n")
+       (let ((org-workflow-agenda--sprint-buffer-p t))
+         (cl-letf (((symbol-function 'window-body-width) (lambda (&rest _) 32)))
+           (org-workflow-agenda--align-right-details)))
+       (let ((shown (get-text-property 5 'display)))
+         (should (stringp shown))
+         (should (<= (string-width shown) 24)))))))
+
+(ert-deftest workflow-integrated-completed-containers-stay-out-of-periods ()
+  (workflow-integrated-fixture
+   (goto-char (point-max))
+   (insert "* DONE Empty project\nCLOSED: [2026-09-16 Wed] SCHEDULED: <2026-09-16 Wed>\n* DIVE Another\n** DONE Empty stage\nCLOSED: [2026-09-16 Wed] SCHEDULED: <2026-09-16 Wed>\n")
+   (should-not (org-workflow-agenda--with-completed nil "2026-09-16" nil))))

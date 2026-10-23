@@ -1,8 +1,8 @@
-;;; org-workflow-projects.el --- Explicit learning projects -*- lexical-binding: t; -*-
+;;; org-workflow-projects.el --- Structural learning projects -*- lexical-binding: t; -*-
 ;; Copyright (C) 2026 Jinwang Dong
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;; Commentary:
-;; Project boundaries are explicit; ordinary DIVE chapter groups remain groups.
+;; Agenda file names own goals; level-one TODO headings own projects.
 ;; Reads return source locations.  Mutations share the Org/facts transaction.
 ;;; Code:
 (require 'org-workflow-core)
@@ -13,12 +13,45 @@
 (defvar org-workflow-projects--batch nil)
 (declare-function org-workflow-history--row-state "org-workflow-history" (row date))
 
+(defun org-workflow-projects--agenda-file-p ()
+  "Whether this buffer belongs to the configured Agenda sources."
+  (and buffer-file-name
+       (member (file-truename buffer-file-name)
+               (mapcar #'file-truename (org-agenda-files t)))))
+
 (defun org-workflow-projects-kind ()
-  "Return the explicit kind of the heading at point, without inheritance."
-  (org-entry-get nil "WORKFLOW_KIND"))
+  "Return project for a level-one TODO heading in an Agenda source.
+Plain organizational headings, typed notes and simple habits are not projects."
+  (when (and (org-workflow-projects--agenda-file-p)
+             (not (org-before-first-heading-p))
+             (= (org-outline-level) 1)
+             (org-workflow-target--task-p)
+             (not (org-entry-get nil "JOURNAL_INBOX"))
+             (not (and (fboundp 'org-workflow-collection-inbox--heading-p)
+                       (org-workflow-collection-inbox--heading-p)))
+             (not (equal (org-entry-get nil "STYLE") "habit")))
+    "project"))
+
+(defun org-workflow-projects-stage-p ()
+  "Whether point is a structural stage rather than an executable step."
+  (and (org-workflow-projects--agenda-file-p)
+       (= (org-outline-level) 2)
+       (not (equal (org-entry-get nil "STYLE") "habit"))
+       (save-excursion
+         (org-up-heading-safe)
+         (equal (org-workflow-projects-kind) "project"))))
+
+(defun org-workflow-projects--file-goal-id ()
+  "Return the identity of this Agenda file's long-term goal."
+  (concat "file:" (file-truename buffer-file-name)))
+
+(defun org-workflow-projects--goal-pause (id)
+  "Read the pause batch for file goal ID without opening an unused store."
+  (when org-workflow-store-enabled
+    (org-workflow-store-meta (concat "goal-paused:" id))))
 
 (defun org-workflow-projects-root ()
-  "Return the nearest explicit project marker, preserving point and restriction."
+  "Return the nearest structural project marker, preserving point and restriction."
   (org-with-wide-buffer
    (unless (org-before-first-heading-p)
      (org-back-to-heading t)
@@ -39,10 +72,12 @@
   (with-current-buffer (find-file-noselect (plist-get item :file))
     (org-with-wide-buffer
      (goto-char (min (point-max) (plist-get item :pos)))
-     (unless (and (org-at-heading-p)
+     (when (plist-get item :file-goal) (goto-char (point-min)))
+     (unless (or (plist-get item :file-goal)
+                 (and (org-at-heading-p)
                   (if (plist-get item :id)
                       (equal (plist-get item :id) (org-entry-get nil "ID"))
-                    (equal (plist-get item :title) (org-get-heading t t t t))))
+                    (equal (plist-get item :title) (org-get-heading t t t t)))))
        (goto-char (point-min))
        (let ((id (plist-get item :id)) found)
          (when id
@@ -54,13 +89,8 @@
      (point-marker))))
 
 (defun org-workflow-projects--goal-id ()
-  "Read explicit cross-file goal link, or the enclosing goal's ID."
-  (or (org-entry-get nil "WORKFLOW_GOAL_ID")
-      (save-excursion
-        (catch 'goal
-          (while (org-up-heading-safe)
-            (when (equal (org-workflow-projects-kind) "goal")
-              (throw 'goal (org-entry-get nil "ID"))))))))
+  "Return this project's containing file goal."
+  (org-workflow-projects--file-goal-id))
 
 (defun org-workflow-projects--blocked-p ()
   "Whether an ancestor prevents this project's execution."
@@ -87,6 +117,7 @@
          (t
           (let ((date (org-workflow-target--timestamp-date (org-entry-get nil "SCHEDULED"))))
             (when (and (org-workflow-target--unfinished-leaf-p)
+                       (not (org-workflow-projects-stage-p))
                        (or (not date) (not (string< (org-workflow-target--today-string) date))))
               (let ((item (org-workflow-projects--location)) phase active)
                 (save-excursion
@@ -99,13 +130,18 @@
     (or (seq-find (lambda (x) (plist-get x :active)) candidates) (car candidates))))
 
 (defun org-workflow-projects-collect ()
-  "Read explicit goals and projects without modifying or saving their sources."
+  "Read file goals and structural projects without changing sources."
   (let (items)
     (dolist (file (org-agenda-files t))
       (org-workflow-source-read
        file
        (lambda ()
          (when (org-workflow--file-kind)
+           (let ((id (org-workflow-projects--file-goal-id)))
+             (push (list :kind "goal" :file-goal t :file buffer-file-name
+                         :pos (point-min) :id id
+                         :title (file-name-base buffer-file-name)
+                         :paused (org-workflow-projects--goal-pause id)) items))
            (org-map-entries
             (lambda ()
               (when (member (org-workflow-projects-kind) '("goal" "project"))
@@ -123,60 +159,15 @@
             nil 'file)))))
     (nreverse items)))
 
-(defun org-workflow-projects-read-goal (&optional optional)
-  "Choose an existing goal ID; OPTIONAL allows leaving a project unassigned."
-  (let ((choices
-         (mapcar (lambda (x) (cons (format "%s — %s" (plist-get x :title)
-                                          (file-name-nondirectory (plist-get x :file)))
-                                  (plist-get x :id)))
-                 (seq-filter (lambda (x) (and (equal (plist-get x :kind) "goal")
-                                              (plist-get x :id)))
-                             (org-workflow-projects-collect)))))
-    (when optional (push '("暂不归属" . nil) choices))
-    (unless choices (user-error "请先登记一个长期目标"))
-    (cdr (assoc (completing-read "长期目标：" choices nil t) choices))))
-
-(defun org-workflow-projects-set-goal (marker goal-id)
-  "Assign project MARKER to GOAL-ID across Org files without moving its text."
-  (let ((goal (seq-find (lambda (x) (and (equal (plist-get x :kind) "goal")
-                                        (equal (plist-get x :id) goal-id)))
-                        (org-workflow-projects-collect))))
-    (unless goal (user-error "长期目标不存在，请刷新视图"))
-    (org-with-point-at marker
-      (unless (equal (org-workflow-projects-kind) "project") (user-error "请选择项目"))
-      (org-workflow-store--operation
-       (lambda ()
-         (org-entry-put nil "WORKFLOW_GOAL_ID" goal-id)
-         (org-entry-delete nil "WORKFLOW_PAUSE_OWNER")
-         (when (and (plist-get goal :paused) (equal (org-get-todo-state) "DIVE"))
-           (let (org-log-done org-todo-log-states) (org-todo "HOLD")))
-         (org-workflow-projects-sync))))))
+(defun org-workflow-projects-set-goal (_marker _goal-id)
+  "Explain the structural replacement for cross-file goal associations."
+  (user-error "长期目标由文件决定；请用 Org refile 将项目移动到目标文件"))
 
 ;;;###autoload
-(defun org-workflow-projects-register (kind &optional goal-id)
-  "Register this heading as KIND (goal or project), optionally linked to GOAL-ID."
-  (interactive
-   (list (cdr (assoc (completing-read "登记为：" '("长期目标" "项目") nil t)
-                     '(("长期目标" . "goal") ("项目" . "project"))))))
-  (unless (and (member kind '("goal" "project"))
-               (derived-mode-p 'org-mode) buffer-file-name
-               (org-workflow--file-kind)
-               (member (file-truename buffer-file-name)
-                       (mapcar #'file-truename (org-agenda-files t))))
-    (user-error "请在 Agenda 的 project/area 文件标题上登记"))
-  (org-back-to-heading t)
-  (when (and (called-interactively-p 'interactive) (equal kind "project")
-             (not goal-id) (not (org-workflow-projects--goal-id)))
-    (setq goal-id (org-workflow-projects-read-goal t)))
-  (org-workflow-store--operation
-   (lambda ()
-     (org-id-get-create)
-     (org-entry-put nil "WORKFLOW_KIND" kind)
-     (when goal-id (org-entry-put nil "WORKFLOW_GOAL_ID" goal-id))
-     (when (and (equal kind "project") (not (member (org-get-todo-state) '("TODO" "DIVE" "HOLD" "DONE"))))
-       (org-todo "TODO"))
-     (org-workflow-projects-sync)))
-  (message "已登记 %s；源文件保留为待保存状态" kind))
+(defun org-workflow-projects-register (&rest _)
+  "Explain automatic project discovery for existing callers."
+  (interactive)
+  (message "无需登记：Agenda 文件名是目标，一级 TODO 是项目，二级是阶段，三级是任务"))
 
 (defun org-workflow-projects-row-p (row)
   "Whether commitment ROW is a daily project responsibility."
@@ -210,16 +201,28 @@
       (org-workflow-store--resolve row "withdrawn")
       (org-workflow-store--event (car row) "project-paused"))))
 
+(defun org-workflow-projects--row-blocked-p (project row)
+  "Whether ROW's frozen leaf is now inside a paused stage of PROJECT."
+  (org-with-point-at (org-workflow-projects-marker project)
+    (let ((task (nth 1 row)) blocked)
+      (org-map-entries
+       (lambda ()
+         (when (equal task (org-entry-get nil "ID"))
+           (setq blocked (org-workflow--held-p)))) nil 'tree)
+      blocked)))
+
 (defun org-workflow-projects--ensure-day (project date)
   "Create or resume PROJECT's single frozen responsibility on DATE."
   (let ((row (org-workflow-projects--row project date)))
     (if row
-        ;; Explicit task withdrawal is not automatically reversed.
-        (when (and (equal (nth 6 row) "withdrawn")
+        (if (org-workflow-projects--row-blocked-p project row)
+            (org-workflow-projects--withdraw project date)
+          ;; Explicit task withdrawal is not automatically reversed.
+          (when (and (equal (nth 6 row) "withdrawn")
                    (equal (caar (sqlite-select (org-workflow-store--db)
                                               "SELECT kind FROM events WHERE id=? ORDER BY seq DESC LIMIT 1"
                                               (list (car row)))) "project-paused"))
-          (org-workflow-store--resolve row "pending"))
+          (org-workflow-store--resolve row "pending")))
       ;; Resolve the project by ID again: an earlier project may have inserted
       ;; properties and moved un-ID'd leaf positions in this same buffer.
       (org-with-point-at (org-workflow-projects-marker project)
@@ -250,6 +253,14 @@
               (unless (org-entry-get nil "SCHEDULED")
                 (org-add-planning-info 'scheduled (org-read-date nil t date))))))))))
 
+(defun org-workflow-projects--identify (projects)
+  "Give PROJECTS stable IDs inside the caller's source/facts transaction."
+  (let ((markers (mapcar #'org-workflow-projects-marker projects)))
+    (cl-mapc (lambda (project marker)
+               (org-with-point-at marker
+                 (setf (plist-get project :id) (org-id-get-create))))
+             projects markers)))
+
 (defun org-workflow-projects-sync (&rest _)
   "Synchronize due starts and today's project responsibilities.
 Never generate obligations for days when Workflow was not running."
@@ -258,14 +269,14 @@ Never generate obligations for days when Workflow was not running."
     (let* ((org-workflow-projects--syncing t)
            (today (org-workflow-target--today-string))
            (items (org-workflow-projects-collect))
-           (projects (seq-filter (lambda (x) (and (equal (plist-get x :kind) "project")
-                                                  (plist-get x :id))) items))
+           (projects (seq-filter (lambda (x) (equal (plist-get x :kind) "project")) items))
            (paused (mapcar (lambda (x) (plist-get x :id))
                            (seq-filter (lambda (x) (and (equal (plist-get x :kind) "goal")
                                                         (plist-get x :paused))) items))))
       (when projects
         (org-workflow-store--operation
          (lambda ()
+           (org-workflow-projects--identify projects)
            (dolist (project projects)
              (let ((state (plist-get project :state)) (start (plist-get project :start)))
                (when (and (not (plist-get project :blocked))
@@ -286,10 +297,11 @@ Never generate obligations for days when Workflow was not running."
     (org-workflow-projects-sync)))
 
 (defun org-workflow-projects-set-state (marker state)
-  "Set explicit project MARKER to STATE and reconcile today's responsibility."
+  "Set project or stage MARKER to STATE and reconcile today's responsibility."
   (unless (member state '("TODO" "DIVE" "HOLD" "DONE")) (user-error "无效项目状态"))
   (org-with-point-at marker
-    (unless (equal (org-workflow-projects-kind) "project") (user-error "请选择已登记的项目"))
+    (unless (or (equal (org-workflow-projects-kind) "project")
+                (org-workflow-projects-stage-p)) (user-error "请选择项目或阶段"))
     (org-workflow-store--operation
      (lambda ()
        (unless org-workflow-projects--batch (org-entry-delete nil "WORKFLOW_PAUSE_OWNER"))
@@ -299,35 +311,39 @@ Never generate obligations for days when Workflow was not running."
 (defun org-workflow-projects-set-start (marker date)
   "Set project MARKER's start DATE without scheduling its entire subtree."
   (org-with-point-at marker
-    (unless (equal (org-workflow-projects-kind) "project") (user-error "请选择已登记的项目"))
+    (unless (equal (org-workflow-projects-kind) "project") (user-error "请选择一级 TODO 项目"))
     (unless (equal (org-get-todo-state) "TODO") (user-error "只有 TODO 项目需要计划开始日期"))
     (org-workflow-store--operation
      (lambda () (org-schedule (when (null date) '(4)) date)
        (org-workflow-projects-sync)))))
 
 (defun org-workflow-projects-goal-state (marker pause)
-  "PAUSE goal MARKER, or resume only projects still owned by its pause batch."
+  "PAUSE MARKER's file goal, or restore only projects owned by its pause batch."
   (org-with-point-at marker
-    (unless (equal (org-workflow-projects-kind) "goal") (user-error "请选择已登记的长期目标"))
+    (unless (org-workflow-projects--agenda-file-p) (user-error "请选择 Agenda 目标文件"))
     (org-workflow-store--operation
      (lambda ()
        (let* ((org-workflow-projects--batch t)
               (org-workflow-projects--syncing t)
-              (id (org-entry-get nil "ID"))
-              (token (org-entry-get nil "WORKFLOW_PAUSED"))
+              (id (org-workflow-projects--file-goal-id))
+              (token (org-workflow-projects--goal-pause id))
               (projects (seq-filter (lambda (x) (and (equal (plist-get x :kind) "project")
                                                     (equal (plist-get x :goal-id) id)))
                                     (org-workflow-projects-collect))))
+         (org-workflow-projects--identify projects)
          (if pause
              (progn
-               (unless token (setq token (org-id-new)) (org-entry-put nil "WORKFLOW_PAUSED" token))
+               (unless token
+                 (setq token (org-id-new))
+                 (org-workflow-store-set-meta (concat "goal-paused:" id) token))
                (dolist (project projects)
                  (when (equal (plist-get project :state) "DIVE")
                    (org-with-point-at (org-workflow-projects-marker project)
                      (org-entry-put nil "WORKFLOW_PAUSE_OWNER" token)
                      (org-workflow-projects-set-state (point-marker) "HOLD")))))
            (when token
-             (org-entry-delete nil "WORKFLOW_PAUSED")
+             (sqlite-execute (org-workflow-store--db) "DELETE FROM meta WHERE key=?"
+                             (list (concat "goal-paused:" id)))
              (dolist (project projects)
                (when (and (equal (plist-get project :state) "TODO")
                           (plist-get project :start)
@@ -344,11 +360,7 @@ Never generate obligations for days when Workflow was not running."
 (defun org-workflow-projects--state-change ()
   "Reconcile relevant ancestor, project and leaf edits in the outer transaction."
   (when (and org-workflow-store-enabled (not org-workflow-projects--syncing)
-             (or (org-workflow-projects-root)
-                 (save-excursion
-                   (org-back-to-heading t)
-                   (re-search-forward ":WORKFLOW_KIND: +project"
-                                      (save-excursion (org-end-of-subtree t t)) t))))
+             (org-workflow-projects-root))
     (when (and (equal (org-workflow-projects-kind) "project")
                (not org-workflow-projects--batch))
       (org-entry-delete nil "WORKFLOW_PAUSE_OWNER")
@@ -359,8 +371,16 @@ Never generate obligations for days when Workflow was not running."
           (org-entry-put nil "WORKFLOW_START_DEFERRED" date))))
     (org-workflow-projects-sync)))
 
+(defun org-workflow-projects--after-refile ()
+  "Invalidate pause ownership when a project is structurally reassigned."
+  (when (and org-workflow-store-enabled (derived-mode-p 'org-mode))
+    (org-workflow-store--operation
+     (lambda ()
+       (org-map-entries (lambda () (org-entry-delete nil "WORKFLOW_PAUSE_OWNER")) nil 'tree)))))
+
 (defun org-workflow-projects--enable ()
   "Install lifecycle-owned project hooks."
+  (org-workflow--add-hook 'org-after-refile-insert-hook #'org-workflow-projects--after-refile)
   (org-workflow--add-hook 'org-after-todo-state-change-hook #'org-workflow-projects--state-change 80)
   (org-workflow--advice-add 'org-workflow-history-catch-up :after #'org-workflow-projects--catch-up))
 

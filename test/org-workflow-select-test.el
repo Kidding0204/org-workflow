@@ -4,7 +4,7 @@
 
 (ert-deftest org-workflow-select-scope-and-refresh ()
   (let* ((file (make-temp-file "workflow-select" nil ".org"
-                "#+filetags: :project:\n#+TODO: TODO DIVE | DONE HOLD\n* DIVE Work\n** TODO [#A] Scheduled\nSCHEDULED: <2026-09-14 Mon>\n** TODO [#B] Other\n** DONE Finished\n** HOLD Paused\n*** TODO Hidden\n* Outside\n** TODO Excluded\n"))
+                "#+filetags: :project:\n#+TODO: TODO DIVE | DONE HOLD\n* Work\n** DIVE Tasks\n*** TODO [#A] Scheduled\nSCHEDULED: <2026-09-14 Mon>\n*** TODO [#B] Other\n*** DONE Finished\n*** HOLD Paused\n**** TODO Hidden\n* Outside\n*** TODO Excluded\n"))
          (org-agenda-files (list file))
          (org-workflow-target-stack nil)
          (org-workflow-target-selected-marker nil)
@@ -47,7 +47,7 @@
 
 (ert-deftest org-workflow-refresh-retains-clock-and-expires-selection ()
   (let* ((file (make-temp-file "workflow-select" nil ".org"
-                "#+filetags: :area:\n* DIVE Tasks\n** TODO First\nSCHEDULED: <2026-09-14 Mon>\n** TODO Second\nSCHEDULED: <2026-09-14 Mon>\n"))
+                "#+filetags: :area:\n* DIVE Tasks\n*** TODO First\nSCHEDULED: <2026-09-14 Mon>\n*** TODO Second\nSCHEDULED: <2026-09-14 Mon>\n"))
          (org-agenda-files (list file))
          (org-workflow-target-stack nil)
          (org-workflow-target-selected-marker nil)

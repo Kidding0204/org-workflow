@@ -37,7 +37,7 @@
       (prog1 (apply original args)
         (org-with-point-at marker
                            (let ((after (org-workflow-target--timestamp-date (org-entry-get nil "SCHEDULED"))))
-                             (if (equal (org-entry-get nil "WORKFLOW_KIND") "project")
+                             (if (equal (org-workflow-projects-kind) "project")
                                  (progn
                                    (org-entry-delete nil "WORKFLOW_START_DEFERRED")
                                    (org-workflow-projects-sync))

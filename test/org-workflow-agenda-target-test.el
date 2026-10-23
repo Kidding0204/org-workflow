@@ -338,17 +338,17 @@ SCHEDULED: <2026-08-17 Mon>
 (ert-deftest org-workflow-normalization-does-not-select-held-subtrees ()
   "Schedule transfer excludes HOLD descendants without creating batches."
   (org-workflow-target-test-with-files
-   '("#+filetags: :project:\n#+TODO: TODO DIVE | DONE HOLD\n* TODO [#A] Stage\nSCHEDULED: <2026-08-17 Mon>\n** TODO Visible\n** HOLD Deferred\n*** TODO Hidden\n")
+   '("#+filetags: :project:\n#+TODO: TODO DIVE | DONE HOLD\n* Fixture\n** TODO [#A] Stage\nSCHEDULED: <2026-08-17 Mon>\n*** TODO Visible\n*** HOLD Deferred\n**** TODO Hidden\n")
    (with-current-buffer (find-file-noselect (car org-agenda-files))
      (goto-char (point-min))
-     (re-search-forward "^\\* TODO \\[#A\\] Stage")
+     (re-search-forward "^\\*\\* TODO \\[#A\\] Stage")
      (beginning-of-line)
      (org-workflow-normalize-heading)
-     (re-search-forward "^\\*\\* TODO .*Visible")
+     (re-search-forward "^\\*\\*\\* TODO .*Visible")
      (beginning-of-line)
      (should (org-entry-get nil "SCHEDULED"))
      (should-not (org-entry-get nil "WORKFLOW_BATCH"))
-     (re-search-forward "^\\*\\*\\* TODO Hidden")
+     (re-search-forward "^\\*\\*\\*\\* TODO Hidden")
      (beginning-of-line)
      (should-not (org-entry-get nil "SCHEDULED"))
      (should-not (org-entry-get nil "WORKFLOW_BATCH"))
@@ -1479,10 +1479,11 @@ SCHEDULED: <2026-08-18 Tue>
      "#+filetags: :area:
 #+category: CS_61C
 #+TODO: TODO DIVE | DONE HOLD
-* DIVE Practice
-** TODO [#B] Summary
+* Fixture
+** DIVE Practice
+*** TODO [#B] Summary
 SCHEDULED: <2026-08-17 Mon>
-** TODO Tune cache :@flow:
+*** TODO Tune cache :@flow:
 ")
    (cl-letf (((symbol-function 'current-time)
               (lambda () (encode-time 0 0 9 17 8 2026))))
@@ -1496,10 +1497,10 @@ SCHEDULED: <2026-08-17 Mon>
        (org-modern-agenda))
      (let* ((text (note-gtd-target-test--workbench-text))
             (stack-header (string-match "安排" text))
-            (lute-group (string-match "Relating  Lute-reborn" text stack-header))
+            (lute-group (string-match "Milestone / Relating" text stack-header))
             (first-task
              (string-match "Packages, Please[ ]+:@deep:" text))
-            (area-group (string-match "Practice  CS_61C" text stack-header))
+            (area-group (string-match "Fixture / Practice" text stack-header))
             (second-task (string-match "Summary" text))
             (planning-header (string-match "待安排" text)))
        (should stack-header)
@@ -1529,7 +1530,7 @@ SCHEDULED: <2026-08-17 Mon>
        (dolist (hidden '("Day-agenda" "Project Current Tasks"
                          "Area Current Tasks" "Tomorrow book"
                          "Hidden unscheduled" "Outside current"
-                         "TODO" ":CURR:" "===="))
+                         ":CURR:" "===="))
          (should-not (string-match-p hidden text)))
        (should (= 1 (how-many "Packages, Please" (point-min) (point-max))))
        (should (= 1 (how-many "Summary" (point-min) (point-max))))
@@ -1558,8 +1559,9 @@ SCHEDULED: <2026-08-17 Mon>
    '("#+filetags: :area:
 #+category: emacs
 #+TODO: TODO DIVE | DONE HOLD
-* DIVE Configuration
-** TODO Agenda View Customization
+* Fixture
+** DIVE Configuration
+*** TODO Agenda View Customization
 ")
    (org-workflow-target-refresh t)
    (org-agenda nil "d")
@@ -1570,7 +1572,7 @@ SCHEDULED: <2026-08-17 Mon>
      (let* ((text (note-gtd-target-test--workbench-text))
             (stack (string-match "安排" text))
             (task (string-match "Agenda View Customization" text))
-            (planning (string-match "可选" text)))
+            (planning (string-match "收集箱" text)))
        (should stack)
        (should task)
        (should planning)
@@ -1589,8 +1591,9 @@ SCHEDULED: <2026-08-17 Mon>
    '("#+filetags: :area:
 #+category: emacs
 #+TODO: TODO DIVE | DONE HOLD
-* DIVE Configuration
-** TODO Plan tomorrow
+* Fixture
+** DIVE Configuration
+*** TODO Plan tomorrow
 ")
    (org-workflow-target-refresh t)
    (org-agenda nil "d")
@@ -1618,8 +1621,9 @@ SCHEDULED: <2026-08-17 Mon>
    '("#+filetags: :area:
 #+category: emacs
 #+TODO: TODO DIVE | DONE HOLD
-* DIVE Configuration
-** TODO Reschedule me
+* Fixture
+** DIVE Configuration
+*** TODO Reschedule me
 SCHEDULED: <2026-08-17 Mon>
 ")
    (org-workflow-target-refresh t)
@@ -1683,8 +1687,7 @@ SCHEDULED: <2026-08-17 Mon>
   (dolist (command '(org-workflow-agenda-filter-tiny org-workflow-agenda-filter-flow
                                                org-workflow-agenda-filter-deep org-workflow-agenda-filter-promise
                                                org-workflow-agenda-filter-clear org-workflow-agenda-open-workbench
-                                               org-workflow-agenda-toggle-planning-scope
-                                               org-workflow-agenda-toggle-completed))
+                                               org-workflow-agenda-toggle-planning-scope))
     (should (transient-get-suffix 'org-workflow-agenda-view-menu command)))
   (org-workflow-target-test-with-files
    '("#+filetags: :area:\n* DIVE Parent\n** TODO Candidate\n")
@@ -1703,19 +1706,20 @@ SCHEDULED: <2026-08-17 Mon>
    '("#+filetags: :area:
 #+category: Test
 #+TODO: TODO DIVE | DONE HOLD
-* DIVE Parent :@flow:
-** TODO [#C] Tomorrow evening
+* Fixture
+** DIVE Parent :@flow:
+*** TODO [#C] Tomorrow evening
 SCHEDULED: <2026-08-18 Tue>
-** TODO [#A] Day seven
+*** TODO [#A] Day seven
 SCHEDULED: <2026-08-24 Mon>
-** TODO Outside window
+*** TODO Outside window
 SCHEDULED: <2026-08-25 Tue>
-** TODO Today only
+*** TODO Today only
 SCHEDULED: <2026-08-17 Mon>
-** DONE Finished future
+*** DONE Finished future
 SCHEDULED: <2026-08-19 Wed>
-** HOLD Held group
-*** TODO Hidden future
+*** HOLD Held group
+**** TODO Hidden future
 SCHEDULED: <2026-08-19 Wed>
 ")
    (org-agenda nil "d")
@@ -1738,10 +1742,11 @@ SCHEDULED: <2026-08-19 Wed>
   "Each combined action sets today and its time band on an unscheduled leaf."
   (org-workflow-target-test-with-files
    '("#+filetags: :area:
-* DIVE Parent
-** TODO Morning task
-** TODO Afternoon task
-** TODO Evening task
+* Fixture
+** DIVE Parent
+*** TODO Morning task
+*** TODO Afternoon task
+*** TODO Evening task
 ")
    (org-agenda nil "d")
    (dolist (spec '(("Morning task" org-workflow-agenda-today-morning ?A)
@@ -1893,21 +1898,22 @@ SCHEDULED: <2026-08-17 Mon>
   "Only explicit leaf estimates count; unknown work is reported separately."
   (org-workflow-target-test-with-files
    '("#+filetags: :area:
-* DIVE Parent
+* Fixture
+** DIVE Parent
 :PROPERTIES:
 :Effort: 9:00
 :END:
-** TODO [#A] Short
+*** TODO [#A] Short
 SCHEDULED: <2026-08-17 Mon>
 :PROPERTIES:
 :Effort: 0:30
 :END:
-** TODO [#A] Long
+*** TODO [#A] Long
 SCHEDULED: <2026-08-17 Mon>
 :PROPERTIES:
 :Effort: 1:30
 :END:
-** TODO [#A] Unknown
+*** TODO [#A] Unknown
 SCHEDULED: <2026-08-17 Mon>
 ")
    (let ((entries (org-workflow-target--ordered-entries)))
@@ -1917,13 +1923,15 @@ SCHEDULED: <2026-08-17 Mon>
   "Native marks feed the flat menu without touching the unselected task."
   (org-workflow-target-test-with-files
    '("#+filetags: :area:
-* DIVE Parent
-** TODO Select one
-** TODO Leave alone
+* Fixture
+** DIVE Parent
+*** TODO Select one
+*** TODO Leave alone
 "
      "#+filetags: :project:
-* DIVE Parent
-** TODO Select two
+* Fixture
+** DIVE Parent
+*** TODO Select two
 ")
    (org-agenda nil "d")
    (with-current-buffer org-agenda-buffer-name
@@ -2008,10 +2016,11 @@ SCHEDULED: <2026-08-17 Mon>
   "Remove scheduling annotations while preserving native task controls."
   (org-workflow-target-test-with-files
    '("#+filetags: :area:
-* DIVE Parent
-** TODO Late :promise:
+* Fixture
+** DIVE Parent
+*** TODO Late :promise:
 SCHEDULED: <2026-08-15 Sat>
-** TODO Today
+*** TODO Today
 SCHEDULED: <2026-08-17 Mon>
 ")
    (org-agenda nil "d")
@@ -2033,8 +2042,9 @@ SCHEDULED: <2026-08-17 Mon>
   (org-workflow-target-test-with-files
    '("#+filetags: :project:
 #+TODO: TODO DIVE | DONE HOLD
-* DIVE Current
-** TODO Current leaf
+* Fixture
+** DIVE Current
+*** TODO Current leaf
 * Backlog
 ** TODO Backlog leaf
 ** TODO Container
@@ -2059,7 +2069,7 @@ SCHEDULED: <2026-08-18 Tue>
      (should org-workflow-agenda-planning-all)
      (should (string-match-p "Backlog leaf" (buffer-string)))
      (should (string-match-p "Nested leaf" (buffer-string)))
-     (dolist (hidden '("Scheduled leaf" "Held leaf" "Foreign leaf"))
+     (dolist (hidden '("Scheduled leaf" "Held leaf"))
        (should-not (string-match-p hidden (buffer-string))))
      (org-workflow-agenda-toggle-planning-scope)
      (should-not (string-match-p "Backlog leaf" (buffer-string))))
@@ -2070,7 +2080,7 @@ SCHEDULED: <2026-08-18 Tue>
 (ert-deftest note-gtd-agenda-columns-own-independent-buffers-and-preserve-other-panes ()
   "Columns retain native metadata and closing them preserves unrelated panes."
   (org-workflow-target-test-with-files
-   '("#+filetags: :area:\n* DIVE Parent\n** TODO Candidate\n** TODO Scheduled\nSCHEDULED: <2026-08-17 Mon>\n")
+   '("#+filetags: :area:\n* DIVE Parent\n** DIVE Parent\n*** TODO Candidate\n*** TODO Scheduled\nSCHEDULED: <2026-08-17 Mon>\n")
    (save-window-excursion
     (delete-other-windows)
     (let ((unrelated (split-window-below))
@@ -2099,7 +2109,7 @@ SCHEDULED: <2026-08-18 Tue>
               (should-not (string-match-p "Scheduled" (buffer-string))))
             (note-gtd-target-test--goto-agenda-title "Scheduled")
             (should (org-get-at-bol 'org-hd-marker))
-            (should (string-match-p "Candidate" (buffer-string))))
+            (should-not (string-match-p "Candidate" (buffer-string))))
           (should (= 3 (length (window-list))))
           (org-workflow-agenda--apply-columns)
           (should (= 3 (length (window-list))))
@@ -2111,7 +2121,7 @@ SCHEDULED: <2026-08-18 Tue>
 (ert-deftest note-gtd-agenda-normal-entry-stays-single-at-any-width ()
   "A normal Sprint never splits automatically on render or resize."
   (org-workflow-target-test-with-files
-   '("#+filetags: :area:\n* DIVE Parent\n** TODO Candidate\n** TODO Scheduled\nSCHEDULED: <2026-08-17 Mon>\n")
+   '("#+filetags: :area:\n* Fixture\n** DIVE Parent\n*** TODO Candidate\n*** TODO Scheduled\nSCHEDULED: <2026-08-17 Mon>\n")
    (save-window-excursion
     (delete-other-windows)
      (let ((org-agenda-window-setup 'current-window))
@@ -2123,14 +2133,14 @@ SCHEDULED: <2026-08-18 Tue>
          (should (= 1 (length (window-list))))
          (should (eq 'combined org-workflow-agenda--pane-role))
          (should-not (string-match-p "未来 7 天" (buffer-string)))
-         (should (string-match-p "可选" (buffer-string)))
+         (should (string-match-p "收集箱" (buffer-string)))
          (should (string-match-p "安排" (buffer-string))))))))
 
 (provide 'org-workflow-agenda-target-test)
 
 (ert-deftest note-gtd-agenda-native-edit-rebuilds-sprint-style-and-groups ()
   (org-workflow-target-test-with-files
-   '("#+filetags: :area:\n* DIVE Parent\n** TODO [#A] Native edit :promise:\nSCHEDULED: <2026-08-17 Mon>\n")
+   '("#+filetags: :area:\n* Fixture\n** DIVE Parent\n*** TODO [#A] Native edit :promise:\nSCHEDULED: <2026-08-17 Mon>\n")
    (org-workflow-target-refresh t)
    (org-agenda nil "d")
    (with-current-buffer org-agenda-buffer-name
@@ -2182,7 +2192,7 @@ SCHEDULED: <2026-08-18 Tue>
 
 (ert-deftest note-gtd-agenda-planning-preserves-source-heading-order ()
   (org-workflow-target-test-with-files
-   '("#+filetags: :area:\n* DIVE Writing\n** TODO [#C] Zebra first\n** TODO [#A] Alpha second\n** TODO [#B] Middle third\n")
+   '("#+filetags: :area:\n* DIVE Writing\n** DIVE Writing\n*** TODO [#C] Zebra first\n*** TODO [#A] Alpha second\n*** TODO [#B] Middle third\n")
    (org-workflow-target-refresh t)
    (org-agenda nil "d")
    (with-current-buffer org-agenda-buffer-name
@@ -2199,7 +2209,7 @@ SCHEDULED: <2026-08-18 Tue>
                     (org-workflow-agenda-plan-afternoon . "B")
                     (org-workflow-agenda-plan-evening . "C")))
       (org-workflow-target-test-with-files
-       '("#+filetags: :area:\n* DIVE Parent\n** TODO Plan me\n")
+       '("#+filetags: :area:\n* Fixture\n** DIVE Parent\n*** TODO Plan me\n")
        (org-workflow-target-refresh t)
        (org-agenda nil "d")
        (with-current-buffer org-agenda-buffer-name
@@ -2215,7 +2225,7 @@ SCHEDULED: <2026-08-18 Tue>
 
 (ert-deftest note-gtd-agenda-manual-order-crosses-parents-and-updates-stack ()
   (org-workflow-target-test-with-files
-   '("#+filetags: :area:\n* DIVE Parent A\n** TODO [#C] First\nSCHEDULED: <2026-08-17 Mon>\n* DIVE Parent B\n** TODO [#C] Second\nSCHEDULED: <2026-08-17 Mon>\n** TODO [#A] Other period\nSCHEDULED: <2026-08-17 Mon>\n")
+   '("#+filetags: :area:\n* Fixture\n** DIVE Parent A\n*** TODO [#C] First\nSCHEDULED: <2026-08-17 Mon>\n* Fixture\n** DIVE Parent B\n*** TODO [#C] Second\nSCHEDULED: <2026-08-17 Mon>\n*** TODO [#A] Other period\nSCHEDULED: <2026-08-17 Mon>\n")
    (let ((org-workflow-target-selected-marker nil))
      (org-workflow-target-refresh t)
      (org-agenda nil "d")
@@ -2252,7 +2262,7 @@ SCHEDULED: <2026-08-18 Tue>
 (ert-deftest note-gtd-agenda-manual-order-retains-legacy-ranks-with-new-tasks ()
   "Carry saved ranks across days, keeping new tasks behind and days separate."
   (org-workflow-target-test-with-files
-   '("#+filetags: :area:\n* DIVE Parent\n** TODO [#C] New task\nSCHEDULED: <2026-08-17 Mon>\n** TODO [#C] First\nSCHEDULED: <2026-08-17 Mon>\n** TODO [#C] Second\nSCHEDULED: <2026-08-17 Mon>\n** TODO [#C] Future\nSCHEDULED: <2026-08-19 Wed>\n")
+   '("#+filetags: :area:\n* Fixture\n** DIVE Parent\n*** TODO [#C] New task\nSCHEDULED: <2026-08-17 Mon>\n*** TODO [#C] First\nSCHEDULED: <2026-08-17 Mon>\n*** TODO [#C] Second\nSCHEDULED: <2026-08-17 Mon>\n*** TODO [#C] Future\nSCHEDULED: <2026-08-19 Wed>\n")
    (with-current-buffer (find-file-noselect (car org-agenda-files))
      (dolist (spec '(("First" . "1") ("Second" . "0") ("Future" . "0")))
        (goto-char (point-min))
@@ -2277,7 +2287,7 @@ SCHEDULED: <2026-08-18 Tue>
 
 (ert-deftest note-gtd-agenda-manual-order-respects-future-day-and-readonly-peer ()
   (org-workflow-target-test-with-files
-   '("#+filetags: :area:\n* DIVE Parent\n** TODO [#C] Today\nSCHEDULED: <2026-08-17 Mon>\n** TODO [#C] Tomorrow first\nSCHEDULED: <2026-08-18 Tue>\n** TODO [#C] Tomorrow second\nSCHEDULED: <2026-08-18 Tue>\n")
+   '("#+filetags: :area:\n* Fixture\n** DIVE Parent\n*** TODO [#C] Today\nSCHEDULED: <2026-08-17 Mon>\n*** TODO [#C] Tomorrow first\nSCHEDULED: <2026-08-18 Tue>\n*** TODO [#C] Tomorrow second\nSCHEDULED: <2026-08-18 Tue>\n")
    (progn
      (org-agenda nil "d")
      (with-current-buffer org-agenda-buffer-name
@@ -2353,7 +2363,7 @@ SCHEDULED: <2026-08-18 Tue>
 (ert-deftest note-gtd-agenda-recommendation-respects-day-switch ()
   (dolist (tomorrow '(nil t))
     (org-workflow-target-test-with-files
-     '("#+filetags: :area:\n* DIVE Parent :@deep:\n** TODO Recommended\n")
+     '("#+filetags: :area:\n* Fixture\n** DIVE Parent :@deep:\n*** TODO Recommended\n")
      (org-agenda nil "d")
      (with-current-buffer org-agenda-buffer-name
        (org-workflow-agenda-set-day tomorrow)

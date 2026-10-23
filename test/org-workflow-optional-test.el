@@ -2,7 +2,7 @@
 (require 'org-workflow-agenda)
 (load "org-workflow-sources-test" nil t)
 
-(ert-deftest workflow-optional-order-two-per-stage-and-free-completion ()
+(ert-deftest workflow-inbox-excludes-stage-candidates-and-completes-without-focus ()
   (workflow-source-test
    (let ((org-agenda-files (list org-workflow-projects-file))
          (org-agenda-buffer-name "*Optional test*")
@@ -10,7 +10,7 @@
          (org-workflow-agenda-columns-enabled nil)
          (org-workflow-executing-marker nil))
      (with-temp-file org-workflow-projects-file
-       (insert "#+filetags: :project:\n#+TODO: TODO DIVE | DONE HOLD\n* Inbox\n** TODO Collected task\n:PROPERTIES:\n:CAPTURED_ON: 2026-10-10\n:END:\n** DONE Completed capture\n* 习惯\n** TODO Free reading\nSCHEDULED: <2026-10-10 Sat .+1d>\n:PROPERTIES:\n:STYLE: habit\n:ID: free-reading\n:WORKFLOW_HABIT_WEEK_TARGET: 1\n:END:\n** TODO Timed habit\nSCHEDULED: <2026-10-10 Sat .+1d>\n:PROPERTIES:\n:STYLE: habit\n:ID: timed-habit\n:WORKFLOW_HABIT_POSITION: morning-early\n:END:\n* DIVE First stage\n** TODO First one\n** TODO First two\n** TODO First three\n** TODO Scheduled\nSCHEDULED: <2026-10-10 Sat>\n* DIVE Second stage\n** TODO Second one\n** TODO Second two\n** TODO Second three\n* Backlog\n** TODO Inactive leaf\n"))
+       (insert "#+filetags: :project:\n#+TODO: TODO DIVE | DONE HOLD\n* Inbox\n** TODO Collected task\n:PROPERTIES:\n:CAPTURED_ON: 2026-10-10\n:END:\n** DONE Completed capture\n* 习惯\n** TODO Free reading\nSCHEDULED: <2026-10-10 Sat .+1d>\n:PROPERTIES:\n:STYLE: habit\n:ID: free-reading\n:WORKFLOW_HABIT_WEEK_TARGET: 1\n:END:\n** TODO Timed habit\nSCHEDULED: <2026-10-10 Sat .+1d>\n:PROPERTIES:\n:STYLE: habit\n:ID: timed-habit\n:WORKFLOW_HABIT_POSITION: morning-early\n:END:\n* Fixture\n** DIVE First stage\n*** TODO First one\n*** TODO First two\n*** TODO First three\n*** TODO Scheduled\nSCHEDULED: <2026-10-10 Sat>\n* Fixture\n** DIVE Second stage\n*** TODO Second one\n*** TODO Second two\n*** TODO Second three\n* Backlog\n** TODO Inactive leaf\n"))
      (unwind-protect
          (save-window-excursion
            (cl-letf (((symbol-function 'org-workflow-target--today-string) (lambda () "2026-10-10"))
@@ -21,14 +21,13 @@
                       (lambda (&rest _) (ert-fail "Optional completion started focus"))))
              (org-agenda nil "d")
              (let* ((text (buffer-string))
-                    (optional-start (string-match "\n可选\n" text))
+                    (optional-start (string-match "\n收集箱\n" text))
                     (optional (substring text (or optional-start
                                                   (ert-fail "Optional section is missing")))))
                (should (< (string-match "Free reading" optional)
-                          (string-match "Collected task" optional)
-                          (string-match "First one" optional)))
+                          (string-match "Collected task" optional)))
                (dolist (title '("First one" "First two" "Second one" "Second two"))
-                 (should (string-match-p title optional)))
+                 (should-not (string-match-p title optional)))
                (dolist (title '("First three" "Second three" "Inactive leaf" "Completed capture" "Scheduled" "Timed habit"))
                  (should-not (string-match-p title optional)))
                (should (= 1 (how-many "Free reading" (point-min) (point-max)))))

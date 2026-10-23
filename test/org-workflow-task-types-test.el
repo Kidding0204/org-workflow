@@ -20,15 +20,15 @@
 (ert-deftest org-workflow-task-types-keep-the-parent-in-the-queue ()
   "Editing and saving typed descendants leaves the scheduled parent actionable."
   (org-workflow-target-test-with-files
-   '("#+filetags: :project:\n#+TODO: TODO DIVE | DONE HOLD\n#+TYP_TODO: QA LAB HW |\n* DIVE Course\n** TODO [#A] Lecture\nSCHEDULED: <2026-08-17 Mon>\n")
+   '("#+filetags: :project:\n#+TODO: TODO DIVE | DONE HOLD\n#+TYP_TODO: QA LAB HW |\n* Fixture\n** DIVE Course\n*** TODO [#A] Lecture\nSCHEDULED: <2026-08-17 Mon>\n")
    (with-current-buffer (find-file-noselect (car org-agenda-files))
      (goto-char (point-min))
-     (re-search-forward "^\\*\\* TODO")
+     (re-search-forward "^\\*\\*\\* TODO")
      (beginning-of-line)
      ;; Warm the native cache before manual editing, as in an open task buffer.
      (org-element-at-point)
      (goto-char (point-max))
-     (insert "*** QA Question\n*** LAB Experiment\nSCHEDULED: <2026-08-17 Mon>\n**** HW Exercise\n")
+     (insert "**** QA Question\n**** LAB Experiment\nSCHEDULED: <2026-08-17 Mon>\n***** HW Exercise\n")
      (save-buffer)
      (org-workflow-target--refresh-after-agenda-save)
      (should (equal '("Lecture")

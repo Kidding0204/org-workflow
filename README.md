@@ -75,7 +75,7 @@ The source repository excludes the generated `.elc` files from Git.
 
 ## Workflow and data
 
-Tasks retain standard Org scheduling, priorities and clocks. `DIVE` identifies active task groups. The current model uses `A`, `B` and `C` priorities for morning, afternoon and evening availability. New daily records require completion to fulfill a task commitment. A configurable whole-day investment floor can independently satisfy the daily minimum without marking tasks done. Earlier settled history retains its original rules. See [Project planning](docs/project-workbench.md) for explicit goal/project registration, start dates and pause/resume.
+Tasks retain standard Org scheduling, priorities and clocks. `DIVE` identifies active task groups. The current model uses `A`, `B` and `C` priorities for morning, afternoon and evening availability. New daily records require completion to fulfill a task commitment. A configurable whole-day investment floor can independently satisfy the daily minimum without marking tasks done. Earlier settled history retains its original rules. See [Project planning](docs/project-workbench.md) for file-based goals, project/stage/task outlines, the integrated daily project section, start dates and pause/resume.
 
 Org files store tasks, schedules and clocks; SQLite stores commitments, events, settled history and recovery records. The database is durable data. Back up it together with the Org files. Do not delete it to clear the interface or resolve a recovery conflict.
 

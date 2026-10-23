@@ -27,7 +27,7 @@
 					 (should (eq (get-text-property (point) 'org-agenda-type) 'todo)))
 				       (pcase-let ((`(,primary ,candidate) (org-workflow-workbench-test-panes)))
 					 (with-current-buffer primary
-					   (should-not (string-match-p "^收集箱$\\|未来 7 天" (buffer-string))))
+					   (should-not (string-match-p "未来 7 天" (buffer-string))))
 					 (with-current-buffer candidate
 					   (should (string-match-p "待安排" (buffer-string)))
 					   (should-not (string-match-p "未来 7 天" (buffer-string)))))))
@@ -95,9 +95,8 @@
 							    (should (string-match-p "Keep the original body" (buffer-string))))
 					 (should-not org-agenda-bulk-marked-entries)
 					 (should-not org-workflow-agenda-mouse--anchor)
-					 (my/org-mouse-test-row "Old note")
-					 (should-not (get-text-property (point) 'org-workflow-agenda-inbox-entry))
-					 (should (eq 'completed (org-workflow-agenda-mouse--row-kind))))))
+					 (should-not (member "Old note" (org-workflow-workbench-test-titles)))
+					 (should-not (string-match-p "今日已完成" (buffer-string))))))
 
 (ert-deftest org-workflow-agenda-inbox-refile-refreshes-and-rejects-batch-classification ()
   (org-workflow-agenda-inbox-test-with-files

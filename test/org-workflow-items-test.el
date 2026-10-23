@@ -22,7 +22,7 @@
            (task-file (expand-file-name "tasks.org" directory))
            (date (org-workflow-target--today-string)))
       (with-temp-file task-file
-        (insert "#+filetags: :area:\n* DIVE Project\n** TODO [#A] Task\nSCHEDULED: <" date ">\n:PROPERTIES:\n:ID: shared-task\n:END:\nTask body.\n"))
+        (insert "#+filetags: :area:\n* DIVE Project\n** DIVE Work\n*** TODO [#A] Task\nSCHEDULED: <" date ">\n:PROPERTIES:\n:ID: shared-task\n:END:\nTask body.\n"))
       (setq org-agenda-files (list task-file))
       (org-workflow-habits-create "Habit")
       (goto-char (point-max)) (insert "Habit body.\n")

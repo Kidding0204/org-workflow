@@ -7,7 +7,7 @@
   "#+filetags: :project:\n#+TODO: TODO DIVE | DONE HOLD\n* DIVE Stage\n** TODO Morning habit\nSCHEDULED: <2026-08-17 Mon .+1d>\n:PROPERTIES:\n:STYLE: habit\n:WORKFLOW_HABIT_POSITION: morning-early\n:END:\n** TODO Free habit\nSCHEDULED: <2026-08-17 Mon .+1d>\n:PROPERTIES:\n:STYLE: habit\n:END:\n")
 
 (ert-deftest workflow-habit-render-reads-once-and-skips-tomorrow ()
-  (dolist (source (list workflow-habit-render-test-source "* DIVE Stage\n** TODO Task\n"))
+  (dolist (source (list workflow-habit-render-test-source "* Fixture\n** DIVE Stage\n*** TODO Task\n"))
     (let ((map-habits (symbol-function 'org-workflow-habits--map)) (scans 0))
       (org-workflow-workbench-test-with-files (list source)
         (let ((org-workflow-habit-file (car files)))

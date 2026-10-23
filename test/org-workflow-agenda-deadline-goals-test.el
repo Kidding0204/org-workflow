@@ -6,12 +6,12 @@
 
 (ert-deftest org-workflow-deadline-goals-scope-order-and-no-execution-admission ()
   (org-workflow-workbench-test-with-files
-      '("#+filetags: :project:\n#+TODO: TODO DIVE | DONE HOLD\n* DIVE Project milestone\nDEADLINE: <2026-09-01 Tue>\n** DIVE Future goal\nDEADLINE: <2026-08-21 Fri>\n** DIVE Overdue goal\nDEADLINE: <2026-08-16 Sun>\n** TODO Ordinary deadline\nDEADLINE: <2026-08-05 Wed>\n** DIVE No deadline\n** DONE Finished\nDEADLINE: <2026-08-10 Mon>\n** HOLD Paused\n*** DIVE Held child\nDEADLINE: <2026-08-11 Tue>\n** DIVE Habit\nDEADLINE: <2026-08-12 Wed>\n:PROPERTIES:\n:STYLE: habit\n:END:\n** DIVE Active\n*** TODO Execute today\nSCHEDULED: <2026-08-17 Mon>\n"
+      '("#+filetags: :project:\n#+TODO: TODO DIVE | DONE HOLD\n* Fixture\n** DIVE Project milestone\nDEADLINE: <2026-09-01 Tue>\n*** DIVE Future goal\nDEADLINE: <2026-08-21 Fri>\n*** DIVE Overdue goal\nDEADLINE: <2026-08-16 Sun>\n*** TODO Ordinary deadline\nDEADLINE: <2026-08-05 Wed>\n*** DIVE No deadline\n*** DONE Finished\nDEADLINE: <2026-08-10 Mon>\n*** HOLD Paused\n**** DIVE Held child\nDEADLINE: <2026-08-11 Tue>\n*** DIVE Habit\nDEADLINE: <2026-08-12 Wed>\n:PROPERTIES:\n:STYLE: habit\n:END:\n*** DIVE Active\n**** TODO Execute today\nSCHEDULED: <2026-08-17 Mon>\n"
         "#+filetags: :area:\n* Backlog\n** DIVE Due today\nDEADLINE: <2026-08-17 Mon>\n"
         "#+filetags: :project:workflow-closed:\n* DIVE Closed source\nDEADLINE: <2026-08-01 Sat>\n"
         "* DIVE Unscoped source\nDEADLINE: <2026-08-01 Sat>\n")
     (let ((records (org-workflow-agenda--deadline-goals)))
-      (should (equal '("2026-08-16" "2026-08-17" "2026-08-21" "2026-09-01")
+      (should (equal '("2026-08-01" "2026-08-16" "2026-08-17" "2026-08-21" "2026-09-01")
                      (mapcar #'car records)))
       ;; The read-only scan does not visit filtered or matching files.
       (should-not (seq-some #'get-file-buffer files)))

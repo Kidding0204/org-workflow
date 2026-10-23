@@ -40,7 +40,8 @@
      (insert "#+TODO: TODO | DONE\n* TODO Early habit\nSCHEDULED: <2026-10-08 Thu .+1d>\n:PROPERTIES:\n:STYLE: habit\n:WORKFLOW_HABIT_POSITION: afternoon-early\n:END:\n* TODO Late habit\nSCHEDULED: <2026-10-08 Thu .+1d>\n:PROPERTIES:\n:STYLE: habit\n:WORKFLOW_HABIT_POSITION: afternoon-late\n:END:\n"))
    (cl-letf (((symbol-function 'org-workflow-agenda-target-date) (lambda () "2026-10-08"))
              ((symbol-function 'org-workflow-agenda--insert-day-tabs) #'ignore)
-             ((symbol-function 'org-workflow-agenda--completed-periods) (lambda (_) nil))
+             ((symbol-function 'org-workflow-agenda--with-completed) (lambda (entries &rest _) entries))
+             ((symbol-function 'org-workflow-agenda--commitment-entry-p) (lambda (&rest _) nil))
              ((symbol-function 'org-workflow-target--valid-entry-p) (lambda (_) t))
              ((symbol-function 'org-workflow-target--ordered-entries)
               (lambda (&rest _) (list (org-workflow-target-entry-create :title "First task" :priority (org-get-priority "[#B]"))
@@ -53,15 +54,15 @@
        (with-temp-buffer
          (org-workflow-agenda-task-stack nil rows)
          (should-not (string-match-p "习惯 ·" (buffer-string)))
-         (should (string-match-p "连续 0 天\n    Tasks" (buffer-string)))
+         (should (string-match-p "Early habit\n    Tasks" (buffer-string)))
          (should (string-match-p "Second task\n    ↻ Late habit" (buffer-string)))
          (goto-char (point-min))
          (search-forward "Early habit")
          (should (eq 'habit (get-text-property (1- (point)) 'org-workflow-agenda-create-context)))
          (should (markerp (get-text-property (1- (point)) 'org-hd-marker)))
-         (search-forward "连续")
          (search-forward "First task") (search-forward "Second task")
-         (search-forward "Late habit") (search-forward "连续"))))))
+         (search-forward "Late habit")
+         (should-not (string-match-p "连续" (buffer-string))))))))
 
 (ert-deftest workflow-habit-reminders-latest-skip-restart-and-day-rollover ()
   (workflow-habit-test

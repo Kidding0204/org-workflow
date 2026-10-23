@@ -72,7 +72,7 @@
 
 (ert-deftest org-workflow-dive-candidates-are-only-direct-todo-leaves ()
   (org-workflow-dive-test--with-files
-      '("#+filetags: :project:\n* DIVE Stage\n** TODO Candidate\n** TODO Container\n*** TODO Nested\n** DIVE Nested active\n*** TODO Explicit child\n** DONE Finished\n** TODO Scheduled\nSCHEDULED: <2026-10-06 Tue>\n** TODO Habit\n:PROPERTIES:\n:STYLE: habit\n:END:\n* DIVE Standalone\n* Old :CURR:\n** TODO Inherited legacy\n* HOLD Paused\n** DIVE Held active\n*** TODO Held child\n")
+      '("#+filetags: :project:\n* DIVE Stage\n** DIVE Stage\n*** TODO Candidate\n*** TODO Container\n**** TODO Nested\n*** DIVE Nested active\n**** TODO Explicit child\n*** DONE Finished\n*** TODO Scheduled\nSCHEDULED: <2026-10-06 Tue>\n*** TODO Habit\n:PROPERTIES:\n:STYLE: habit\n:END:\n* DIVE Standalone\n* Old :CURR:\n** TODO Inherited legacy\n* HOLD Paused\n** DIVE Held active\n*** TODO Held child\n")
     (with-current-buffer (find-file-noselect (car org-agenda-files))
       (let (titles)
         (org-map-entries
@@ -97,7 +97,7 @@
 
 (ert-deftest org-workflow-dive-manual-selection-keeps-scheduled-outside-active-scope ()
   (org-workflow-dive-test--with-files
-      '("#+filetags: :area:\n* DIVE Active\n** TODO Candidate\n** Container\n*** TODO Nested\n* Backlog\n** TODO Scheduled\nSCHEDULED: <2026-10-06 Tue>\n** TODO Unscheduled\n")
+      '("#+filetags: :area:\n* Fixture\n** DIVE Active\n*** TODO Candidate\n*** Container\n**** TODO Nested\n* Backlog\n** TODO Scheduled\nSCHEDULED: <2026-10-06 Tue>\n** TODO Unscheduled\n")
     (cl-letf (((symbol-function 'org-workflow-target--today-string) (lambda () "2026-10-06"))
               ((symbol-function 'org-workflow-target--ordered-entries) (lambda () nil)))
       (should (equal '("Candidate")
@@ -144,7 +144,7 @@
       '("#+filetags: :project:\n* Stage :CURR:@deep:\n** TODO Task\n* DONE Finished :CURR:\n* HOLD Paused :CURR:\n"
         "* Not a project :CURR:\n** TODO Foreign\n")
     (let ((report (org-workflow-migrate-current-scope)))
-      (should (= 1 (length report)))
+      (should (= 2 (length report)))
       (should (equal '("DIVE" "DONE" "HOLD")
                      (mapcar (lambda (root) (plist-get root :to))
                              (plist-get (car report) :roots)))))

@@ -185,7 +185,7 @@
                        (lambda (&rest _)
                          (interactive)
                          (should (equal org-refile-targets
-                                        `(((,project ,area) :maxlevel . 5))))
+                                        `(((,project ,area ,other) :maxlevel . 5))))
                          (should-not org-refile-use-cache))))
               (org-workflow-inbox-classify-project))))
       (dolist (file (list project area other))

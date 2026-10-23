@@ -48,7 +48,8 @@
       (goto-char (point-min))
       (let (titles)
         (while (< (point) (point-max))
-          (when-let* ((marker (org-get-at-bol 'org-hd-marker)))
+          (when-let* ((marker (org-get-at-bol 'org-hd-marker))
+                      ((not (org-get-at-bol 'org-workflow-agenda-project-row))))
             (should (marker-buffer marker))
             (push (org-with-point-at marker (org-get-heading t t t t)) titles))
           (forward-line))
@@ -69,7 +70,7 @@
 
 (ert-deftest org-workflow-workbench-candidates-source-order-and-ancestor-identity ()
   (org-workflow-workbench-test-with-files
-      '("#+filetags: :project:\n#+CATEGORY: Work\n* DIVE Stage\n** Same\n*** DIVE Branch\n**** TODO Zed\n**** TODO Alpha\n** DIVE Same\n*** TODO Other\n** TODO Direct\n")
+      '("#+filetags: :project:\n#+CATEGORY: Work\n* DIVE Stage\n** DIVE Stage\n*** Same\n**** DIVE Branch\n***** TODO Zed\n***** TODO Alpha\n*** DIVE Same\n**** TODO Other\n*** TODO Direct\n")
     (let* ((rows (org-workflow-agenda--candidate-entries))
            (ids (mapcar #'cadr rows)))
      (should (equal '("Zed" "Alpha" "Other" "Direct")
@@ -81,12 +82,12 @@
 
 (ert-deftest org-workflow-workbench-candidate-scope-excludes-held-done-and-parents ()
   (org-workflow-workbench-test-with-files
-      '("#+filetags: :area:\n#+TODO: TODO DIVE | DONE HOLD\n* DIVE Current\n** TODO Live\n** TODO Parent\n*** DONE Child\n** HOLD Held\n*** TODO Hidden\n** TODO Scheduled\nSCHEDULED: <2026-08-18 Tue>\n* Inactive\n** TODO Backlog\n"
-        "* DIVE Unscoped\n** TODO Outside\n")
-    (should (equal '("Live") (mapcar (lambda (r) (org-workflow-target-entry-title (car r)))
+      '("#+filetags: :area:\n#+TODO: TODO DIVE | DONE HOLD\n* Fixture\n** DIVE Current\n*** TODO Live\n*** TODO Parent\n**** DONE Child\n*** HOLD Held\n**** TODO Hidden\n*** TODO Scheduled\nSCHEDULED: <2026-08-18 Tue>\n* Inactive\n** TODO Backlog\n"
+        "* Fixture\n** DIVE Unscoped\n*** TODO Outside\n")
+    (should (equal '("Live" "Outside") (mapcar (lambda (r) (org-workflow-target-entry-title (car r)))
                                      (org-workflow-agenda--candidate-entries))))
     (let ((org-workflow-agenda-planning-all t))
-      (should (equal '("Live" "Backlog")
+      (should (equal '("Live" "Backlog" "Outside")
                      (mapcar (lambda (r) (org-workflow-target-entry-title (car r)))
                              (org-workflow-agenda--candidate-entries)))))))
 
@@ -108,7 +109,7 @@
 
 (ert-deftest org-workflow-workbench-tabs-preserve-schedule-and-source ()
   (org-workflow-workbench-test-with-files
-   (list org-workflow-workbench-test-source "#+filetags: :project:\n#+CATEGORY: OtherProject\n* DIVE Stage\n** TODO Other project task\n")
+   (list org-workflow-workbench-test-source "#+filetags: :project:\n#+CATEGORY: OtherProject\n* DIVE Stage\n** DIVE Stage\n*** TODO Other project task\n")
    (org-workflow-workbench-test-open)
    (pcase-let* ((`(,primary ,candidate) (org-workflow-workbench-test-panes))
                 (schedule (with-current-buffer primary (buffer-string)))
@@ -143,11 +144,12 @@
   (org-workflow-workbench-test-with-files
       '("#+filetags: :area:\n#+TODO: TODO DIVE | DONE HOLD\n* [#A] Area\n** Group\n*** DONE Finished\nCLOSED: [2026-08-17 Mon 10:00] SCHEDULED: <2026-08-16 Sun>\n*** DONE [#B] Future\nCLOSED: [2026-08-17 Mon 10:00] SCHEDULED: <2026-08-18 Tue>\n*** DONE [#B] No schedule\nCLOSED: [2026-08-17 Mon 10:00]\n*** DONE [#B] Yesterday\nCLOSED: [2026-08-16 Sun 10:00] SCHEDULED: <2026-08-16 Sun>\n** HOLD [#C] Hold\n*** DONE Hidden\nCLOSED: [2026-08-17 Mon 10:00] SCHEDULED: <2026-08-16 Sun>\n** DONE [#C] Parent\nCLOSED: [2026-08-17 Mon 10:00] SCHEDULED: <2026-08-16 Sun>\n*** TODO Child\n"
         "* Area\n** DONE [#C] Outside\nCLOSED: [2026-08-17 Mon 10:00] SCHEDULED: <2026-08-16 Sun>\n")
-    (should (equal '(?A) (org-workflow-agenda--completed-periods "2026-08-17")))
+    (should (equal '(?C ?A) (org-workflow-agenda--completed-periods "2026-08-17")))
     (with-temp-buffer
       (org-workflow-agenda-task-stack nil)
-      (should (= 1 (how-many "已完成" (point-min) (point-max))))
-      (should (= 2 (how-many "暂无安排" (point-min) (point-max)))))))
+      (should (= 0 (how-many "已完成" (point-min) (point-max))))
+      (should (= 3 (how-many "✓" (point-min) (point-max))))
+      (should (= 1 (how-many "暂无安排" (point-min) (point-max)))))))
 
 (ert-deftest org-workflow-workbench-day-switch-syncs-command-date-and-empty-context ()
   (org-workflow-workbench-test-with-files (list org-workflow-workbench-test-source)
@@ -245,7 +247,7 @@
               (should (buffer-live-p candidate))
               (should-not org-workflow-agenda-last-plan)
               (should (member "First" (org-workflow-workbench-test-titles candidate)))
-              (should (member "First" (org-workflow-workbench-test-titles primary)))
+              (should-not (member "First" (org-workflow-workbench-test-titles primary)))
               (with-current-buffer (find-file-noselect (car files))
                 (goto-char (point-min)) (search-forward "First") (org-back-to-heading)
                 (should-not (nth 3 (org-heading-components)))
@@ -424,7 +426,7 @@
 (ert-deftest org-workflow-workbench-projects-cycle-with-workflow-commands ()
   (org-workflow-workbench-test-with-files
       (list org-workflow-workbench-test-source
-            "#+filetags: :project:\n#+CATEGORY: Other\n* DIVE Stage\n** TODO Other task\n")
+            "#+filetags: :project:\n#+CATEGORY: Other\n* DIVE Stage\n** DIVE Stage\n*** TODO Other task\n")
     (org-workflow-workbench-test-open)
     (pcase-let ((`(,primary ,candidate) (org-workflow-workbench-test-panes)))
       (let ((schedule (with-current-buffer primary (buffer-string))))
@@ -513,17 +515,14 @@
           (funcall (alist-get 'select (nth 2 tabs)))
           (should (equal '("Two") (org-workflow-workbench-test-titles))))))))
 
-(ert-deftest org-workflow-workbench-parent-first-quiet-ancestors-and-modern-progress ()
+(ert-deftest org-workflow-workbench-project-stage-breadcrumb-without-file ()
   (org-workflow-workbench-test-with-files
       '("#+filetags: :project:\n#+CATEGORY: Course\n* Root\n** Topic\n*** DIVE Parent [2/11]\n**** TODO Candidate\n**** TODO [#A] Planned\nSCHEDULED: <2026-08-17 Mon>\n")
     (org-workflow-workbench-test-open)
     (goto-char (point-min))
-    (search-forward "Parent [2/11]  Course / Root / Topic")
-    (let ((start (- (point) (length "Parent [2/11]  Course / Root / Topic"))))
-      (should (eq 'org-workflow-agenda-group (get-text-property start 'face)))
-      (should (eq 'org-workflow-agenda-ancestor (get-text-property (+ start 15) 'face)))
-      (should (get-text-property (+ start 7) 'display))
-      (should (eq 'org-modern-label (get-text-property (+ start 7) 'face))))))
+    (search-forward "Root / Topic")
+    (should (eq 'org-workflow-agenda-group (get-text-property (1- (point)) 'face)))
+    (should-not (string-match-p "Course / Root" (buffer-string)))))
 
 (ert-deftest org-workflow-workbench-filters-both-panes-and-retains-on-redo ()
   (org-workflow-workbench-test-with-files
@@ -575,7 +574,8 @@
     (should-not (string-match-p "原定\\|已延期" (buffer-string)))))
 
 (ert-deftest org-workflow-workbench-right-details-wrap-without-changing-rows ()
-  (org-workflow-workbench-test-with-files (list org-workflow-workbench-test-source)
+  (org-workflow-workbench-test-with-files
+      (list (replace-regexp-in-string "TODO Today" "TODO Today :@deep:" org-workflow-workbench-test-source t t))
     (org-workflow-workbench-test-open)
     (let ((before (buffer-string))
           (titles (org-workflow-workbench-test-titles)))

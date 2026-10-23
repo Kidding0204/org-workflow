@@ -6,7 +6,7 @@
 
 (ert-deftest workflow-panel-task-list-selects-real-stack-without-starting-timer ()
   (let* ((file (make-temp-file "workflow-panel-tasks-" nil ".org"
-                              "#+filetags: :project:\n* DIVE Work\n** TODO Same\nSCHEDULED: <2026-10-16 Fri>\nFirst notes\n** TODO Same\nSCHEDULED: <2026-10-16 Fri>\nSecond notes\n** TODO Future\nSCHEDULED: <2026-10-17 Sat>\n** DONE Finished\n"))
+                              "#+filetags: :project:\n* Fixture\n** DIVE Work\n*** TODO Same\nSCHEDULED: <2026-10-16 Fri>\nFirst notes\n*** TODO Same\nSCHEDULED: <2026-10-16 Fri>\nSecond notes\n*** TODO Future\nSCHEDULED: <2026-10-17 Sat>\n*** DONE Finished\n"))
          (org-agenda-files (list file))
          (org-workflow-target-stack nil) (org-workflow-target-selected-marker nil)
          (org-workflow-target-selected-date nil) (org-workflow-executing-marker nil)

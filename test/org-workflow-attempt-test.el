@@ -178,7 +178,7 @@
        (should (string-prefix-p "    ◇ Task" (org-workflow-agenda--stack-line entry nil)))
        (org-workflow-attempt-test--clock "2026-09-16" 5)
        (let ((line (org-workflow-agenda--stack-line entry nil)))
-         (should (string-prefix-p "    ◆ Task" line))
+         (should (string-prefix-p "    ◇ Task" line))
          (should-not (get-text-property 6 'face line))
          (should (markerp (get-text-property 6 'org-hd-marker line)))))
      (cl-letf (((symbol-function 'org-workflow-agenda-target-date) (lambda () "2026-09-17")))

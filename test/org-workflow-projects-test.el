@@ -7,7 +7,7 @@
 (defmacro workflow-project-fixture (&rest body)
   `(org-workflow-store-test
     (erase-buffer)
-    (insert "#+filetags: :project:\n* Engineering\n:PROPERTIES:\n:WORKFLOW_KIND: goal\n:ID: goal\n:END:\n** DIVE Compiler\n:PROPERTIES:\n:WORKFLOW_KIND: project\n:ID: compiler\n:END:\n*** DIVE Lexing\n**** TODO Tokens\n**** TODO Parser\n** TODO Algebra\n:PROPERTIES:\n:WORKFLOW_KIND: project\n:ID: algebra\n:END:\n*** TODO Matrices\n** HOLD Old\n:PROPERTIES:\n:WORKFLOW_KIND: project\n:ID: old\n:END:\n*** TODO Old step\n")
+    (insert "#+filetags: :project:\n* DIVE Compiler\n:PROPERTIES:\n:ID: compiler\n:END:\n** DIVE Lexing\n*** TODO Tokens\n*** TODO Parser\n* TODO Algebra\n:PROPERTIES:\n:ID: algebra\n:END:\n** TODO Basics\n*** TODO Matrices\n* HOLD Old\n:PROPERTIES:\n:ID: old\n:END:\n** TODO Review\n*** TODO Old step\n")
     (org-mode)
     (let ((org-workflow-projects--syncing nil)
           (org-workflow-projects--batch nil))
@@ -21,13 +21,13 @@
   (beginning-of-line)
   (point-marker))
 
-(ert-deftest workflow-project-discovery-is-read-only-and-explicit ()
+(ert-deftest workflow-project-discovery-is-read-only-and-structural ()
   (workflow-project-fixture
    (let ((before (buffer-string)) (position (point)))
      (let* ((rows (org-workflow-projects-collect))
             (project (seq-find (lambda (x) (equal (plist-get x :id) "compiler")) rows)))
        (should (= 4 (length rows)))
-       (should (equal "goal" (plist-get project :goal-id)))
+       (should (equal (plist-get (car rows) :id) (plist-get project :goal-id)))
        (should (equal "Tokens" (plist-get (plist-get project :next) :title)))
        (should (equal "Lexing" (plist-get project :phase))))
      (should (equal before (buffer-string)))
@@ -54,17 +54,17 @@
   (workflow-project-fixture
    (org-workflow-projects-sync)
    (let ((id (caar (org-workflow-store-due "2026-09-16")) ))
-     (org-workflow-projects-goal-state (workflow-project-at "Engineering") t)
+     (org-workflow-projects-goal-state (copy-marker (point-min)) t)
      (should-not (org-workflow-history--responsibilities "2026-09-16"))
      (should (equal "withdrawn" (nth 6 (org-workflow-store-commitment id))))
-     (org-workflow-projects-goal-state (workflow-project-at "Engineering") nil)
+     (org-workflow-projects-goal-state (copy-marker (point-min)) nil)
      (should (= 1 (length (org-workflow-store-due "2026-09-16"))))
      (should (equal "pending" (nth 6 (org-workflow-store-commitment id))))
      (workflow-project-at "Algebra") (should (equal "TODO" (org-get-todo-state)))
      (workflow-project-at "Old") (should (equal "HOLD" (org-get-todo-state)))
-     (org-workflow-projects-goal-state (workflow-project-at "Engineering") t)
+     (org-workflow-projects-goal-state (copy-marker (point-min)) t)
      (org-workflow-projects-set-state (workflow-project-at "Compiler") "TODO")
-     (org-workflow-projects-goal-state (workflow-project-at "Engineering") nil)
+     (org-workflow-projects-goal-state (copy-marker (point-min)) nil)
      (workflow-project-at "Compiler") (should (equal "TODO" (org-get-todo-state))))))
 
 (ert-deftest workflow-project-start-date-stays-on-project ()
@@ -121,7 +121,7 @@
      (should (eq t (plist-get progress :dailyFloorComplete)))
      (should (equal "investment" (plist-get progress :dailyFloorBasis)))
      (should (= 60 (plist-get progress :focusTotalMinutes))))
-   (org-workflow-projects-goal-state (workflow-project-at "Engineering") t)
+   (org-workflow-projects-goal-state (copy-marker (point-min)) t)
    (should (eq t (plist-get (org-workflow-history-progress "2026-09-16") :dailyFloorComplete)))
    (should (= 0 (plist-get (org-workflow-history-progress "2026-09-16") :minimumTotal)))))
 
@@ -139,7 +139,7 @@
    (insert "**** HOLD Blocked\n***** TODO Hidden\n**** QA Question\n**** TODO Later\nSCHEDULED: <2026-10-01 Thu>\n**** DIVE Nested project\n:PROPERTIES:\n:WORKFLOW_KIND: project\n:ID: nested\n:END:\n***** TODO Nested step\n")
    (let* ((items (org-workflow-projects-collect))
           (project (seq-find (lambda (x) (equal (plist-get x :id) "compiler")) items)))
-     (should (equal "Tokens" (plist-get (plist-get project :next) :title))))))
+     (should (equal "Nested step" (plist-get (plist-get project :next) :title))))))
 
 (ert-deftest workflow-project-view-expand-never-edits-source ()
   (workflow-project-fixture
@@ -191,7 +191,7 @@
        (with-current-buffer (get-buffer-create "*Workflow Projects*")
          (org-workflow-project-view-mode)
          (org-workflow-project-view-refresh)
-         (goto-char (point-min)) (search-forward "Engineering")
+         (goto-char (point-min)) (search-forward "project")
          (org-workflow-project-view-toggle)
          (should-not (string-match-p "Compiler" (buffer-string)))
          (org-workflow-project-view-toggle)
@@ -201,9 +201,9 @@
 (ert-deftest workflow-project-resume-does-not-start-waiting-projects ()
   (workflow-project-fixture
    (org-workflow-projects-set-start (workflow-project-at "Algebra") "2026-09-17")
-   (org-workflow-projects-goal-state (workflow-project-at "Engineering") t)
+   (org-workflow-projects-goal-state (copy-marker (point-min)) t)
    (cl-letf (((symbol-function 'org-workflow-target--today-string) (lambda () "2026-09-18")))
-     (org-workflow-projects-goal-state (workflow-project-at "Engineering") nil)
+     (org-workflow-projects-goal-state (copy-marker (point-min)) nil)
      (org-workflow-projects-sync)
      (workflow-project-at "Algebra")
      (should (equal "TODO" (org-get-todo-state)))
@@ -231,7 +231,7 @@
 (ert-deftest workflow-project-ancestor-and-leaf-edits-reconcile-pause ()
   (workflow-project-fixture
    (org-workflow-projects-sync)
-   (workflow-project-at "Engineering") (org-todo "HOLD")
+   (org-workflow-projects-set-state (workflow-project-at "Compiler") "HOLD")
    (should-not (org-workflow-history--responsibilities "2026-09-16"))
    (workflow-project-at "Tokens") (org-todo "HOLD")
    (should-not (org-workflow-history--responsibilities "2026-09-16"))))
@@ -243,7 +243,7 @@
          (withdraw (symbol-function 'org-workflow-projects--withdraw)))
      (cl-letf (((symbol-function 'org-workflow-projects--withdraw)
                 (lambda (&rest args) (apply withdraw args) (error "injected failure"))))
-       (should-error (org-workflow-projects-goal-state (workflow-project-at "Engineering") t)))
+       (should-error (org-workflow-projects-goal-state (copy-marker (point-min)) t)))
      (should (equal before (buffer-string)))
      (should (= 1 (length (org-workflow-history--responsibilities "2026-09-16")))))))
 
@@ -263,15 +263,13 @@
        (should (equal "complete" (plist-get (org-workflow-panel--day-achievement "2026-09-16" "2026-09-17") :state)))
        (should (stringp (json-serialize record)))))))
 
-(ert-deftest workflow-project-reassignment-does-not-inherit-pause-ownership ()
+(ert-deftest workflow-project-old-association-does-not-override-file-goal ()
   (workflow-project-fixture
-   (org-workflow-projects-goal-state (workflow-project-at "Engineering") t)
    (workflow-project-at "Compiler")
-   (org-workflow-projects-set-goal (point-marker) "goal")
-   (org-workflow-projects-goal-state (workflow-project-at "Engineering") nil)
-   (workflow-project-at "Compiler")
-   (should (equal "HOLD" (org-get-todo-state)))
-   (should (equal "goal" (org-entry-get nil "WORKFLOW_GOAL_ID")))))
+   (org-entry-put nil "WORKFLOW_GOAL_ID" "old-goal")
+   (let* ((items (org-workflow-projects-collect)) (goal (car items)))
+     (should (equal (plist-get goal :id) (plist-get (cadr items) :goal-id)))
+     (should (equal "project" (plist-get goal :title))))))
 
 (ert-deftest workflow-project-narrowed-leaf-edits-respect-project-pause ()
   (workflow-project-fixture

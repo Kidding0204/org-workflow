@@ -35,6 +35,12 @@
 
 (require 'tab-line)
 (require 'org-workflow-sources)
+(autoload 'org-workflow-agenda-projects "org-workflow-agenda-projects")
+(autoload 'org-workflow-agenda--with-completed "org-workflow-agenda-projects")
+(autoload 'org-workflow-agenda--successor-limit "org-workflow-agenda-projects")
+(autoload 'org-workflow-agenda--commitment-entry-p "org-workflow-agenda-projects")
+(autoload 'org-workflow-agenda--successors "org-workflow-agenda-projects")
+(autoload 'org-workflow-agenda--successor-line "org-workflow-agenda-projects")
 
 (defvar org-workflow-agenda-planning-all)
 
@@ -125,23 +131,39 @@
                       'org-agenda-structural-header t)
           "\n"))
 
+(defun org-workflow-agenda--breadcrumb-text (names width)
+  "Fit the project and stage NAMES into WIDTH display columns."
+  (let ((part (max 4 (/ (- width 3) 2))))
+    (string-join
+     (mapcar (lambda (name)
+               (truncate-string-to-width name (if (cdr names) part width) nil nil "…"))
+             names) " / ")))
+
 (defun org-workflow-agenda--entry-group-title (entry)
-  "Return ENTRY's emphasized direct parent followed by quiet ancestors."
-  (let ((marker (org-workflow-target-entry-marker entry)))
-    (org-with-point-at marker
-      (let ((category (org-get-category))
-            (ancestors (butlast (org-get-outline-path)))
-            (parent (when-let* ((title (org-workflow-target-entry-group-title entry)))
-                      (substring-no-properties title))))
-        (propertize
-         (if (and parent (not (string-empty-p parent)))
-             (concat (propertize parent 'face 'org-workflow-agenda-group)
-                     (propertize
-                      (concat (propertize "  " 'org-workflow-agenda-right-spacer t)
-                              (string-join (delete-dups (cons category ancestors)) " / "))
-                      'face 'org-workflow-agenda-ancestor))
-           (propertize category 'face 'org-workflow-agenda-group))
-         'org-workflow-agenda-group-header t)))))
+  "Return bounded project and stage names, without a file/category prefix."
+  (let ((width (max 12 (- (window-body-width) 8))))
+    (org-with-point-at (org-workflow-target-entry-marker entry)
+      (let ((names (seq-take (org-get-outline-path) 2)))
+        (propertize (org-workflow-agenda--breadcrumb-text names width)
+                    'face 'org-workflow-agenda-group
+                    'help-echo (string-join names " / ")
+                    'org-workflow-agenda-breadcrumb names
+                    'org-workflow-agenda-group-header t)))))
+
+(defun org-workflow-agenda--fit-breadcrumbs (&optional window)
+  "Refit breadcrumb display to WINDOW without rebuilding task rows."
+  (let ((width (max 12 (- (window-body-width window) 8)))
+        (inhibit-read-only t))
+    (save-excursion
+      (goto-char (point-min))
+      (while (< (point) (point-max))
+        (when-let* ((start (text-property-not-all (line-beginning-position)
+                                                (line-end-position)
+                                                'org-workflow-agenda-breadcrumb nil))
+                    (names (get-text-property start 'org-workflow-agenda-breadcrumb)))
+          (put-text-property start (line-end-position) 'display
+                             (org-workflow-agenda--breadcrumb-text names width)))
+        (forward-line 1)))))
 
 (defun org-workflow-agenda--priority-letter (priority)
   "Return the Org priority letter represented by numeric PRIORITY."
@@ -160,8 +182,7 @@
              (title (substring-no-properties (org-workflow-target-entry-title entry)))
              (commitment-mark (if (org-workflow--promise-p)
                                   (concat (propertize
-                                           (if (or (org-workflow-history-attempted-p date)
-                                                   (and (equal (org-get-todo-state) "DONE")
+                                           (if (or (and (equal (org-get-todo-state) "DONE")
                                                         (equal date (org-workflow-target--timestamp-date
                                                                      (org-entry-get nil "CLOSED")))))
                                                "◆" "◇")
@@ -170,8 +191,10 @@
              (category (org-get-category))
              (todo-state (org-get-todo-state))
              (tags (org-get-tags))
-             (line (concat "    " commitment-mark title
-                           (org-workflow-agenda--visible-tags tags))))
+             (done (equal todo-state "DONE"))
+             (line (concat "    " (if done "✓ " commitment-mark) title
+                           (unless done (org-workflow-agenda--visible-tags tags)))))
+        (when done (put-text-property 0 (length line) 'face 'org-workflow-agenda-meta line))
         (org-add-props line nil
           'org-marker agenda-marker
           'org-hd-marker agenda-marker
@@ -469,10 +492,9 @@ Use native Agenda markers and the existing parent progress renderer."
     (when (eq role 'candidates)
       (org-workflow-agenda-candidates nil))
     (when (memq role '(combined schedule))
-      (org-workflow-agenda-inbox nil habit-rows))
-    (when (memq role '(combined schedule))
       (unless (org-workflow-agenda--setting 'org-workflow-agenda-plan-tomorrow)
-        (org-workflow-agenda-completed nil)))))
+        (org-workflow-agenda-projects nil))
+      (org-workflow-agenda-inbox nil habit-rows))))
 
 (defun org-workflow-agenda--optional-candidates ()
   "Return the first two unscheduled tasks of each direct DIVE parent."
@@ -491,8 +513,8 @@ Use native Agenda markers and the existing parent progress renderer."
     (_match &optional
             (habit-rows (unless (org-workflow-agenda--setting 'org-workflow-agenda-plan-tomorrow)
                           (org-workflow-evening--habit-rows (org-workflow-agenda-target-date)))))
-  "Render all-day choices from HABIT-ROWS, collected tasks and stage candidates.
-Read habits for the selected day when HABIT-ROWS is omitted."
+  "Render free HABIT-ROWS and unscheduled Inbox captures.
+Stage candidates are previewed beneath commitments instead."
   (require 'org-workflow-agenda-inbox)
   (goto-char (point-max))
   (let* ((start (point)) (inhibit-read-only t)
@@ -502,10 +524,8 @@ Read habits for the selected day when HABIT-ROWS is omitted."
                   habit-rows))
          (collected (org-workflow-collection-inbox--pending
                      (org-workflow-collection-inbox--review-files) t t))
-         (candidates (org-workflow-agenda--optional-candidates))
-         (seen (make-hash-table :test #'equal))
-         previous-parent)
-    (insert "\n" (org-workflow-agenda--section-header "可选"))
+         (seen (make-hash-table :test #'equal)))
+    (insert "\n" (org-workflow-agenda--section-header "收集箱"))
     (when habits
       (insert (propertize "  习惯\n" 'face 'org-workflow-agenda-meta
                           'org-agenda-structural-header t 'org-workflow-agenda-create-context 'habit))
@@ -526,20 +546,8 @@ Read habits for the selected day when HABIT-ROWS is omitted."
                                 'org-workflow-agenda-inbox-entry t
                                 'org-workflow-collection-review-title original-title)))
           (set-marker marker nil))))
-    (when candidates
-      (insert (propertize "  待安排\n" 'face 'org-workflow-agenda-meta
-                          'org-agenda-structural-header t))
-      (dolist (entry candidates)
-        (let ((marker (org-workflow-target-entry-marker entry))
-              (parent (org-workflow-target-entry-group-marker entry)))
-          (unless (gethash (list (org-workflow-target-entry-file entry) (marker-position marker)) seen)
-            (unless (equal parent previous-parent)
-              (setq previous-parent parent)
-              (insert (propertize (concat "    " (org-workflow-agenda--entry-group-title entry) "\n")
-                                  'org-agenda-structural-header t)))
-            (insert (org-workflow-agenda--stack-line entry nil) "\n")))))
-    (unless (or habits collected candidates)
-      (insert (propertize "    暂无可选任务\n" 'face 'shadow)))
+    (unless (or habits collected)
+      (insert (propertize "    收集箱为空\n" 'face 'shadow)))
     (insert "\n")
     (add-text-properties start (point) '(org-agenda-type todo))))
 
@@ -554,7 +562,8 @@ Read habits for the selected day when HABIT-ROWS is omitted."
                           (or (not tomorrow)
                               (equal target (org-workflow-target-entry-scheduled-date entry)))))
                    (org-workflow-target--ordered-entries (and tomorrow target))))
-         (completed (org-workflow-agenda--completed-periods target)))
+         (entries (org-workflow-agenda--with-completed entries target tomorrow))
+         (limit (org-workflow-agenda--successor-limit (length entries))))
     (insert (propertize "安排" 'face 'org-workflow-agenda-section
                         'org-agenda-structural-header t) "    ")
     (org-workflow-agenda--insert-day-tabs)
@@ -579,10 +588,12 @@ Read habits for the selected day when HABIT-ROWS is omitted."
                        'keymap org-super-agenda-header-map
                        'local-map org-super-agenda-header-map
                        'org-super-agenda-header t)))
-            (insert (org-workflow-agenda--stack-line entry nil) "\n")))
+            (insert (org-workflow-agenda--stack-line entry nil) "\n")
+            (when (org-workflow-agenda--commitment-entry-p entry target)
+              (dolist (next (org-workflow-agenda--successors entry limit))
+                (insert (org-workflow-agenda--successor-line next) "\n")))))
         (unless period-entries
-          (insert (propertize (if (memq letter completed)
-                                 "      已完成\n" "      暂无安排\n")
+          (insert (propertize "      暂无安排\n"
                               'face 'org-workflow-agenda-meta)))
         (when habit-rows
           (org-workflow-evening--insert-habits habit-rows letter 'late))
@@ -627,11 +638,14 @@ Read habits for the selected day when HABIT-ROWS is omitted."
         (goto-char (point-min))
         (while (not (eobp))
           (when-let* ((marker (org-get-at-bol 'org-hd-marker))
-                      ((not (org-get-at-bol 'org-workflow-agenda-stage-goal))))
+                      ((not (or (org-get-at-bol 'org-workflow-agenda-stage-goal)
+                                 (org-get-at-bol 'org-workflow-agenda-project-row)))))
             (let* ((start (line-beginning-position))
                    (props (text-properties-at start))
                    (text (buffer-substring start (line-end-position)))
-                   (tags (org-with-point-at marker (org-get-tags))))
+                   (tags (unless (or (org-get-at-bol 'org-workflow-agenda-preview)
+                                      (equal (org-get-at-bol 'todo-state) "DONE"))
+                           (org-with-point-at marker (org-get-tags)))))
               (setq text (replace-regexp-in-string "\\[#[[:alnum:]]\\] *" "" text))
               (when (string-match org-tag-group-re text)
                 (setq text (substring text 0 (match-beginning 0))))
@@ -647,6 +661,7 @@ Read habits for the selected day when HABIT-ROWS is omitted."
 (defun org-workflow-agenda--align-right-details (&optional window)
   "Anchor Sprint details to the right edge of optional WINDOW."
   (when org-workflow-agenda--sprint-buffer-p
+    (org-workflow-agenda--fit-breadcrumbs window)
     (let ((inhibit-read-only t))
       (save-excursion
         (goto-char (point-min))
@@ -712,6 +727,7 @@ This changes only display.")
        (>= (org-outline-level) 2)
        (equal (org-get-todo-state) "TODO")
        (org-workflow-target--task-leaf-p)
+       (not (and (fboundp 'org-workflow-projects-stage-p) (org-workflow-projects-stage-p)))
        (not (org-workflow--held-p))
        (not (org-entry-get nil "SCHEDULED"))))
 

@@ -83,7 +83,7 @@ An empty count does not complete a task containing only notes."
    ["视图"
     ("c" "双页工作台" org-workflow-agenda-open-workbench :transient nil)
     ("w" org-workflow-agenda-planning-scope-label org-workflow-agenda-toggle-planning-scope)
-    ("C" "今日已完成" org-workflow-agenda-toggle-completed)]
+]
    ["返回"
     ("q" "关闭菜单" transient-quit-one)]])
 

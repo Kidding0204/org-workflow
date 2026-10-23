@@ -6,16 +6,22 @@
 
 ## 2026-10-23 项目工作台与每日底线
 
-新增 `org-workflow-projects.el`（显式项目、目标归属、事务化状态／日期／每日承诺）和
-`org-workflow-project-view.el`（只读原生项目规划视图）。完整使用与数据边界见
-[项目规划](project-workbench.md)。Workflow 菜单 p、Sprint P 打开，今日时段布局保留。
+`org-workflow-projects.el` 以 Agenda 文件名作为目标，一级 TODO 标题作为项目，二级为
+阶段，三级及细分为任务；不需要文件标签、WORKFLOW_KIND 或 WORKFLOW_GOAL_ID 登记。
+普通组织标题、Inbox 和简单重复习惯不自动成为学习项目。旧属性不决定归属，ID 与
+历史保留。`org-workflow-project-view.el` 仍提供独立只读规划入口（菜单 p、Sprint P）。
+完整使用与数据边界见 [项目规划](project-workbench.md)。
 
-`WORKFLOW_KIND=goal/project` 明确身份，不能把所有旧 DIVE 自动当项目。登记命令创建
-ID；项目可由结构归属或 WORKFLOW_GOAL_ID 跨文件关联。HOLD/DONE 上级阻止执行。
-批量暂停通过 WORKFLOW_PAUSED / WORKFLOW_PAUSE_OWNER 保存批次；手动状态或归属
-调整使旧批次失效。TODO 在暂停期间错过开始日期会以 WORKFLOW_START_DEFERRED 标记
-待重排，恢复目标不自动启动它。普通 DIVE 章节原行为继续保留，不能越过显式项目边界
-自动开放相邻项目。渲染不产生承诺；源命令、启动／午夜和显式同步负责写入。
+今日主面板现在为安排 → 项目 → 收集箱，时段继续占据安排区主分组。
+`org-workflow-agenda-projects.el` 提供完成任务原位排序、承诺后继预览、项目进度与周
+追踪。完成项简化淡显；后继预览按任务数显示 1–3 项，不生成日期／责任。项目、阶段
+均保留原生 Agenda marker；源文件事实不在渲染中修改。收集箱移除待安排，取消今日
+已完成区域；简单重复习惯在时段内为一行。归属仅前两级大纲，随窗口宽度截断。
+
+目标暂停使用 goal-paused:file:... meta 与 WORKFLOW_PAUSE_OWNER 保存批次；手动
+状态变更和 refile 清除旧批次资格。TODO 错过开始日期以 WORKFLOW_START_DEFERRED
+保留待重排，恢复目标不自动启动。暂停阶段也撤回其冻结的未完成责任，恢复复用原记录。
+渲染不生成承诺；源命令、启动／午夜和显式同步负责事务写入及按需创建 ID。
 
 `project-day:DATE:ID` meta 冻结每日承诺，project-daily 事件识别每天责任，
 project-superseded 以日期边界结束既有逾期责任的继续携带，不改过去结算。
@@ -85,8 +91,8 @@ Sprint 的任务编辑、完成、改期、优先级、排序、批量安排和�
 原行仍是任务时保留，非任务光标与窗口滚动锚点仅按行列截断。显式访问任务仍使用原生 marker 跳转。
 公共刷新定位由布局库负责，动作库不再在刷新后重新定位任务。
 
-“可选”中的习惯、收集项和待安排分组统一使用 `org-workflow-agenda-meta`。
-已完成任务与队列任务一样移除源 Org 标题的字体属性，保留原生 Agenda marker 和 DONE 状态。
+收集箱只保留自由习惯及收集项。已完成任务保留原时段位置，淡色显示标题，省略标签；
+后继预览是较浅缩进任务行。所有任务行保留原生 Agenda marker 与源 TODO 状态。
 
 Sprint 工作台用 `m` 标记／取消任务、`M` 清除选择，`d` 延至明天。
 不再占用 SPC，也不单独绑定 f/t/d 添加 @flow/@tiny/@deep；这些标签操作函数保留。
@@ -192,9 +198,9 @@ Sprint 右侧项目循环用 `org-workflow-agenda-previous-project` / `org-workf
   t/p/L 标题捕获显式使用 `:empty-lines 0`，不沿用附近空行自动补分隔；正文列表模板不变。
   收集项日常查询只读 projects，不依赖 Vulpea 周日志索引。新周日志仅随记／周回顾。
   本次已授权迁移 52 个旧收集任务，备份与记录见 verification；程序不自动搬移其他文件。
-- Sprint “可选”区按自由习惯、未安排收集项、每个直接 DIVE 父组最前两项呈现，单栏和
-  双栏主面板均显示。候选按原文顺序、独立于右栏项目选择与全部范围开关，不变更执行队列。
-  原生访问／完成不要求启动专注，不创建承诺；计时仍可选。
+- Sprint 收集箱显示自由习惯、未安排收集项；待安排步骤改为承诺下的安静预览，独立
+  右侧候选规划窗仍可用。项目区按文件显示进度、周追踪、streak 与阶段。周追踪只读
+  每日承诺，未知日期不伪造连续；任务推进优先于投入时间指标。
 - Inbox 自动清理接在 history-catch-up 的全部旧日结算之后（当前午夜日结／启动补结算）。
   仅原生 DONE 的直属任务，CLOSED 超出截止日则留待下次；缺少 CLOSED 的旧 DONE 可归档。
   沿用 Org ARCHIVE／org-archive-location，先保存档案再保存源，维护 ID 定位；有未保存编辑

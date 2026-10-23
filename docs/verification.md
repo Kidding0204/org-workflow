@@ -1,5 +1,20 @@
 # 0.1.0 提取验收记录
 
+
+## 2026-10-23 文件目标与今日集成项目栏
+
+- 今日：安排 → 项目 → 收集箱；承诺后继淡色缩进，完成项留在原时段；移除独立完成区。
+- Agenda 文件无需标签即可作为目标，一级 TODO 项目／二级阶段／三级具体任务；旧身份与
+  归属属性不再决定分组，已有 ID/历史保留。目标暂停与阶段暂停均保留完成/CLOCK 事实。
+- 新增 14 项集成回归，原执行／界面夹具随新层级与新布局更新。覆盖无写入发现、自动 ID、
+  原生项目／阶段 TODO 操作、冻结承诺暂停恢复、refile 批次失效、空阶段及空项目不入时段、
+  后继预算、完成原位、窄窗与动态缩放、周追踪／streak／未知日期缺口。
+- 独立审查指出的阶段暂停、空阶段后继和 refile 归属三项均有失败复现与通过验证。
+- `PACKAGE_USER_DIR=/home/meph1st0/.config/emacs/elpa make test`：**698/698 ERT 通过**。
+- 同一环境 `make compile`：通过，无警告；`git diff --check` 通过。
+- 验证全部使用临时 Org/SQLite。未重启真实 daemon、修改个人课程或覆盖桌面扩展；实际
+  字体、Nerd Font 字形和交互手感仍需用户现场体验。具体规则见 [项目工作台](project-workbench.md)。
+
 日期：2026-10-07。Emacs 31.1；依赖从 GNU ELPA / MELPA 安装到独立目录。
 
 - `make check`：506 个 ERT 全部通过，byte compilation 成功，package-lint 通过，checkdoc 0 项。

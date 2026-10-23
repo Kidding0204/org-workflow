@@ -94,7 +94,7 @@
 
 (ert-deftest my/org-mouse-shift-skips-filtered-tasks ()
   (org-workflow-workbench-test-with-files
-      '("#+filetags: :project:\n* DIVE Project\n** TODO First :@deep:\n** TODO Hidden :@flow:\n** TODO Last :@deep:\n")
+      '("#+filetags: :project:\n* DIVE Project\n** DIVE Project\n*** TODO First :@deep:\n*** TODO Hidden :@flow:\n*** TODO Last :@deep:\n")
     (my/org-mouse-test-open)
     (org-workflow-agenda--filter-tag "@deep")
     (org-workflow-agenda-mouse--select (my/org-mouse-test-row "First") nil)
@@ -410,8 +410,8 @@
               (should-not org-workflow-agenda-last-plan)
               (should (member "First" (org-workflow-workbench-test-titles candidate)))
               (should (member "Second" (org-workflow-workbench-test-titles candidate)))
-              (should (member "First" (org-workflow-workbench-test-titles primary)))
-              (should (member "Second" (org-workflow-workbench-test-titles primary)))))
+              (should-not (member "First" (org-workflow-workbench-test-titles primary)))
+              (should-not (member "Second" (org-workflow-workbench-test-titles primary)))))
         (when (and org-workflow-store--connection
                    (org-workflow-store--live-p org-workflow-store--connection))
           (sqlite-close org-workflow-store--connection))
