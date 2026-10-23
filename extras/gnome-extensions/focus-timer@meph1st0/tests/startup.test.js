@@ -1,3 +1,4 @@
+import {minimumInvestmentState, PROGRESS_HEIGHT} from '../ui.js';
 import GLib from 'gi://GLib';
 import {currentHabitReminder, workflowTitleState} from '../workflow-state.js';
 import {planningPresentation, weekTrackStyle} from '../planning.js';
@@ -5,6 +6,7 @@ import {isServerUnavailable, refreshIntervalFor, workflowCommandArgv} from '../s
 
 // Exercise refresh control flow without a GNOME Shell session.
 const Extension = class {};
+const PopupMenu = {Ornament: {DOT: 1, NONE: 0}};
 const [, bytes] = GLib.file_get_contents('extension.js');
 const source = new TextDecoder().decode(bytes)
     .replace(/^import [\s\S]*?;\n/gm, '')
@@ -57,6 +59,12 @@ Object.assign(extension, {
     _morePage: {}, _bodyItem: {label: label()},
     _focusGroup: {}, _accessoryGroup: {}, _queueLayout() {},
     _weekStrip: {}, _weekCells: Array.from({length: 7}, () => ({track: {set_style(value) { this.style = value; }}, unknown: {}, dot: {}})),
+    _settings: {get_string() { return 'hint'; }},
+    _idleDisplayItems: ['investment', 'hint'].map(mode => ({mode,
+        item: {setOrnament(value) { this.ornament = value; }}})),
+    _investmentGroup: {}, _investmentLabel: label(),
+    _investmentFill: {set_size(width) { this.width = width; },
+        remove_style_class_name() {}, add_style_class_name() {}},
     _rightLabel: label(), _rightIndicator: {}, _rightBody: {label: label()},
     _habitMenu: {removeAll() {}, addAction() { return {setSensitive() {}}; }},
     _timerStatus: {phase: 'inactive'},
@@ -223,3 +231,22 @@ processes.shift()(false);
 assert(reads.length === 0 && actions._actionsInFlight === 0,
     'old action callbacks cannot alter a re-enabled extension');
 print('Workflow action refresh coalescing passed');
+
+// The default investment mode replaces hints only while inactive.
+extension._settings.get_string = () => 'investment';
+extension._workflowStatus.dailyMinimumMinutes = 60;
+extension._workflowStatus.focusTotalMinutes = 30;
+for (const phase of ['inactive', 'focus', 'short-break', 'long-break']) {
+    extension._timerStatus.phase = phase;
+    ExtensionClass.prototype._updatePlanning.call(extension);
+    assert(extension._investmentGroup.visible === (phase === 'inactive'), 'investment is idle only');
+    assert(!extension._rightLabel.visible, 'hint hidden in investment mode');
+}
+assert(extension._investmentLabel.text === '30/60m', 'actual investment label');
+assert(extension._idleDisplayItems[0].item.ornament === PopupMenu.Ornament.DOT &&
+    extension._idleDisplayItems[1].item.ornament === PopupMenu.Ornament.NONE, 'menu marks selected mode');
+extension._timerStatus = null;
+ExtensionClass.prototype._updatePlanning.call(extension);
+assert(!extension._investmentGroup.visible && extension._rightLabel.text === '—',
+    'timer failure does not masquerade as idle');
+print('Minimum investment actor transitions passed');

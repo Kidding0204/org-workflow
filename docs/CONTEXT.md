@@ -4,6 +4,14 @@
 本文是当前代码的阅读地图与维护边界；行为事实以对应源码为准。
 修改入口、数据规则、依赖或验证方法时同步本页，避免继续使用历史方案。
 
+## 2026-10-23 顶栏最低投入显示
+
+扩展源位于 `extras/gnome-extensions/focus-timer@meph1st0/`（v26）。非计时状态的右侧
+默认显示最低投入时长进度，直接使用状态接口 `focusTotalMinutes / dailyMinimumMinutes`；
+只按时间填充，不混入承诺完成率。右键“空闲时显示”可切换开工提示，GSettings
+`idle-display` 保存选择。专注和休息期间仍显示周状态。新增 schema 随扩展打包编译；
+本机安装目录是复制品，Wayland 新代码需要下次登录加载。无新增 Emacs 数据或写入路径。
+
 ## 2026-10-23 项目工作台与每日底线
 
 `org-workflow-projects.el` 以 Agenda 文件名作为目标，一级 TODO 标题作为项目，二级为

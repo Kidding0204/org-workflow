@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist>
+  <schema id="org.gnome.shell.extensions.focus-timer" path="/org/gnome/shell/extensions/focus-timer/">
+    <key name="idle-display" type="s">
+      <default>'investment'</default>
+      <choices><choice value="investment"/><choice value="hint"/></choices>
+      <summary>Right panel display while the timer is inactive</summary>
+      <description>Show minimum investment progress or the opening hint.</description>
+    </key>
+  </schema>
+</schemalist>

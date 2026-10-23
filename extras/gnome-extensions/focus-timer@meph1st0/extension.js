@@ -18,6 +18,7 @@ import {
     applyUnavailable,
     commitmentStreakText,
     dailyProgressState,
+    minimumInvestmentState,
     PROGRESS_HEIGHT,
     PROGRESS_WIDTH,
     progressState,
@@ -59,6 +60,7 @@ function makeProgress(styleClass) {
 
 export default class FocusTimerExtension extends Extension {
     enable() {
+        this._settings = this.getSettings();
         this._enabled = true;
         this._refreshSourceId = null;
         this._refreshIntervalSeconds = null;
@@ -144,6 +146,15 @@ export default class FocusTimerExtension extends Extension {
         this._rightContent = new St.BoxLayout({y_align: Clutter.ActorAlign.CENTER});
         this._rightContent.add_child(this._streakLabel);
         this._rightContent.add_child(this._rightLabel);
+        const investment = makeProgress('org-workflow-daily');
+        this._investmentFill = investment.fill;
+        this._investmentLabel = new St.Label({text: '—', style_class: 'org-workflow-daily-label',
+            y_align: Clutter.ActorAlign.CENTER});
+        this._investmentGroup = new St.BoxLayout({style_class: 'workflow-action-group',
+            y_align: Clutter.ActorAlign.CENTER, visible: false});
+        this._investmentGroup.add_child(investment.bar);
+        this._investmentGroup.add_child(this._investmentLabel);
+        this._rightContent.add_child(this._investmentGroup);
         this._weekStrip = new St.BoxLayout({style_class: 'workflow-week-strip',
             y_align: Clutter.ActorAlign.CENTER, visible: false});
         this._weekCells = Array.from({length: 7}, () => {
@@ -168,6 +179,15 @@ export default class FocusTimerExtension extends Extension {
         this._rightIndicator.menu.addMenuItem(this._rightBody);
         this._rightIndicator.menu.addAction('打开长期状态追踪', () => this._runWorkflowAction('history'));
         this._rightIndicator.menu.addAction('打开周日志', () => this._runWorkflowAction('week'));
+        const idleMenu = new PopupMenu.PopupSubMenuMenuItem('空闲时显示');
+        this._rightIndicator.menu.addMenuItem(idleMenu);
+        this._idleDisplayItems = ['investment', 'hint'].map((mode, index) => {
+            const item = idleMenu.menu.addAction(['最低投入进度', '开工提示'][index],
+                () => this._settings.set_string('idle-display', mode));
+            return {mode, item};
+        });
+        this._settingsChangedId = this._settings.connect('changed::idle-display',
+            () => this._updatePlanning());
         Main.panel.addToStatusArea(`${this.uuid}-guidance`, this._rightIndicator, 0, 'right');
         this._releaseRightPlacement = keepFirstInRightPanel(Main.panel, this._rightIndicator);
         this._bindPanelClicks(this._indicator, 'toggle');
@@ -345,6 +365,14 @@ export default class FocusTimerExtension extends Extension {
 
     disable() {
         this._enabled = false;
+        if (this._settingsChangedId)
+            this._settings.disconnect(this._settingsChangedId);
+        this._settingsChangedId = null;
+        this._settings = null;
+        this._idleDisplayItems = null;
+        this._investmentGroup = null;
+        this._investmentFill = null;
+        this._investmentLabel = null;
         this._generation = null;
         this._stopRefreshTimer();
         this._unsubscribeFromEmacsChanges();
@@ -482,9 +510,24 @@ export default class FocusTimerExtension extends Extension {
 
         this._accessoryGroup.visible = !idle || this._parentLabel.visible;
         this._queueLayout();
+        const mode = this._settings.get_string('idle-display');
+        const showInvestment = idle && mode === 'investment';
+        const investment = minimumInvestmentState(this._workflowStatus);
+        this._investmentGroup.visible = showInvestment;
+        this._investmentFill.set_size(investment.width, PROGRESS_HEIGHT);
+        this._investmentFill.remove_style_class_name('org-workflow-daily-complete');
+        if (investment.complete)
+            this._investmentFill.add_style_class_name('org-workflow-daily-complete');
+        this._investmentLabel.set_text(investment.text);
+        const investmentDescription = investment.available
+            ? `今日最低投入：${investment.text}${investment.complete ? '，已达到' : ''}`
+            : '今日最低投入数据暂不可用';
+        this._investmentGroup.accessible_name = investmentDescription;
+        for (const {mode: value, item} of this._idleDisplayItems)
+            item.setOrnament(mode === value ? PopupMenu.Ornament.DOT : PopupMenu.Ornament.NONE);
         const days = view.days ?? [];
         this._rightLabel.set_text(view.right);
-        this._rightLabel.visible = days.length === 0;
+        this._rightLabel.visible = !showInvestment && days.length === 0;
         this._weekStrip.visible = days.length > 0;
         this._weekCells.forEach(({track, unknown, dot}, index) => {
             const day = days[index];
@@ -494,9 +537,9 @@ export default class FocusTimerExtension extends Extension {
             unknown.visible = day?.state === 'unknown';
             dot.opacity = day?.today ? 255 : 0;
         });
-        this._rightIndicator.accessible_name = view.right;
-        this._rightIndicator.visible = Boolean(view.right);
-        this._rightBody.label.set_text([view.details,
+        this._rightIndicator.accessible_name = showInvestment ? investmentDescription : view.right;
+        this._rightIndicator.visible = showInvestment || Boolean(view.right);
+        this._rightBody.label.set_text([showInvestment ? investmentDescription : '', view.details,
             this._workflowStatus?.resume ? `下次从这里开始：${this._workflowStatus.resume}` : ''].filter(Boolean).join('\n\n'));
         this._updateLeftMenu();
         const signature = JSON.stringify(panel?.habits ?? []);

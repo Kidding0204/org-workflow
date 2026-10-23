@@ -16,6 +16,20 @@ export function progressState(status) {
     return {width, variant};
 }
 
+// This bar measures only recorded investment, independently of commitment completion.
+export function minimumInvestmentState(status) {
+    const minutes = status?.focusTotalMinutes;
+    const target = status?.dailyMinimumMinutes;
+    if (!Number.isFinite(minutes) || minutes < 0 || !Number.isInteger(target) || target <= 0)
+        return {width: 0, text: '—', complete: false, available: false};
+    return {
+        width: Math.round(PROGRESS_WIDTH * Math.min(1, minutes / target)),
+        text: `${Math.floor(minutes)}/${target}m`,
+        complete: minutes >= target,
+        available: true,
+    };
+}
+
 export function dailyProgressState(status) {
     if (!status)
         return {width: 0, text: '0/0', variant: 'unavailable'};

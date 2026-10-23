@@ -79,7 +79,7 @@ configuration repository; install a bundle rather than editing the copied
 user-extension directory.
 
 ```sh
-cd /home/meph1st0/.config/emacs/gnome-extensions/focus-timer@meph1st0
+cd /home/meph1st0/.config/emacs/user-lisp/org-workflow/extras/gnome-extensions/focus-timer@meph1st0
 mkdir -p /tmp/focus-timer-extension
 gnome-extensions pack --force --out-dir /tmp/focus-timer-extension --extra-source=state.js --extra-source=workflow-state.js --extra-source=ui.js --extra-source=panel-placement.js --extra-source=layout.js --extra-source=sync.js --extra-source=planning.js .
 gnome-extensions install --force /tmp/focus-timer-extension/focus-timer@meph1st0.shell-extension.zip
@@ -263,3 +263,17 @@ Operation availability is applied to each native menu item individually. GNOME's
 section sensitivity signal can stop after the first item returns true, leaving
 later rows disabled on recovery. The menu test uses GJS signals to cover both
 disconnected → task and habit → task recovery for every operation.
+
+## Idle minimum-investment display (v26)
+
+When the timer is inactive, the right indicator defaults to a minimum-investment
+bar with recorded minutes and today's recorded target, such as `35/60m`.
+Only `focusTotalMinutes / dailyMinimumMinutes` controls this bar: completing
+commitments does not fill it. It caps at 100%, while the label retains actual
+minutes above the target. Missing data displays `—`, not an invented zero.
+The existing active-focus and break week display is unchanged.
+
+Right-click the right indicator, then choose **空闲时显示 → 最低投入进度 / 开工提示**.
+The GSettings `idle-display` preference persists across Shell sessions; changing
+it updates the presentation immediately. The schema is bundled by `gnome-extensions pack` and compiled on installation. On Wayland, installed JavaScript takes effect in the
+next login session. No Emacs restart is needed when it already exports these fields.
