@@ -29,7 +29,7 @@
 					 (with-current-buffer primary
 					   (should-not (string-match-p "未来 7 天" (buffer-string))))
 					 (with-current-buffer candidate
-					   (should (string-match-p "待安排" (buffer-string)))
+					   (should (string-match-p "项目" (buffer-string)))
 					   (should-not (string-match-p "未来 7 天" (buffer-string)))))))
 
 (ert-deftest org-workflow-agenda-inbox-historical-arrangement-enters-queue-and-undo-restores ()

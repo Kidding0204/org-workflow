@@ -305,7 +305,7 @@ CURRENT-ONLY limits entries to the current DIVE stages."
      org-workflow-agenda--candidate-tab-data)))
 
 (defun org-workflow-agenda--candidate-tab-line ()
-  "Use project tabs only in the dedicated candidate pane."
+  "Use file tabs only in the dedicated project pane."
   (when (and (eq org-workflow-agenda--pane-role 'schedule)
              org-workflow-agenda--workbench
              (org-workflow-agenda-workbench-tab-frame org-workflow-agenda--workbench))
@@ -318,9 +318,9 @@ CURRENT-ONLY limits entries to the current DIVE stages."
     (tab-line-force-update nil)))
 
 (defun org-workflow-agenda--cycle-candidate-project (count)
-  "Cycle candidate project groups by signed COUNT, including All."
+  "Cycle goal files by signed COUNT, including All."
   (unless (eq org-workflow-agenda--pane-role 'candidates)
-    (user-error "请在右侧待安排栏切换项目"))
+    (user-error "请在右侧项目栏切换目标文件"))
   (let* ((groups org-workflow-agenda--candidate-tab-data)
          (selected (org-workflow-agenda--setting 'org-workflow-agenda-selected-group))
          (index (or (seq-position groups selected
@@ -490,10 +490,11 @@ Use native Agenda markers and the existing parent progress renderer."
       (org-workflow-agenda-deadline-goals nil)
       (org-workflow-agenda-task-stack nil habit-rows))
     (when (eq role 'candidates)
-      (org-workflow-agenda-candidates nil))
+      (org-workflow-agenda-projects nil))
     (when (memq role '(combined schedule))
       (org-workflow-agenda-inbox nil habit-rows)
-      (unless (org-workflow-agenda--setting 'org-workflow-agenda-plan-tomorrow)
+      (when (and (eq role 'combined)
+                 (not (org-workflow-agenda--setting 'org-workflow-agenda-plan-tomorrow)))
         (org-workflow-agenda-projects nil)))))
 
 (defun org-workflow-agenda--optional-candidates ()

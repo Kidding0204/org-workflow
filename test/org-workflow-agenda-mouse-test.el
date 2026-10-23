@@ -316,8 +316,8 @@
               (should-not org-agenda-bulk-marked-entries)
               (should-not org-workflow-agenda-mouse--anchor)
               (should (equal "2026-08-17" (org-workflow-agenda-target-date)))
-              (should-not (member "First" (org-workflow-workbench-test-titles candidate)))
-              (should-not (member "Second" (org-workflow-workbench-test-titles candidate)))
+              (should (member "First" (org-workflow-workbench-test-titles candidate)))
+              (should (member "Second" (org-workflow-workbench-test-titles candidate)))
               (if (equal date "2026-08-17")
                   (progn
                     (should (member "First" (org-workflow-workbench-test-titles primary)))
@@ -327,7 +327,7 @@
 
 (ert-deftest my/org-mouse-drop-no-op-keeps-source-and-undo-record ()
   (org-workflow-workbench-test-with-files
-      '("#+filetags: :project:\n* Project :CURR:\n** TODO [#B] Already\nSCHEDULED: <2026-08-17 Mon>\n")
+      '("#+filetags: :project:\n* DIVE Project :CURR:\n** TODO [#B] Already\nSCHEDULED: <2026-08-17 Mon>\n")
     (let ((org-workflow-store-enabled nil)
           (org-workflow-agenda-last-plan '(previous-plan)))
       (org-workflow-workbench-test-open)
@@ -503,7 +503,7 @@
 
 (ert-deftest my/org-mouse-mixed-drop-skips-already-correct-task ()
   (org-workflow-workbench-test-with-files
-      '("#+filetags: :project:\n* Project :CURR:\n** TODO [#B] Already\nSCHEDULED: <2026-08-17 Mon>\n** TODO [#A] New\nSCHEDULED: <2026-08-17 Mon>\n")
+      '("#+filetags: :project:\n* DIVE Project :CURR:\n** TODO [#B] Already\nSCHEDULED: <2026-08-17 Mon>\n** TODO [#A] New\nSCHEDULED: <2026-08-17 Mon>\n")
     (let ((org-workflow-store-enabled nil))
       (org-workflow-workbench-test-open)
       (let ((already (copy-marker (my/org-mouse-test-row "Already")))

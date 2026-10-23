@@ -35,7 +35,7 @@
        (mapc #'delete-file files))))
 
 (defconst org-workflow-workbench-test-source
-  "#+filetags: :project:\n#+CATEGORY: Work\n#+TODO: TODO DIVE | DONE HOLD\n* Stage\n** DIVE Group\n*** TODO First :@deep:\n*** TODO Second :@flow:\n*** TODO Overdue\nSCHEDULED: <2026-08-15 Sat>\n*** TODO Today\nSCHEDULED: <2026-08-17 Mon>\n*** TODO Tomorrow\nSCHEDULED: <2026-08-18 Tue>\n*** TODO Later\nSCHEDULED: <2026-08-19 Wed>\n** DIVE Other\n*** TODO Third\n")
+  "#+filetags: :project:\n#+CATEGORY: Work\n#+TODO: TODO DIVE | DONE HOLD\n* DIVE Stage\n** DIVE Group\n*** TODO First :@deep:\n*** TODO Second :@flow:\n*** TODO Third\n*** TODO Overdue\nSCHEDULED: <2026-08-15 Sat>\n*** TODO Today\nSCHEDULED: <2026-08-17 Mon>\n*** TODO Tomorrow\nSCHEDULED: <2026-08-18 Tue>\n*** TODO Later\nSCHEDULED: <2026-08-19 Wed>\n** DIVE Other\n")
 
 (defun org-workflow-workbench-test-open ()
   (org-agenda nil "d")
@@ -49,7 +49,9 @@
       (let (titles)
         (while (< (point) (point-max))
           (when-let* ((marker (org-get-at-bol 'org-hd-marker))
-                      ((not (org-get-at-bol 'org-workflow-agenda-project-row))))
+                      ((or (not (org-get-at-bol 'org-workflow-agenda-project-row))
+                           (and (eq org-workflow-agenda--pane-role 'candidates)
+                                (null (org-get-at-bol 'org-workflow-agenda-project-role))))))
             (should (marker-buffer marker))
             (push (org-with-point-at marker (org-get-heading t t t t)) titles))
           (forward-line))
@@ -93,8 +95,8 @@
 
 (ert-deftest org-workflow-workbench-same-title-tabs-across-files-retain-source-order ()
   (org-workflow-workbench-test-with-files
-      '("#+filetags: :project:\n#+CATEGORY: Work\n* Stage\n** DIVE Same\n*** TODO First file\n"
-        "#+filetags: :project:\n#+CATEGORY: Work\n* Stage\n** DIVE Same\n*** TODO Second file\n")
+      '("#+filetags: :project:\n#+CATEGORY: Work\n* DIVE Stage\n** DIVE Same\n*** TODO First file\n"
+        "#+filetags: :project:\n#+CATEGORY: Work\n* DIVE Stage\n** DIVE Same\n*** TODO Second file\n")
     (org-workflow-workbench-test-open)
     (pcase-let ((`(,_primary ,candidate) (org-workflow-workbench-test-panes)))
       (set-buffer candidate))
@@ -103,7 +105,7 @@
      (should-not (equal (cadar rows) (cadr (cadr rows)))))
    (dolist (file files)
      (should (seq-some (lambda (tab)
-                         (string-match-p (regexp-quote (file-name-nondirectory file))
+                         (string-match-p (regexp-quote (file-name-base file))
                                          (alist-get 'name tab)))
                        (org-workflow-agenda-candidate-tabs))))))
 
@@ -192,7 +194,7 @@
         (goto-char (point-min)) (search-forward "First") (beginning-of-line)
         (org-agenda-schedule nil "2026-08-17")
         (org-agenda-redo)
-        (should-not (member "First" (org-workflow-workbench-test-titles))))
+        (should (member "First" (org-workflow-workbench-test-titles))))
       (should (member "First" (org-workflow-workbench-test-titles primary)))
       (with-current-buffer primary (org-agenda-redo))
       (should (member "Second" (org-workflow-workbench-test-titles candidate)))
@@ -210,7 +212,7 @@
       (should (buffer-live-p candidate))
       (should (buffer-live-p primary))
       (should (eq 'candidates (buffer-local-value 'org-workflow-agenda--pane-role candidate)))
-      (should-not (member "First" (org-workflow-workbench-test-titles candidate)))
+      (should (member "First" (org-workflow-workbench-test-titles candidate)))
       (should (member "Second" (org-workflow-workbench-test-titles candidate)))
       (should (member "First" (org-workflow-workbench-test-titles primary)))
       (with-current-buffer (find-file-noselect (car files))
@@ -363,7 +365,7 @@
     (org-workflow-workbench-test-open)
     (pcase-let ((`(,_primary ,candidate) (org-workflow-workbench-test-panes)))
       (with-current-buffer candidate
-        (let ((id (cadr (car (org-workflow-agenda--candidate-entries)))))
+        (let ((id (alist-get 'org-workflow-agenda-group-id (nth 1 (org-workflow-agenda-candidate-tabs)))))
           (org-workflow-agenda--set-setting 'org-workflow-agenda-selected-group id)
           (org-agenda-redo)
           (goto-char (point-min)) (search-forward "Second") (beginning-of-line)
@@ -432,15 +434,15 @@
       (let ((schedule (with-current-buffer primary (buffer-string))))
         (select-window (get-buffer-window candidate))
         (org-workflow-agenda-next-project)
-        (should (equal '("First" "Second" "Third") (org-workflow-workbench-test-titles)))
+        (should (equal '("First" "Second" "Third" "Overdue" "Today" "Tomorrow" "Later") (org-workflow-workbench-test-titles)))
         (org-workflow-agenda-next-project)
         (should (equal '("Other task") (org-workflow-workbench-test-titles)))
         (org-workflow-agenda-next-project)
-        (should (= 4 (length (org-workflow-workbench-test-titles))))
+        (should (= 8 (length (org-workflow-workbench-test-titles))))
         (org-workflow-agenda-previous-project)
         (should (equal '("Other task") (org-workflow-workbench-test-titles)))
         (org-workflow-agenda-next-project 2)
-        (should (equal '("First" "Second" "Third") (org-workflow-workbench-test-titles)))
+        (should (equal '("First" "Second" "Third" "Overdue" "Today" "Tomorrow" "Later") (org-workflow-workbench-test-titles)))
         (let ((tab-line-switch-cycling nil))
           (org-workflow-agenda-previous-project 2)
           (should (equal '("Other task") (org-workflow-workbench-test-titles))))
@@ -503,21 +505,21 @@
     (should (plist-member spec :transient))
     (should-not (plist-get spec :transient))))
 
-(ert-deftest org-workflow-workbench-tabs-group-by-level-one-heading ()
+(ert-deftest org-workflow-workbench-tabs-group-by-file ()
   (org-workflow-workbench-test-with-files
-      '("#+filetags: :project:\n#+CATEGORY: Course\n* First project\n** DIVE Chapter\n*** TODO One\n* Second project\n** DIVE Chapter\n*** TODO Two\n")
+      '("#+filetags: :project:\n#+CATEGORY: Course\n* DIVE First project\n** DIVE Chapter\n*** TODO One\n* DIVE Second project\n** DIVE Chapter\n*** TODO Two\n")
     (org-workflow-workbench-test-open)
     (pcase-let ((`(,_primary ,candidate) (org-workflow-workbench-test-panes)))
       (with-current-buffer candidate
         (let ((tabs (org-workflow-agenda-candidate-tabs)))
-          (should (equal '("全部" "First project" "Second project")
+          (should (equal (list "全部" (file-name-base (car files)))
                          (mapcar (lambda (tab) (alist-get 'name tab)) tabs)))
-          (funcall (alist-get 'select (nth 2 tabs)))
-          (should (equal '("Two") (org-workflow-workbench-test-titles))))))))
+          (funcall (alist-get 'select (nth 1 tabs)))
+          (should (equal '("One" "Two") (org-workflow-workbench-test-titles))))))))
 
 (ert-deftest org-workflow-workbench-project-stage-breadcrumb-without-file ()
   (org-workflow-workbench-test-with-files
-      '("#+filetags: :project:\n#+CATEGORY: Course\n* Root\n** Topic\n*** DIVE Parent [2/11]\n**** TODO Candidate\n**** TODO [#A] Planned\nSCHEDULED: <2026-08-17 Mon>\n")
+      '("#+filetags: :project:\n#+CATEGORY: Course\n* DIVE Root\n** Topic\n*** DIVE Parent [2/11]\n**** TODO Candidate\n**** TODO [#A] Planned\nSCHEDULED: <2026-08-17 Mon>\n")
     (org-workflow-workbench-test-open)
     (goto-char (point-min))
     (search-forward "Root / Topic")
@@ -526,7 +528,7 @@
 
 (ert-deftest org-workflow-workbench-filters-both-panes-and-retains-on-redo ()
   (org-workflow-workbench-test-with-files
-      '("#+filetags: :project:\n#+CATEGORY: Course\n* Root\n** DIVE Parent\n*** TODO Candidate tiny :@tiny:\n*** TODO Candidate deep :@deep:\n*** TODO [#A] Planned tiny :@tiny:\nSCHEDULED: <2026-08-17 Mon>\n*** TODO [#A] Planned deep :@deep:\nSCHEDULED: <2026-08-17 Mon>\n")
+      '("#+filetags: :project:\n#+CATEGORY: Course\n* DIVE Root\n** DIVE Parent\n*** TODO Candidate tiny :@tiny:\n*** TODO Candidate deep :@deep:\n*** TODO [#A] Planned tiny :@tiny:\nSCHEDULED: <2026-08-17 Mon>\n*** TODO [#A] Planned deep :@deep:\nSCHEDULED: <2026-08-17 Mon>\n")
     (org-workflow-workbench-test-open)
     (pcase-let ((`(,primary ,candidate) (org-workflow-workbench-test-panes)))
       (with-current-buffer candidate (org-workflow-agenda-filter-tiny))
@@ -561,7 +563,7 @@
 
 (ert-deftest org-workflow-workbench-quiet-display-keeps-native-data ()
   (org-workflow-workbench-test-with-files
-      '("#+filetags: :project:\n#+CATEGORY: Course\n* Root :CURR:\n** Parent\n*** TODO [#A] Late :promise:\nSCHEDULED: <2026-08-15 Sat>\n:PROPERTIES:\n:WORKFLOW_DEFER_COUNT: 2\n:END:\n")
+      '("#+filetags: :project:\n#+CATEGORY: Course\n* DIVE Root :CURR:\n** Parent\n*** TODO [#A] Late :promise:\nSCHEDULED: <2026-08-15 Sat>\n:PROPERTIES:\n:WORKFLOW_DEFER_COUNT: 2\n:END:\n")
     (org-workflow-workbench-test-open)
     (should (equal "" (org-workflow-agenda--period-load nil)))
     (should-not (string-match-p "安排 ·\\|项未估\\|未估时" (buffer-string)))

@@ -15,7 +15,7 @@
 今日主面板现在为安排 → 收集箱 → 项目，时段继续占据安排区主分组。
 `org-workflow-agenda-projects.el` 提供完成任务原位排序、承诺后继预览、项目进度与周
 追踪。完成项简化淡显；后继预览按任务数显示 1–3 项，不生成日期／责任。项目、阶段
-均保留原生 Agenda marker；项目／阶段源 cookie 在 Org 统计更新后按具体任务叶子重算。
+均保留原生 Agenda marker；项目／阶段进度直接使用源 cookie，遵循 Org 原生统计规则。
 Agenda 禁用 visual-line-mode，目标块之间留一空行。源文件事实不在渲染中修改。收集箱移除待安排，取消今日
 已完成区域；简单重复习惯在时段内为一行。归属仅前两级大纲，随窗口宽度截断。
 
@@ -99,7 +99,7 @@ Sprint 工作台用 `m` 标记／取消任务、`M` 清除选择，`d` 延至明
 不再占用 SPC，也不单独绑定 f/t/d 添加 @flow/@tiny/@deep；这些标签操作函数保留。
 f/t 回到原 Agenda／宿主键图的行为，p 仍为承诺／撤回。`?` 帮助与同一绑定表同步。
 
-Sprint 右侧项目循环用 `org-workflow-agenda-previous-project` / `org-workflow-agenda-next-project`
+Sprint 右侧按目标文件循环，用 `org-workflow-agenda-previous-project` / `org-workflow-agenda-next-project`
 （`H` / `L`），独立于 tab-line 切换命令；tab-line 只呈现可点击的项目标签。
 右栏局部重映射 Evil 的 buffer 前后切换命令，以兼容宿主 H/L intercept 绑定。
 
@@ -200,7 +200,7 @@ Sprint 右侧项目循环用 `org-workflow-agenda-previous-project` / `org-workf
   收集项日常查询只读 projects，不依赖 Vulpea 周日志索引。新周日志仅随记／周回顾。
   本次已授权迁移 52 个旧收集任务，备份与记录见 verification；程序不自动搬移其他文件。
 - Sprint 收集箱显示自由习惯、未安排收集项；待安排步骤改为承诺下的安静预览，独立
-  右侧候选规划窗仍可用。项目区按文件显示进度、周追踪、streak 与阶段。周追踪只读
+  右侧栏改为项目区，以目标文件为 Tab 过滤单位，保留全部标签。项目区按文件显示进度、周追踪、streak 与阶段。周追踪只读
   每日承诺，未知日期不伪造连续；任务推进优先于投入时间指标。
 - Inbox 自动清理接在 history-catch-up 的全部旧日结算之后（当前午夜日结／启动补结算）。
   仅原生 DONE 的直属任务，CLOSED 超出截止日则留待下次；缺少 CLOSED 的旧 DONE 可归档。

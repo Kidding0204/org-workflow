@@ -139,7 +139,9 @@
   (let ((marker (org-get-at-bol 'org-hd-marker)))
     (and (markerp marker) (marker-buffer marker)
          (not (org-get-at-bol 'org-workflow-agenda-stage-goal))
-         (not (org-get-at-bol 'org-workflow-agenda-project-row))
+         (or (not (org-get-at-bol 'org-workflow-agenda-project-row))
+             (and (eq org-workflow-agenda--pane-role 'candidates)
+                  (null (org-get-at-bol 'org-workflow-agenda-project-role))))
          (not (invisible-p (line-beginning-position)))
          ;; Native incremental edits can leave the row's todo-state stale.
          (not (org-with-point-at marker (org-entry-is-done-p))))))
@@ -215,7 +217,7 @@ task, or the previous one at the end.  Other anchors keep their coordinates."
            (org-workflow-agenda-workbench-candidates state))
       (let* ((primary (org-workflow-agenda-workbench-primary state))
              (buffer (generate-new-buffer
-                      (format "%s · 待安排" (buffer-name primary))))
+                      (format "%s · 项目" (buffer-name primary))))
              (org-agenda-buffer-name (buffer-name buffer))
              (org-agenda-window-setup 'current-window)
              (org-agenda-sticky nil)
@@ -302,7 +304,7 @@ task, or the previous one at the end.  Other anchors keep their coordinates."
       (delete-window window))))
 
 (defun org-workflow-agenda-open-workbench (&optional _match)
-  "Open an explicit Sprint tab with schedule left and project candidates right."
+  "Open an explicit Sprint tab with schedule left and projects right."
   (interactive)
   (org-workflow-agenda--clean-menu-windows)
   (let ((org-workflow-agenda-plan-tomorrow (org-workflow-agenda--setting 'org-workflow-agenda-plan-tomorrow))

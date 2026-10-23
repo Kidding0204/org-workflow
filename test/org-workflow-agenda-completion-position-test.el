@@ -6,7 +6,7 @@
   "Completion selects a remaining task, or keeps coordinates if none remain."
   (dolist (titles '(("First" "Second") ("Last" "First") ("Only")))
     (org-workflow-workbench-test-with-files
-        (list (concat "#+filetags: :project:\n#+TODO: TODO DIVE | DONE HOLD\n* Fixture\n** DIVE Stage\n"
+        (list (concat "#+filetags: :project:\n#+TODO: TODO DIVE | DONE HOLD\n* DIVE Fixture\n** DIVE Stage\n"
                       (mapconcat (lambda (title)
                                    (format "*** TODO %s\nSCHEDULED: <2026-08-17 Mon>\n" title))
                                  (reverse titles) "")))
@@ -34,7 +34,7 @@
                        workflow-test-native-tags
                        workflow-test-bulk-schedule))
     (org-workflow-workbench-test-with-files
-        '("#+filetags: :project:\n#+TODO: TODO DIVE | DONE HOLD\n* Fixture\n** DIVE Stage\n*** TODO [#A] First\nSCHEDULED: <2026-08-17 Mon>\n*** TODO [#A] Second\nSCHEDULED: <2026-08-17 Mon>\n")
+        '("#+filetags: :project:\n#+TODO: TODO DIVE | DONE HOLD\n* DIVE Fixture\n** DIVE Stage\n*** TODO [#A] First\nSCHEDULED: <2026-08-17 Mon>\n*** TODO [#A] Second\nSCHEDULED: <2026-08-17 Mon>\n")
       (set-buffer (org-workflow-workbench-test-open))
       (goto-char (point-min)) (search-forward "First")
       (when (eq operation 'workflow-test-bulk-schedule)
@@ -117,10 +117,10 @@
           (insert "No tasks\n")
           (should (integerp (org-workflow-agenda--restore-position cursor))))))))
 
-(ert-deftest workflow-agenda-scheduling-continues-with-next-task-across-groups ()
-  "Removing a group must leave a real task selected for the next command."
+(ert-deftest workflow-agenda-scheduling-retains-project-task-position ()
+  "Scheduling retains the same task in the persistent project tree."
   (org-workflow-workbench-test-with-files
-      '("#+filetags: :project:\n#+TODO: TODO DIVE | DONE HOLD\n* Fixture\n** DIVE First group\n*** TODO First\n* Fixture\n** DIVE Second group\n*** TODO Second\n*** TODO Third\n")
+      '("#+filetags: :project:\n#+TODO: TODO DIVE | DONE HOLD\n* DIVE Fixture\n** DIVE First group\n*** TODO First\n* DIVE Fixture\n** DIVE Second group\n*** TODO Second\n*** TODO Third\n")
     (set-buffer (org-workflow-workbench-test-open))
     (let ((panes (org-workflow-workbench-test-panes)))
       (select-window (get-buffer-window (cadr panes))))
@@ -128,10 +128,10 @@
     (org-workflow-agenda-schedule-tomorrow)
     (let ((marker (org-get-at-bol 'org-hd-marker)))
       (should (markerp marker))
-      (should (equal "Second" (org-with-point-at marker
+      (should (equal "First" (org-with-point-at marker
 						 (org-get-heading t t t t)))))
     (org-workflow-agenda-schedule-tomorrow)
     (let ((marker (org-get-at-bol 'org-hd-marker)))
       (should (markerp marker))
-      (should (equal "Third" (org-with-point-at marker
+      (should (equal "First" (org-with-point-at marker
 					        (org-get-heading t t t t)))))))
