@@ -139,9 +139,22 @@ const floorProgress = dailyProgressState({minimumSatisfied: 0, minimumTotal: 3,
     stageSatisfied: 0, stageTotal: 3, focusTotalMinutes: 60,
     dailyMinimumMinutes: 60, dailyFloorComplete: true});
 assertEqual(floorProgress.variant, 'complete', 'global time meets floor without task completion');
-assertEqual(floorProgress.width, 116, 'time alternative fills the daily floor');
+assertEqual(floorProgress.width, 0, 'time never fills the commitment layer');
+assertEqual(floorProgress.investmentWidth, 116, 'time fills the independent stripe layer');
 assertEqual(floorProgress.text, '0/3 · 60/60m', 'counts and time remain separate facts');
 const noFloor = dailyProgressState({minimumSatisfied: 0, minimumTotal: 0,
     stageSatisfied: 0, stageTotal: 0, focusTotalMinutes: 0,
     dailyMinimumMinutes: 60, dailyFloorComplete: false});
 assertEqual(noFloor.variant, 'daily', 'empty obligations do not imply success');
+
+const independent = dailyProgressState({minimumSatisfied: 1, minimumTotal: 5,
+    focusTotalMinutes: 86, dailyMinimumMinutes: 60, dailyFloorComplete: true});
+assertEqual(independent.width, 23, 'one of five commitments stays at twenty percent');
+assertEqual(independent.investmentWidth, 116, 'overtime stripes stop at full width');
+const tasksFirst = dailyProgressState({minimumSatisfied: 5, minimumTotal: 5,
+    focusTotalMinutes: 12, dailyMinimumMinutes: 60, dailyFloorComplete: true});
+assertEqual(tasksFirst.width, 116, 'completed tasks fill the solid layer');
+assertEqual(tasksFirst.investmentWidth, 23, 'completed tasks never fill the time layer');
+assertEqual(dailyProgressState(null).investmentWidth, 0, 'unavailable status clears stripes');
+assertEqual(dailyProgressState({stageSatisfied: 1, stageTotal: 2}).investmentWidth, 0,
+    'old daemon does not invent recorded investment');

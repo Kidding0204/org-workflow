@@ -32,7 +32,7 @@ export function minimumInvestmentState(status) {
 
 export function dailyProgressState(status) {
     if (!status)
-        return {width: 0, text: '0/0', variant: 'unavailable'};
+        return {width: 0, investmentWidth: 0, text: '—', variant: 'unavailable'};
 
     if (Number.isInteger(status.dailyMinimumMinutes) && status.dailyMinimumMinutes > 0 &&
         Number.isFinite(status.focusTotalMinutes)) {
@@ -40,9 +40,10 @@ export function dailyProgressState(status) {
         const done = status.minimumSatisfied;
         const minutes = Math.max(0, Math.floor(status.focusTotalMinutes));
         const target = status.dailyMinimumMinutes;
-        const ratio = Math.max(total > 0 ? done / total : 0, minutes / target);
+        const ratio = Math.max(0, total > 0 ? done / total : 0);
         return {
             width: Math.round(PROGRESS_WIDTH * Math.min(1, ratio)),
+            investmentWidth: minimumInvestmentState(status).width,
             text: `${done}/${total} · ${minutes}/${target}m`,
             variant: status.dailyFloorComplete === true ? 'complete' : 'daily',
         };
@@ -53,6 +54,7 @@ export function dailyProgressState(status) {
     const ratio = total === 0 ? 0 : Math.min(1, satisfied / total);
     return {
         width: Math.round(PROGRESS_WIDTH * ratio),
+        investmentWidth: 0,
         text: `${satisfied}/${total}`,
         variant: total > 0 && satisfied === total ? 'complete' : 'daily',
     };
@@ -95,4 +97,35 @@ export function leftMenuPresentation(timer, workflow) {
         canAct,
         canCancel: Boolean(timer && timer.phase !== 'inactive'),
     };
+}
+
+// One shared track: solid commitments underneath independent investment hatching.
+// Cairo clipping keeps both layers inside the same rounded boundary at any scale.
+export function drawDailyProgress(cr, width, height, state) {
+    if (width <= 0 || height <= 0)
+        return;
+    const radius = Math.min(height / 2, width / 2);
+    cr.save();
+    cr.newPath();
+    cr.arc(width - radius, radius, radius, -Math.PI / 2, 0);
+    cr.arc(width - radius, height - radius, radius, 0, Math.PI / 2);
+    cr.arc(radius, height - radius, radius, Math.PI / 2, Math.PI);
+    cr.arc(radius, radius, radius, Math.PI, Math.PI * 1.5);
+    cr.closePath();
+    cr.clip();
+    cr.setSourceRGBA(0.08, 0.10, 0.15, 0.65);
+    cr.paint();
+    cr.setSourceRGBA(0.47, 0.85, 0.66, 1);
+    cr.rectangle(0, 0, width * state.width / PROGRESS_WIDTH, height);
+    cr.fill();
+    cr.rectangle(0, 0, width * state.investmentWidth / PROGRESS_WIDTH, height);
+    cr.clip();
+    cr.setSourceRGBA(0.96, 0.94, 0.85, 0.85);
+    cr.setLineWidth(1.5);
+    for (let x = -height; x < width; x += 7) {
+        cr.moveTo(x, height);
+        cr.lineTo(x + height * 0.65, 0);
+    }
+    cr.stroke();
+    cr.restore();
 }

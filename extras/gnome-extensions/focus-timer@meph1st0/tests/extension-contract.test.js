@@ -10,8 +10,8 @@ const source = new TextDecoder().decode(bytes);
 const [, metadataBytes] = GLib.file_get_contents('metadata.json');
 const metadata = JSON.parse(new TextDecoder().decode(metadataBytes));
 
-if (metadata.version !== 26)
-    throw new Error(`canonical Workflow API release version: expected 26, got ${metadata.version}`);
+if (metadata.version !== 27)
+    throw new Error(`canonical Workflow API release version: expected 27, got ${metadata.version}`);
 
 assertContains(source, 'WORKFLOW_MENU_ACTIONS',
     'extension consumes the shared workflow menu model');
@@ -56,3 +56,8 @@ assertContains(source, 'item.setSensitive(!habit.done)', 'completed habits canno
 assertContains(source, "this._runWorkflowAction('history')", 'right menu opens native history');
 if (source.includes("menu.addAction('打开 Sprint'"))
     throw new Error('Sprint remains a left-click action, not a duplicate menu entry');
+
+assertContains(source, "drawDailyProgress(cr, width, height", 'daily bar renders independent layers');
+assertContains(source, "this._hintGroup.visible = days.length === 0", 'idle always restores the cue');
+for (const obsolete of ['_investmentGroup', "get_string('idle-display')"])
+    if (source.includes(obsolete)) throw new Error(`duplicate right progress remains: ${obsolete}`);

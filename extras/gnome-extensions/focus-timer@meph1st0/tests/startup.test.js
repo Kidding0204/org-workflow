@@ -59,12 +59,7 @@ Object.assign(extension, {
     _morePage: {}, _bodyItem: {label: label()},
     _focusGroup: {}, _accessoryGroup: {}, _queueLayout() {},
     _weekStrip: {}, _weekCells: Array.from({length: 7}, () => ({track: {set_style(value) { this.style = value; }}, unknown: {}, dot: {}})),
-    _settings: {get_string() { return 'hint'; }},
-    _idleDisplayItems: ['investment', 'hint'].map(mode => ({mode,
-        item: {setOrnament(value) { this.ornament = value; }}})),
-    _investmentGroup: {}, _investmentLabel: label(),
-    _investmentFill: {set_size(width) { this.width = width; },
-        remove_style_class_name() {}, add_style_class_name() {}},
+    _hintGroup: {},
     _rightLabel: label(), _rightIndicator: {}, _rightBody: {label: label()},
     _habitMenu: {removeAll() {}, addAction() { return {setSensitive() {}}; }},
     _timerStatus: {phase: 'inactive'},
@@ -81,7 +76,7 @@ extension._workflowStatus.panel.started = true;
 ExtensionClass.prototype._updatePlanning.call(extension);
 assert(extension._progress.visible && !extension._parentLabel.visible,
     'focus restores timer');
-assert(extension._weekStrip.visible && !extension._rightLabel.visible, 'started shows graphical week');
+assert(extension._weekStrip.visible && !extension._hintGroup.visible, 'started shows graphical week');
 assert(extension._weekCells[0].track.style_class.includes('complete'), 'achievement styling');
 assert(extension._focusGroup.visible && extension._accessoryGroup.visible, 'timer is grouped after the separator');
 extension._timerStatus.phase = 'short-break';
@@ -92,7 +87,7 @@ print('Workflow panel actor transitions passed');
 extension._timerStatus.phase = 'inactive';
 extension._workflowStatus.resume = 'Continue this task';
 ExtensionClass.prototype._updatePlanning.call(extension);
-assert(!extension._weekStrip.visible && extension._rightLabel.visible, 'stopping returns to text');
+assert(!extension._weekStrip.visible && extension._hintGroup.visible, 'stopping returns to text');
 assert(extension._rightLabel.text === 'Continue this task', 'stopped displays current task cue');
 extension._workflowStatus.resume = 'New task cue';
 ExtensionClass.prototype._updatePlanning.call(extension);
@@ -232,21 +227,16 @@ assert(reads.length === 0 && actions._actionsInFlight === 0,
     'old action callbacks cannot alter a re-enabled extension');
 print('Workflow action refresh coalescing passed');
 
-// The default investment mode replaces hints only while inactive.
-extension._settings.get_string = () => 'investment';
+// Investment never replaces the idle cue; cycling still shows the week.
 extension._workflowStatus.dailyMinimumMinutes = 60;
 extension._workflowStatus.focusTotalMinutes = 30;
 for (const phase of ['inactive', 'focus', 'short-break', 'long-break']) {
     extension._timerStatus.phase = phase;
     ExtensionClass.prototype._updatePlanning.call(extension);
-    assert(extension._investmentGroup.visible === (phase === 'inactive'), 'investment is idle only');
-    assert(!extension._rightLabel.visible, 'hint hidden in investment mode');
+    assert(extension._hintGroup.visible === (phase === 'inactive'), 'cue is idle only');
+    assert(extension._weekStrip.visible === (phase !== 'inactive'), 'week is cycling only');
 }
-assert(extension._investmentLabel.text === '30/60m', 'actual investment label');
-assert(extension._idleDisplayItems[0].item.ornament === PopupMenu.Ornament.DOT &&
-    extension._idleDisplayItems[1].item.ornament === PopupMenu.Ornament.NONE, 'menu marks selected mode');
 extension._timerStatus = null;
 ExtensionClass.prototype._updatePlanning.call(extension);
-assert(!extension._investmentGroup.visible && extension._rightLabel.text === '—',
-    'timer failure does not masquerade as idle');
-print('Minimum investment actor transitions passed');
+assert(extension._rightLabel.text === '—', 'timer failure does not masquerade as idle');
+print('Combined progress and guidance actor transitions passed');

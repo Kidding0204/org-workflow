@@ -65,10 +65,21 @@
     padding: 8px 12px;
 }
 
-/* Seven independent days, not a percentage progress bar. */
-.workflow-guidance-label {
-    max-width: 440px;
+.workflow-guidance {
+    spacing: 7px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    background-color: rgba(141, 200, 189, 0.10);
+    border: 1px solid rgba(141, 200, 189, 0.20);
 }
+.workflow-guidance-icon { color: #a9d9cc; }
+.workflow-guidance-label {
+    max-width: 280px;
+    font-size: 12px;
+    font-weight: 500;
+    color: #e3eee9;
+}
+/* Seven independent days, not a percentage progress bar. */
 .workflow-week-strip {
     spacing: 8px;
     /* Balance the 3px gap and 2px today marker below the tracks. */

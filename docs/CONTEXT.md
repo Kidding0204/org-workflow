@@ -4,13 +4,14 @@
 本文是当前代码的阅读地图与维护边界；行为事实以对应源码为准。
 修改入口、数据规则、依赖或验证方法时同步本页，避免继续使用历史方案。
 
-## 2026-10-23 顶栏最低投入显示
+## 2026-10-23 顶栏双进度与开工提示
 
-扩展源位于 `extras/gnome-extensions/focus-timer@meph1st0/`（v26）。非计时状态的右侧
-默认显示最低投入时长进度，直接使用状态接口 `focusTotalMinutes / dailyMinimumMinutes`；
-只按时间填充，不混入承诺完成率。右键“空闲时显示”可切换开工提示，GSettings
-`idle-display` 保存选择。专注和休息期间仍显示周状态。新增 schema 随扩展打包编译；
-本机安装目录是复制品，Wayland 新代码需要下次登录加载。无新增 Emacs 数据或写入路径。
+扩展源位于 `extras/gnome-extensions/focus-timer@meph1st0/`（v27）。左侧同一轨道以
+实色显示承诺完成比例，以斜纹显示 `focusTotalMinutes / dailyMinimumMinutes`；两个
+比例独立，任一达标不填满另一层。右侧非计时状态恢复任务续接提示／通用开工提示，
+单行省略，菜单保留全文；专注和休息期间仍显示周状态。旧 `idle-display` schema
+仅为兼容保留，扩展不再读取该偏好，不再提供右侧重复进度条。无 Emacs 数据变更。
+本机安装目录是复制品，Wayland 新代码需要下次登录加载。
 
 ## 2026-10-23 项目工作台与每日底线
 

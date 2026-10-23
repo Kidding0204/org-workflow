@@ -5,10 +5,10 @@ commitment progress, commitment streak, and Emacs Focus Timer in the top bar.
 Emacs remains the only state source: the extension runs fixed-argument
 `emacsclient --eval` commands, and neither reads Org files nor creates tasks.
 
-The stage bar counts both commitment and added tasks with a valid focus record
-on that day, or an actually completed goal. Its full-bar feedback acknowledges
-daily attempts; unfinished tasks remain unfinished and can still be selected.
-The commitment streak uses the same daily-attempt rule for commitment tasks.
+The left daily bar overlays two independent measures: solid green shows completed
+commitments, and pale diagonal hatching shows recorded investment toward the daily
+minimum. Counts and actual minutes remain visible beside it. Meeting either daily
+floor never fills the other measure. Historical facts and task state are unchanged.
 
 The left right-click popup uses a Tasklane-inspired dark rounded surface. Its
 summary shows only the first three lines of the current item's body. Each source
@@ -264,16 +264,17 @@ section sensitivity signal can stop after the first item returns true, leaving
 later rows disabled on recovery. The menu test uses GJS signals to cover both
 disconnected → task and habit → task recovery for every operation.
 
-## Idle minimum-investment display (v26)
+## Combined daily progress (v27)
 
-When the timer is inactive, the right indicator defaults to a minimum-investment
-bar with recorded minutes and today's recorded target, such as `35/60m`.
-Only `focusTotalMinutes / dailyMinimumMinutes` controls this bar: completing
-commitments does not fill it. It caps at 100%, while the label retains actual
-minutes above the target. Missing data displays `—`, not an invented zero.
-The existing active-focus and break week display is unchanged.
+One left-hand track shows solid commitment completion and diagonal investment
+hatching. Both lengths cap at 100%; the label retains overtime minutes. For
+example, `1/5 · 86/60m` has 20% solid fill and full-width hatching. With an older
+daemon, the bar retains its original stage progress and adds no invented time.
 
-Right-click the right indicator, then choose **空闲时显示 → 最低投入进度 / 开工提示**.
-The GSettings `idle-display` preference persists across Shell sessions; changing
-it updates the presentation immediately. The schema is bundled by `gnome-extensions pack` and compiled on installation. On Wayland, installed JavaScript takes effect in the
-next login session. No Emacs restart is needed when it already exports these fields.
+The idle right indicator always shows the task resume cue, falling back to the
+opening hint. Its compact rounded surface uses a small arrow and one ellipsized
+line; the right-click menu preserves the full text. Focus/break still show the
+week strip. The old idle-display switch has been retired; its schema is retained
+only for compatibility and saved values no longer affect presentation.
+On Wayland, installed JavaScript takes effect at the next login. No Emacs restart
+or business-data migration is needed.
