@@ -13,9 +13,9 @@
 
 (declare-function org-workflow-evening--day-icon "org-workflow-evening" (state face))
 
-(defface org-workflow-agenda-active-project
-  '((t :inherit default :weight bold :height 1.12))
-  "Active project heading." :group 'org-workflow)
+(defface org-workflow-agenda-project-title
+  '((t :inherit default))
+  "Project heading, shared by every state." :group 'org-workflow)
 (defface org-workflow-agenda-project-goal
   '((t :inherit default :weight semi-bold))
   "Long-term goal heading." :group 'org-workflow)
@@ -171,7 +171,25 @@ calendar gaps never count as verified continuity."
                    (org-workflow-evening--day-icon glyph face))
            'help-echo (concat day " " (or state "无承诺")))))
       (number-sequence 0 6) "  ")
-     (propertize (format "  连续 %d 天" (org-workflow-projects-streak days date)) 'face 'shadow))))
+     (propertize (format "  %d" (org-workflow-projects-streak days date)) 'face 'shadow))))
+
+(defvar org-modern-progress)
+(declare-function org-modern--progress "ext:org-modern" ())
+
+(defun org-workflow-agenda-projects--cookies (start end)
+  "Render cookies between START and END with the configured org-modern renderer."
+  (when (and (fboundp 'org-modern--progress)
+             (boundp 'org-modern-progress) (integerp org-modern-progress)
+             (> org-modern-progress 0))
+    (save-excursion
+      (save-match-data
+        (goto-char start)
+        (while (re-search-forward
+                " \\(\\[\\(?:\\([0-9]+\\)%\\|\\([0-9]+\\)/\\([0-9]+\\)\\)]\\)" end t)
+          ;; Very large counters must still fit in org-modern's bar.
+          (let ((org-modern-progress (max org-modern-progress
+                                          (- (match-end 1) (match-beginning 1) 2))))
+            (org-modern--progress)))))))
 
 (defun org-workflow-agenda-projects--line (item indent &optional suffix role)
   "Insert source-backed ITEM at INDENT with optional SUFFIX and visual ROLE."
@@ -180,10 +198,10 @@ calendar gaps never count as verified continuity."
          (regexps (org-with-point-at marker
                     (list org-todo-regexp org-not-done-regexp)))
          (face (pcase role
-                 ('project (if (equal state "DIVE") 'org-workflow-agenda-active-project
-                             'org-workflow-agenda-meta))
+                 ('project 'org-workflow-agenda-project-title)
                  ('stage 'org-workflow-agenda-project-stage)
                  (_ 'org-workflow-agenda-meta)))
+         (start (point))
          (width (max 10 (- (window-body-width) indent (string-width (or suffix "")) 8))))
     (insert (propertize
              (concat (make-string indent ?\s) (if state (concat state " ") "")
@@ -192,7 +210,8 @@ calendar gaps never count as verified continuity."
              'org-marker marker 'org-hd-marker marker 'todo-state state 'type "todo" 'org-heading t 'org-agenda-type 'todo
              'org-todo-regexp (car regexps) 'org-not-done-regexp (cadr regexps)
              'org-workflow-agenda-project-row t 'workflow-project item
-             'face face 'help-echo (plist-get item :title)))))
+             'face face 'help-echo (plist-get item :title)))
+    (org-workflow-agenda-projects--cookies start (point))))
 
 (defun org-workflow-agenda-project-goal-toggle ()
   "Pause or resume the file goal at point, then refresh the Agenda."
@@ -229,7 +248,7 @@ calendar gaps never count as verified continuity."
             (let* ((progress (org-workflow-projects-progress project))
                    (active (equal (plist-get project :state) "DIVE")))
               (org-workflow-agenda-projects--line
-               project 4 (format "  %d/%d" (plist-get progress :done) (plist-get progress :total)) 'project)
+               project 4 (format "  [%d/%d]" (plist-get progress :done) (plist-get progress :total)) 'project)
               (when active
                 (insert "      " (org-workflow-agenda-projects--week
                                   (org-workflow-projects-tracking project date) date) "\n")
@@ -239,8 +258,7 @@ calendar gaps never count as verified continuity."
                     (when (and (not expanded) (equal (plist-get stage :state) "DIVE"))
                       (setq expanded t)
                       (dolist (task (plist-get stage :children))
-                        (org-workflow-agenda-projects--line task 8))))))
-              (insert "\n"))))))
+                        (org-workflow-agenda-projects--line task 8)))))))))))
     (unless projects (insert (propertize "    暂无项目\n" 'face 'shadow)))
     (insert "\n")))
 

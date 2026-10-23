@@ -492,9 +492,9 @@ Use native Agenda markers and the existing parent progress renderer."
     (when (eq role 'candidates)
       (org-workflow-agenda-candidates nil))
     (when (memq role '(combined schedule))
+      (org-workflow-agenda-inbox nil habit-rows)
       (unless (org-workflow-agenda--setting 'org-workflow-agenda-plan-tomorrow)
-        (org-workflow-agenda-projects nil))
-      (org-workflow-agenda-inbox nil habit-rows))))
+        (org-workflow-agenda-projects nil)))))
 
 (defun org-workflow-agenda--optional-candidates ()
   "Return the first two unscheduled tasks of each direct DIVE parent."
