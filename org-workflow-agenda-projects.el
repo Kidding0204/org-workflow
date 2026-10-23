@@ -201,11 +201,16 @@ calendar gaps never count as verified continuity."
                  ('project 'org-workflow-agenda-project-title)
                  ('stage 'org-workflow-agenda-project-stage)
                  (_ 'org-workflow-agenda-meta)))
+         (title (replace-regexp-in-string
+                 (if (eq role 'project)
+                     "[ \t]*\\[[0-9]+\\(?:/[0-9]+\\|%\\)\\]"
+                   "[ \t]*\\[0/0\\]")
+                 "" (plist-get item :title)))
          (start (point))
          (width (max 10 (- (window-body-width) indent (string-width (or suffix "")) 8))))
     (insert (propertize
              (concat (make-string indent ?\s) (if state (concat state " ") "")
-                     (truncate-string-to-width (plist-get item :title) width nil nil "…")
+                     (truncate-string-to-width title width nil nil "…")
                      suffix "\n")
              'org-marker marker 'org-hd-marker marker 'todo-state state 'type "todo" 'org-heading t 'org-agenda-type 'todo
              'org-todo-regexp (car regexps) 'org-not-done-regexp (cadr regexps)
@@ -233,11 +238,14 @@ calendar gaps never count as verified continuity."
   (let* ((items (org-workflow-projects-collect))
          (goals (seq-filter (lambda (x) (equal (plist-get x :kind) "goal")) items))
          (projects (seq-filter (lambda (x) (equal (plist-get x :kind) "project")) items))
-         (date (org-workflow-agenda-target-date)))
+         (date (org-workflow-agenda-target-date))
+         shown-goal)
     (insert (org-workflow-agenda--section-header "项目"))
     (dolist (goal goals)
       (let ((children (seq-filter (lambda (x) (equal (plist-get x :goal-id) (plist-get goal :id))) projects)))
         (when children
+          (when shown-goal (insert "\n"))
+          (setq shown-goal t)
           (insert (propertize (concat "  " (plist-get goal :title)
                                       (when (plist-get goal :paused) "  HOLD") "\n")
                               'face 'org-workflow-agenda-project-goal 'workflow-goal goal
@@ -248,7 +256,9 @@ calendar gaps never count as verified continuity."
             (let* ((progress (org-workflow-projects-progress project))
                    (active (equal (plist-get project :state) "DIVE")))
               (org-workflow-agenda-projects--line
-               project 4 (format "  [%d/%d]" (plist-get progress :done) (plist-get progress :total)) 'project)
+               project 4 (when (> (plist-get progress :total) 0)
+                           (format "  [%d/%d]" (plist-get progress :done) (plist-get progress :total)))
+               'project)
               (when active
                 (insert "      " (org-workflow-agenda-projects--week
                                   (org-workflow-projects-tracking project date) date) "\n")

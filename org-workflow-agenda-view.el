@@ -779,8 +779,15 @@ This changes only display.")
                 (put-text-property start end 'face 'org-modern-label)
                 (put-text-property start end 'display bar)))))))))
 
+(defun org-workflow-agenda--truncate-lines ()
+  "Keep Agenda rows on a single visual line."
+  (visual-line-mode -1)
+  (setq-local truncate-lines t))
+
 (defun org-workflow-agenda-view--enable ()
   "Install this component while Workflow is being enabled."
+  (org-workflow--add-hook 'org-agenda-mode-hook #'org-workflow-agenda--truncate-lines)
+  (org-workflow--add-hook 'org-agenda-finalize-hook #'org-workflow-agenda--truncate-lines 99)
   (org-workflow--add-hook 'org-agenda-finalize-hook #'org-workflow-agenda--planning-line-display -90)
   (org-workflow--add-hook 'org-agenda-finalize-hook #'org-workflow-agenda--align-right-details 96)
   (org-workflow--add-hook 'window-size-change-functions #'org-workflow-agenda--realign-details)

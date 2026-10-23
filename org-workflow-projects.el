@@ -378,8 +378,41 @@ Never generate obligations for days when Workflow was not running."
      (lambda ()
        (org-map-entries (lambda () (org-entry-delete nil "WORKFLOW_PAUSE_OWNER")) nil 'tree)))))
 
+(defun org-workflow-projects-update-cookies (&rest _)
+  "Refresh existing project and stage cookies from concrete task leaves.
+Unlike Org's direct-child count, this uses the same unit as project progress."
+  (when (and (derived-mode-p 'org-mode) buffer-file-name
+             (member (file-truename buffer-file-name)
+                     (mapcar #'file-truename (org-agenda-files t))))
+    (org-with-wide-buffer
+     (save-excursion
+       (org-map-entries
+        (lambda ()
+          (when (and (<= (org-outline-level) 2)
+                     (org-workflow-target--task-p)
+                     (save-excursion
+                       (beginning-of-line)
+                       (re-search-forward "\\[[0-9]+\\(?:/[0-9]+\\|%\\)\\]" (line-end-position) t)))
+            (let ((done 0) (total 0))
+              (save-excursion
+                (org-map-entries
+                 (lambda ()
+                   (when (and (>= (org-outline-level) 3)
+                              (org-workflow-target--task-leaf-p))
+                     (cl-incf total)
+                     (when (equal (org-get-todo-state) "DONE") (cl-incf done)))) nil 'tree))
+              (save-excursion
+                (beginning-of-line)
+                (when (re-search-forward "\\[\\([0-9]+\\)\\(/\\|%\\)[0-9]*\\]" (line-end-position) t)
+                  (let ((cookie (if (equal (match-string 2) "%")
+                                    (format "[%d%%]" (if (> total 0) (/ (* 100 done) total) 0))
+                                  (format "[%d/%d]" done total))))
+                    (unless (equal (match-string 0) cookie)
+                      (replace-match cookie t t)))))))) nil 'file)))))
+
 (defun org-workflow-projects--enable ()
   "Install lifecycle-owned project hooks."
+  (org-workflow--advice-add 'org-update-statistics-cookies :after #'org-workflow-projects-update-cookies)
   (org-workflow--add-hook 'org-after-refile-insert-hook #'org-workflow-projects--after-refile)
   (org-workflow--add-hook 'org-after-todo-state-change-hook #'org-workflow-projects--state-change 80)
   (org-workflow--advice-add 'org-workflow-history-catch-up :after #'org-workflow-projects--catch-up))

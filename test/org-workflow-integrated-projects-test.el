@@ -243,3 +243,35 @@
               ((symbol-function 'org-workflow-agenda-projects) (lambda (_) (push 'projects calls))))
       (org-workflow-agenda-workbench-view nil))
     (should (equal (nreverse calls) '(schedule inbox projects)))))
+
+(ert-deftest workflow-integrated-project-progress-has-one-authority ()
+  (workflow-integrated-fixture
+   (goto-char (point-min)) (search-forward "Compiler") (insert " [0/4]")
+   (let* ((items (org-workflow-projects-collect))
+          (project (cadr items)))
+     (with-temp-buffer
+       (org-workflow-agenda-projects--line project 4 "  [0/3]" 'project)
+       (should-not (string-match-p "0/4" (buffer-string)))
+       (should (string-match-p "0/3" (buffer-string)))
+       (erase-buffer)
+       (cl-letf (((symbol-function 'org-workflow-projects-marker) (lambda (_) (point-marker))))
+         (org-workflow-agenda-projects--line
+          (plist-put (copy-sequence project) :title "Stage [0/0]") 6 nil 'stage))
+       (should-not (string-match-p "0/0" (buffer-string)))))))
+
+(ert-deftest workflow-integrated-agenda-disables-visual-wrapping ()
+  (with-temp-buffer
+    (visual-line-mode 1)
+    (org-workflow-agenda--truncate-lines)
+    (should-not visual-line-mode)
+    (should truncate-lines)))
+
+(ert-deftest workflow-integrated-source-cookie-counts-concrete-tasks ()
+  (workflow-integrated-fixture
+   (goto-char (point-min)) (search-forward "Compiler") (insert " [0/1]")
+   (search-forward "Lexing") (insert " [0%]")
+   (search-forward "TODO Tokens") (replace-match "DONE Tokens")
+   (org-update-statistics-cookies t)
+   (goto-char (point-min))
+   (should (search-forward "Compiler [1/3]" nil t))
+   (should (search-forward "Lexing [33%]" nil t))))
