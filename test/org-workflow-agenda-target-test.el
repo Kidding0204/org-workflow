@@ -1528,11 +1528,15 @@ SCHEDULED: <2026-08-17 Mon>
            (goto-char (point-min)) (search-forward title) (beginning-of-line)
            (should (org-get-at-bol 'org-marker))))
        (dolist (hidden '("Day-agenda" "Project Current Tasks"
-                         "Area Current Tasks" "Tomorrow book"
+                         "Area Current Tasks"
                          "Hidden unscheduled" "Outside current"
                          ":CURR:" "===="))
          (should-not (string-match-p hidden text)))
-       (should (= 1 (how-many "Packages, Please" (point-min) (point-max))))
+       (should (= 1 (how-many "Packages, Please" (point-min)
+                                    (save-excursion (goto-char (point-min))
+                                                    (search-forward "项目\n")))))
+       (should-not (string-match-p "Tomorrow book"
+                                   (substring text 0 (string-match "项目\n" text))))
        (should (= 1 (how-many "Summary" (point-min) (point-max))))
        (should (string-match-p "◇ Packages, Please" text))
        (should-not (string-match-p ":promise:" text))))))
@@ -2109,7 +2113,11 @@ SCHEDULED: <2026-08-18 Tue>
               (should-not (string-match-p "Scheduled" (buffer-string))))
             (note-gtd-target-test--goto-agenda-title "Scheduled")
             (should (org-get-at-bol 'org-hd-marker))
-            (should-not (string-match-p "Candidate" (buffer-string))))
+            (should-not (string-match-p "Candidate"
+                                        (buffer-substring (point-min)
+                                                          (save-excursion
+                                                            (goto-char (point-min))
+                                                            (search-forward "项目\n"))))))
           (should (= 3 (length (window-list))))
           (org-workflow-agenda--apply-columns)
           (should (= 3 (length (window-list))))

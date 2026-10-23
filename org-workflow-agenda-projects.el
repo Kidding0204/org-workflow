@@ -11,6 +11,18 @@
 (declare-function org-workflow-agenda--section-header "org-workflow-agenda-view" (title))
 (declare-function org-workflow-agenda-target-date "org-workflow-agenda-layout" ())
 
+(declare-function org-workflow-evening--day-icon "org-workflow-evening" (state face))
+
+(defface org-workflow-agenda-active-project
+  '((t :inherit default :weight bold :height 1.12))
+  "Active project heading." :group 'org-workflow)
+(defface org-workflow-agenda-project-goal
+  '((t :inherit default :weight semi-bold))
+  "Long-term goal heading." :group 'org-workflow)
+(defface org-workflow-agenda-project-stage
+  '((t :inherit default))
+  "Project stage heading." :group 'org-workflow)
+
 (defun org-workflow-agenda--successor-limit (total)
   "Return the preview budget for TOTAL arranged tasks."
   (cond ((>= total 10) 1) ((>= total 5) 2) (t 3)))
@@ -58,11 +70,11 @@
   (let* ((native (org-workflow-agenda--stack-line entry nil))
          (icon (if (char-displayable-p #xf0311) (string #xf0311) "↳"))
          (line (apply #'propertize
-                      (concat "        " icon " " (org-workflow-target-entry-title entry))
+                      (concat "      " icon " " (org-workflow-target-entry-title entry))
                       (text-properties-at 0 native))))
     (add-text-properties 0 (length line)
                          '(face org-workflow-agenda-meta org-workflow-agenda-preview t
-                           wrap-prefix "          ") line)
+                           wrap-prefix "        ") line)
     line))
 
 (defun org-workflow-agenda--with-completed (entries date tomorrow)
@@ -97,7 +109,13 @@ TOMORROW projections never include today's completions."
                        (org-workflow-target--task-p)
                        (not (equal (org-entry-get nil "STYLE") "habit")))
               (push (append (org-workflow-projects--location)
-                            (list :state (org-get-todo-state))) stages))
+                            (list :state (org-get-todo-state) :children nil)) stages))
+            (when (and stages (= (org-outline-level) (+ level 2))
+                       (org-workflow-target--task-p))
+              (setf (plist-get (car stages) :children)
+                    (append (plist-get (car stages) :children)
+                            (list (append (org-workflow-projects--location)
+                                          (list :state (org-get-todo-state)))))))
             (when (and (> (org-outline-level) (1+ level))
                        (org-workflow-target--task-leaf-p))
               (cl-incf total)
@@ -135,36 +153,46 @@ calendar gaps never count as verified continuity."
     count))
 
 (defun org-workflow-agenda-projects--week (days date)
-  "Render the calendar week containing DATE from recorded DAYS."
+  "Render project DAYS in the same visual form as habit tracking."
   (let* ((time (org-time-string-to-time (concat date " 12:00")))
-         (weekday (nth 6 (decode-time time)))
-         (start (org-workflow-history-add-days date (- (mod (+ weekday 6) 7)))))
-    (mapconcat
-     (lambda (offset)
-       (let* ((day (org-workflow-history-add-days start offset))
-              (state (cdr (assoc day days)))
-              (done (member state '("done" "adjusted-done")))
-              (symbol (cond (done "■")
-                            ((or (null state) (member state '("withdrawn" "cancelled"))) "·")
-                            ((string< day date) "×") (t "□"))))
-         (propertize (concat (nth offset '("一" "二" "三" "四" "五" "六" "日")) symbol)
-                     'face (if done 'success 'shadow)
-                     'help-echo (concat day " " (or state "无承诺")))))
-     (number-sequence 0 6) " ")))
+         (start (org-workflow-history-add-days date (- (nth 6 (decode-time time))))))
+    (concat
+     (mapconcat
+      (lambda (offset)
+        (let* ((day (org-workflow-history-add-days start offset))
+               (state (cdr (assoc day days)))
+               (done (member state '("done" "adjusted-done")))
+               (glyph (cond (done 'done)
+                            ((or (null state) (member state '("withdrawn" "cancelled"))) 'future)
+                            ((string< day date) 'missed) (t 'today)))
+               (face (cond (done 'success) ((equal day date) 'default) (t 'shadow))))
+          (propertize
+           (concat (propertize (concat (nth offset '("日" "一" "二" "三" "四" "五" "六")) " ") 'face face)
+                   (org-workflow-evening--day-icon glyph face))
+           'help-echo (concat day " " (or state "无承诺")))))
+      (number-sequence 0 6) "  ")
+     (propertize (format "  连续 %d 天" (org-workflow-projects-streak days date)) 'face 'shadow))))
 
-(defun org-workflow-agenda-projects--line (item indent &optional suffix)
-  "Insert source-backed ITEM at INDENT with optional SUFFIX."
+(defun org-workflow-agenda-projects--line (item indent &optional suffix role)
+  "Insert source-backed ITEM at INDENT with optional SUFFIX and visual ROLE."
   (let* ((marker (org-workflow-projects-marker item))
          (state (plist-get item :state))
+         (regexps (org-with-point-at marker
+                    (list org-todo-regexp org-not-done-regexp)))
+         (face (pcase role
+                 ('project (if (equal state "DIVE") 'org-workflow-agenda-active-project
+                             'org-workflow-agenda-meta))
+                 ('stage 'org-workflow-agenda-project-stage)
+                 (_ 'org-workflow-agenda-meta)))
          (width (max 10 (- (window-body-width) indent (string-width (or suffix "")) 8))))
     (insert (propertize
              (concat (make-string indent ?\s) (if state (concat state " ") "")
                      (truncate-string-to-width (plist-get item :title) width nil nil "…")
                      suffix "\n")
              'org-marker marker 'org-hd-marker marker 'todo-state state 'type "todo" 'org-heading t 'org-agenda-type 'todo
+             'org-todo-regexp (car regexps) 'org-not-done-regexp (cadr regexps)
              'org-workflow-agenda-project-row t 'workflow-project item
-             'face (if (member state '("DONE" "HOLD")) 'org-workflow-agenda-meta 'default)
-             'help-echo (plist-get item :title)))))
+             'face face 'help-echo (plist-get item :title)))))
 
 (defun org-workflow-agenda-project-goal-toggle ()
   "Pause or resume the file goal at point, then refresh the Agenda."
@@ -193,19 +221,25 @@ calendar gaps never count as verified continuity."
         (when children
           (insert (propertize (concat "  " (plist-get goal :title)
                                       (when (plist-get goal :paused) "  HOLD") "\n")
-                              'face 'org-workflow-agenda-group 'workflow-goal goal
+                              'face 'org-workflow-agenda-project-goal 'workflow-goal goal
                               'keymap org-workflow-agenda-project-goal-map
                               'org-agenda-structural-header t
                               'help-echo "t 暂停／恢复此目标"))
           (dolist (project children)
             (let* ((progress (org-workflow-projects-progress project))
-                   (days (org-workflow-projects-tracking project date))
-                   (streak (org-workflow-projects-streak days date)))
+                   (active (equal (plist-get project :state) "DIVE")))
               (org-workflow-agenda-projects--line
-               project 4 (format "  %d/%d · 连续 %d 天" (plist-get progress :done) (plist-get progress :total) streak))
-              (insert "      " (org-workflow-agenda-projects--week days date) "\n")
-              (dolist (stage (plist-get progress :stages))
-                (org-workflow-agenda-projects--line stage 6))
+               project 4 (format "  %d/%d" (plist-get progress :done) (plist-get progress :total)) 'project)
+              (when active
+                (insert "      " (org-workflow-agenda-projects--week
+                                  (org-workflow-projects-tracking project date) date) "\n")
+                (let (expanded)
+                  (dolist (stage (plist-get progress :stages))
+                    (org-workflow-agenda-projects--line stage 6 nil 'stage)
+                    (when (and (not expanded) (equal (plist-get stage :state) "DIVE"))
+                      (setq expanded t)
+                      (dolist (task (plist-get stage :children))
+                        (org-workflow-agenda-projects--line task 8))))))
               (insert "\n"))))))
     (unless projects (insert (propertize "    暂无项目\n" 'face 'shadow)))
     (insert "\n")))

@@ -575,8 +575,9 @@ Stage candidates are previewed beneath commitments instead."
                                 (= priority (org-workflow-target-entry-priority entry)))
                               entries))
              (period-start (point))
-             previous-group)
+             previous-group content-start)
         (insert (org-workflow-agenda--period-header priority period-entries))
+        (setq content-start (point))
         (when habit-rows
           (org-workflow-evening--insert-habits habit-rows letter 'early))
         (dolist (entry period-entries)
@@ -592,11 +593,11 @@ Stage candidates are previewed beneath commitments instead."
             (when (org-workflow-agenda--commitment-entry-p entry target)
               (dolist (next (org-workflow-agenda--successors entry limit))
                 (insert (org-workflow-agenda--successor-line next) "\n")))))
-        (unless period-entries
-          (insert (propertize "      暂无安排\n"
-                              'face 'org-workflow-agenda-meta)))
         (when habit-rows
           (org-workflow-evening--insert-habits habit-rows letter 'late))
+        (when (= content-start (point))
+          (insert (propertize "      暂无安排\n"
+                              'face 'org-workflow-agenda-meta)))
         (insert "\n")
         (let ((cursor period-start))
           (while (< cursor (point))
