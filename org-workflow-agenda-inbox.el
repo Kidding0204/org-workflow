@@ -401,6 +401,7 @@ before visiting any source."
                              (while (re-search-forward org-heading-regexp end t)
                                (let ((captured (or (org-entry-get nil "CAPTURED_ON") date)))
                                  (when (and (= level (org-outline-level))
+                                            (org-get-todo-state)
                                             (or all (not captured)
                                                 (and (not (string< captured cutoff))
                                                      (not (string< today captured))))
@@ -542,20 +543,32 @@ The optional _ALL prefix is accepted for compatibility and has no effect."
   (org-workflow-collection-review-refresh))
 
 (defun org-workflow-install-inbox-capture-templates ()
-  "Route task captures to projects Inbox and notes to the current task."
+  "Install the single capture menu for tasks, questions and thoughts."
   (require 'org-capture)
+  ;; 去向在菜单中明确选择；不根据当前任务暗中转存。
   (dolist (template
-           '(("t" "TODO → Inbox" entry (function org-workflow-collection-inbox-capture-target)
-              "** TODO %?\n:PROPERTIES:\n:CAPTURED_ON: %<%Y-%m-%d>\n:END:\n %i\n %a" :empty-lines 0)
-             ("n" "笔记 → 当前任务" plain (function org-workflow-target-capture-location)
-              "- [ ] %?\n  %a" :empty-lines 1)
+           '(("t" "任务 → Inbox" entry (function org-workflow-collection-inbox-capture-target)
+              "* TODO %?\n:PROPERTIES:\n:ID: %(org-id-new)\n:CAPTURED_ON: %<%Y-%m-%d %H:%M>\n:END:\n%i\n%a\n" :supertag t :empty-lines 1)
+             ("q" "疑问")
+             ("qc" "疑问 → 当前任务" entry (function org-workflow-target-capture-location)
+              "* TODO %? :QA:\n:PROPERTIES:\n:ID: %(org-id-new)\n:CAPTURED_ON: %<%Y-%m-%d %H:%M>\n:END:\n%i\n%a\n" :supertag t :empty-lines 1)
+             ("qi" "疑问 → Inbox" entry (function org-workflow-collection-inbox-capture-target)
+              "* TODO %? :QA:\n:PROPERTIES:\n:ID: %(org-id-new)\n:CAPTURED_ON: %<%Y-%m-%d %H:%M>\n:END:\n%i\n%a\n" :supertag t :empty-lines 1)
+             ("n" "想法")
+             ("nc" "想法 → 当前任务" entry (function org-workflow-target-capture-location)
+              "* %?\n:PROPERTIES:\n:ID: %(org-id-new)\n:CAPTURED_ON: %<%Y-%m-%d %H:%M>\n:END:\n%i\n%a\n" :supertag t :empty-lines 1)
+             ("ni" "想法 → Inbox" entry (function org-workflow-collection-inbox-capture-target)
+              "* %?\n:PROPERTIES:\n:ID: %(org-id-new)\n:CAPTURED_ON: %<%Y-%m-%d %H:%M>\n:END:\n%i\n%a\n" :supertag t :empty-lines 1)
              ("p" "网页摘录 → Inbox" entry (function org-workflow-collection-inbox-capture-target)
-              "** TODO %:annotation\n:PROPERTIES:\n:CAPTURED_ON: %<%Y-%m-%d>\n:END:\n%i\n%?" :empty-lines 0)
+              "* TODO %:annotation\n:PROPERTIES:\n:ID: %(org-id-new)\n:CAPTURED_ON: %<%Y-%m-%d %H:%M>\n:END:\n%i\n%?" :supertag t :empty-lines 1)
              ("L" "网页链接 → Inbox" entry (function org-workflow-collection-inbox-capture-target)
-              "** TODO %:annotation\n:PROPERTIES:\n:CAPTURED_ON: %<%Y-%m-%d>\n:END:\n" :immediate-finish t :empty-lines 0)))
+              "* TODO %:annotation\n:PROPERTIES:\n:ID: %(org-id-new)\n:CAPTURED_ON: %<%Y-%m-%d %H:%M>\n:END:\n" :supertag t :immediate-finish t :empty-lines 1)))
     (if-let* ((existing (assoc (car template) org-capture-templates)))
         (setcdr existing (copy-tree (cdr template)))
-      (setq org-capture-templates (append org-capture-templates (list template))))))
+      (setq org-capture-templates (append org-capture-templates (list template)))))
+  ;; 旧 c 键继续可用，但模板内容只由 qc 决定。
+  (let ((alias (cons "c" (copy-tree (cdr (assoc "qc" org-capture-templates))))))
+    (setf (alist-get "c" org-capture-templates nil nil #'equal) (cdr alias))))
 
 ;; vulpea 笔记库中“可通过 `vulpea-find' 找到”的笔记文件。
 ;; vulpea-find 默认只展示有显式标题的笔记（`vulpea-note-titled-p'），

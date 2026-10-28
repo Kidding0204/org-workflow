@@ -1431,7 +1431,9 @@ pass MARKER after arranging their own UI, or omit it for a pure transformation."
 
 (defun org-workflow-target-capture-location ()
   "Move point to today's current target for `org-capture'."
-  (let ((marker (org-workflow-target--require-current)))
+  (let ((marker (condition-case nil
+                    (org-workflow-target--require-current)
+                  (user-error (user-error "没有当前任务；请使用疑问 qi 或想法 ni 存入 Inbox")))))
     (set-buffer (marker-buffer marker)) (goto-char marker) (org-back-to-heading t)))
 
 (defun org-workflow-target--reveal (marker focused-frame-p)
@@ -1560,10 +1562,6 @@ Leave the default buffer alone when there is no current target."
 
 (defun org-workflow-core--enable ()
   "Install this component while Workflow is being enabled."
-  (add-to-list 'org-capture-templates
-             '("c" "Note -> Current target" plain
-               (function org-workflow-target-capture-location)
-               "- [ ] %?\n  %a" :empty-lines 1))
   (org-workflow--add-hook 'server-after-make-frame-hook
           #'org-workflow--visit-current-target-in-new-frame)
   (org-workflow--add-hook 'org-after-todo-state-change-hook
