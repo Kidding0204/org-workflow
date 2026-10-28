@@ -36,7 +36,7 @@
 (require 'tab-line)
 (require 'org-workflow-sources)
 (autoload 'org-workflow-agenda-projects "org-workflow-agenda-projects")
-(autoload 'org-workflow-agenda--with-completed "org-workflow-agenda-projects")
+(autoload 'org-workflow-agenda--completed-arranged "org-workflow-agenda-projects")
 
 (defvar org-workflow-agenda-planning-all)
 
@@ -53,6 +53,10 @@
 (defface org-workflow-agenda-meta
   '((t (:inherit shadow :height 0.9)))
   "Quiet planning annotations." :group 'org-agenda)
+
+(defface org-workflow-agenda-anytime-project
+  '((t :inherit org-workflow-agenda-meta :slant italic))
+  "Project category in the anytime section." :group 'org-workflow)
 
 (defface org-workflow-agenda-ancestor
   '((t (:inherit shadow :height 0.95 :weight regular)))
@@ -212,27 +216,11 @@
                         ":" (string-join visible ":") ":") "")))
 
 (defun org-workflow-agenda--completed-periods (date)
-  "Return time bands with scoped DONE leaves completed on DATE."
+  "Return priority bands represented by DATE's completed arranged tasks."
   (let (periods)
-    (dolist (file (org-agenda-files t))
-      (when (file-readable-p file)
-        (with-current-buffer (find-file-noselect file)
-          (org-with-wide-buffer
-           (when (org-workflow--file-kind)
-             (org-map-entries
-              (lambda ()
-                (let ((scheduled (org-workflow-target--timestamp-date
-                                  (org-entry-get nil "SCHEDULED"))))
-                  (when (and (>= (org-outline-level) 2)
-                             (equal (org-get-todo-state) "DONE")
-                             (org-workflow-target--task-leaf-p)
-                             (not (org-workflow--held-p))
-                             (equal date (org-workflow-target--timestamp-date
-                                          (org-entry-get nil "CLOSED")))
-                             scheduled (not (string< date scheduled)))
-                    (cl-pushnew (org-workflow-agenda--priority-letter
-                                 (org-workflow--effective-priority-at-point))
-                                periods)))) nil 'file))))))
+    (dolist (entry (org-workflow-agenda--completed-arranged date))
+      (cl-pushnew (org-workflow-agenda--priority-letter
+                   (org-workflow-target-entry-priority entry)) periods))
     periods))
 
 (defun org-workflow-agenda--insert-day-tabs ()
@@ -488,7 +476,9 @@ Use native Agenda markers and the existing parent progress renderer."
     (when (eq role 'candidates)
       (org-workflow-agenda-projects nil))
     (when (memq role '(combined schedule))
-      (org-workflow-agenda-inbox nil habit-rows))))
+      (org-workflow-agenda-inbox nil habit-rows)
+      (unless (org-workflow-agenda--setting 'org-workflow-agenda-plan-tomorrow)
+        (org-workflow-agenda-completed nil)))))
 
 (require 'org-workflow-agenda-notes)
 
@@ -542,7 +532,7 @@ Use native Agenda markers and the existing parent progress renderer."
           (org-workflow-agenda-insert-note-preview marker))))
     (dolist (group (org-workflow-agenda-anytime-projects))
       (insert (propertize (concat "  " (plist-get (car group) :title) "\n")
-                          'face 'org-workflow-agenda-project-title 'org-agenda-structural-header t))
+                          'face 'org-workflow-agenda-anytime-project 'org-agenda-structural-header t))
       (let (previous-stage)
         (dolist (entry (cdr group))
           (let ((stage (org-with-point-at (org-workflow-target-entry-marker entry)
@@ -568,7 +558,7 @@ Use native Agenda markers and the existing parent progress renderer."
                           (or (not tomorrow)
                               (equal target (org-workflow-target-entry-scheduled-date entry)))))
                    (org-workflow-target--ordered-entries (and tomorrow target))))
-         (entries (org-workflow-agenda--with-completed entries target tomorrow)))
+         (completed (unless tomorrow (org-workflow-agenda--completed-arranged target))))
     (insert (propertize "安排" 'face 'org-workflow-agenda-section
                         'org-agenda-structural-header t) "    ")
     (org-workflow-agenda--insert-day-tabs)
@@ -579,6 +569,9 @@ Use native Agenda markers and the existing parent progress renderer."
                               (lambda (entry)
                                 (= priority (org-workflow-target-entry-priority entry)))
                               entries))
+             (period-completed (seq-filter
+                                (lambda (entry) (= priority (org-workflow-target-entry-priority entry)))
+                                completed))
              (period-start (point))
              previous-group content-start)
         (insert (org-workflow-agenda--period-header priority period-entries))
@@ -597,9 +590,19 @@ Use native Agenda markers and the existing parent progress renderer."
             (insert (org-workflow-agenda--stack-line entry nil) "\n")))
         (when habit-rows
           (org-workflow-evening--insert-habits habit-rows letter 'late))
-        (when (= content-start (point))
-          (insert (propertize "      暂无安排\n"
-                              'face 'org-workflow-agenda-meta)))
+        ;; 当天已完成项集中放到回顾区。这里仅在没有未完成任务时给出总结；
+        ;; CLOCK 读取直属记录并按本地日期截取，不重复累加子节点或昨日投入。
+        (if (and (null period-entries) period-completed)
+            (let ((minutes
+                   (cl-loop for entry in period-completed
+                            sum (or (plist-get (org-workflow-item-day-record entry target)
+                                               :focusMinutes) 0))))
+              (insert (propertize
+                       (format "      已完成 %d 项任务，共专注 %d 时 %d 分\n"
+                               (length period-completed) (/ minutes 60) (% minutes 60))
+                       'face 'org-workflow-agenda-meta)))
+          (when (= content-start (point))
+            (insert (propertize "      暂无安排\n" 'face 'org-workflow-agenda-meta))))
         (insert "\n")
         (let ((cursor period-start))
           (while (< cursor (point))

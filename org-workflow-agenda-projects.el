@@ -24,11 +24,11 @@
   '((t :inherit default))
   "Project stage heading." :group 'org-workflow)
 
-(defun org-workflow-agenda--with-completed (entries date tomorrow)
-  "Merge DATE's completed scheduled leaves into ENTRIES in the same ordering.
-TOMORROW projections never include today's completions."
-  (unless tomorrow
-    (dolist (file (org-agenda-files t))
+(defun org-workflow-agenda--completed-arranged (date)
+  "Read leaves completed on DATE that belonged to its arranged queue."
+  (let (entries)
+    (dolist (file (delete-dups (append (org-agenda-files t)
+                                     (org-workflow-collection-inbox--review-files))))
       (with-current-buffer (find-file-noselect file)
         (org-with-wide-buffer
          (org-map-entries
@@ -39,8 +39,8 @@ TOMORROW projections never include today's completions."
                        (not (org-workflow-projects-stage-p))
                        (equal date (org-workflow-target--timestamp-date (org-entry-get nil "CLOSED")))
                        (org-workflow--scheduled-on-or-before-p date))
-              (push (org-workflow-item-at-marker (point-marker) date) entries))) nil 'file)))))
-  (org-workflow-target--order-entries entries))
+              (push (org-workflow-item-at-marker (point-marker) date) entries))) nil 'file))))
+    (org-workflow-target--order-entries entries)))
 
 (defun org-workflow-projects-progress (project)
   "Read PROJECT's done/total concrete steps and stage source records."

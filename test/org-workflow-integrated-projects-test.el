@@ -49,7 +49,7 @@
 
 (provide 'org-workflow-integrated-projects-test)
 
-(ert-deftest workflow-integrated-completion-keeps-only-arranged-row ()
+(ert-deftest workflow-integrated-completion-moves-from-arrangement-to-review ()
   (workflow-integrated-fixture
    (org-workflow-projects-sync)
    (let ((source (current-buffer)) (org-workflow-agenda-plan-tomorrow nil))
@@ -59,17 +59,16 @@
          (org-workflow-agenda-task-stack nil)
          (should (string-match-p "Tokens" (buffer-string)))
          (should-not (string-match-p "Parser\\|Codegen" (buffer-string)))
-         (let ((before (buffer-string)))
-           (with-current-buffer source
-             (goto-char (point-min)) (search-forward "*** TODO Tokens")
-             (let ((org-log-done nil)) (org-todo "DONE"))
-             (org-add-planning-info 'closed (org-time-string-to-time "2026-09-16")))
-           (erase-buffer)
-           (org-workflow-agenda-task-stack nil)
-           (should (string-match-p "Tokens" (buffer-string)))
-         (should-not (string-match-p "Parser\\|Codegen" (buffer-string)))
-           (should (= (string-match "Tokens" before)
-                      (string-match "Tokens" (buffer-string))))))))))
+         (with-current-buffer source
+           (goto-char (point-min)) (search-forward "*** TODO Tokens")
+           (let ((org-log-done nil)) (org-todo "DONE"))
+           (org-add-planning-info 'closed (org-time-string-to-time "2026-09-16")))
+         (erase-buffer)
+         (org-workflow-agenda-task-stack nil)
+         (should-not (string-match-p "Tokens" (buffer-string)))
+         (org-workflow-agenda-completed nil)
+         (should (string-match-p "今日已完成" (buffer-string)))
+         (should (= 1 (how-many "Tokens" (point-min) (point-max)))))))))
 
 (ert-deftest workflow-integrated-breadcrumb-is-bounded-and-no-file ()
   (workflow-integrated-fixture
@@ -174,7 +173,7 @@
   (workflow-integrated-fixture
    (goto-char (point-max))
    (insert "* DONE Empty project\nCLOSED: [2026-09-16 Wed] SCHEDULED: <2026-09-16 Wed>\n* DIVE Another\n** DONE Empty stage\nCLOSED: [2026-09-16 Wed] SCHEDULED: <2026-09-16 Wed>\n")
-   (should-not (org-workflow-agenda--with-completed nil "2026-09-16" nil))))
+   (should-not (org-workflow-agenda--completed-arranged "2026-09-16"))))
 
 (ert-deftest workflow-integrated-project-layout-and-modern-keywords ()
   (workflow-integrated-fixture

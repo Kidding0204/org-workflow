@@ -104,6 +104,8 @@ This is only a candidate filter; Org still validates matching entries."
            (org-map-entries
             (lambda ()
               (when (and (equal (org-get-todo-state) "DONE")
+                         ;; 未安排疑问的完成态属于长期笔记，不进入任务回顾。
+                         (not (and (org-workflow-qa-p) (not (org-entry-get nil "SCHEDULED"))))
                          (let ((closed (org-workflow-target--timestamp-date (org-entry-get nil "CLOSED"))))
                            (and closed (not (string< closed start))
                                 (string< closed end))))

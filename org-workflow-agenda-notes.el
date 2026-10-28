@@ -64,10 +64,10 @@
   "Append MARKER's own body, initially folded, below its preceding Sprint row."
   (let* ((body (org-with-point-at marker
                  (save-excursion
-                   (org-end-of-meta-data t)
-                   (let ((begin (point))
-                         (end (save-excursion (if (outline-next-heading) (point) (point-max)))))
-                     (string-trim (buffer-substring-no-properties begin end))))))
+                   ;; 先固定直属正文边界；空正文的 metadata 跳转可能到下一标题。
+                   (let ((end (save-excursion (if (outline-next-heading) (point) (point-max)))))
+                     (org-end-of-meta-data t)
+                     (string-trim (buffer-substring-no-properties (min (point) end) end))))))
          (row-start (save-excursion (forward-line -1) (line-beginning-position))))
     (add-text-properties row-start (point)
                          (list 'keymap org-workflow-agenda-note-row-map

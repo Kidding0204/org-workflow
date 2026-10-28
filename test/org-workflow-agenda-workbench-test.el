@@ -149,8 +149,8 @@
     (should (equal '(?C ?A) (org-workflow-agenda--completed-periods "2026-08-17")))
     (with-temp-buffer
       (org-workflow-agenda-task-stack nil)
-      (should (= 0 (how-many "已完成" (point-min) (point-max))))
-      (should (= 3 (how-many "✓" (point-min) (point-max))))
+      (should (= 2 (how-many "已完成.*项任务" (point-min) (point-max))))
+      (should (= 0 (how-many "✓" (point-min) (point-max))))
       (should (= 1 (how-many "暂无安排" (point-min) (point-max)))))))
 
 (ert-deftest org-workflow-workbench-day-switch-syncs-command-date-and-empty-context ()

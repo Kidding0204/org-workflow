@@ -46,10 +46,11 @@
         (should (member "promise" (org-get-tags nil t)))))))
 
 (ert-deftest note-gtd-review-note-capture-targets-current-task ()
-  (let ((template (assoc "n" org-capture-templates)))
-    (should (eq (nth 2 template) 'plain))
+  (let ((template (assoc "nc" org-capture-templates)))
+    (should (eq (nth 2 template) 'entry))
     (should (equal (nth 3 template) '(function org-workflow-target-capture-location)))
-    (should (equal (nth 4 template) "- [ ] %?\n  %a"))))
+    (should (string-prefix-p "* %?\n" (nth 4 template)))
+    (should (string-match-p "%a" (nth 4 template)))))
 
 (ert-deftest note-gtd-review-completion-keeps-source-and-leaves-pending-list ()
   (let ((file (make-temp-file "tiny-review-" nil ".org"
