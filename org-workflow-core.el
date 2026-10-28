@@ -199,10 +199,22 @@ the minibuffer, so other clients such as the GNOME status reader stay usable."
      (org-workflow-target--timestamp-date (org-entry-get nil "SCHEDULED"))
      date)))
 
-(defun org-workflow-target--task-p ()
-  "Return non-nil for a TODO heading other than a typed note."
+(defun org-workflow-qa-p ()
+  "Whether this heading directly carries the native QA tag."
+  (member "QA" (org-get-tags nil t)))
+
+(defun org-workflow-target--blocking-task-p ()
+  "Whether this heading contributes to its parent's execution structure."
+  ;; 疑问的物理归属不代表前置依赖；即便已安排，也不替换父任务。
   (let ((state (org-get-todo-state)))
-    (and state (not (member state org-workflow-task-type-keywords)))))
+    (and state (not (org-workflow-qa-p))
+         (not (member state org-workflow-task-type-keywords)))))
+
+(defun org-workflow-target--task-p ()
+  "Whether this heading is an ordinary task or an explicitly scheduled QA."
+  (or (org-workflow-target--blocking-task-p)
+      (and (org-workflow-qa-p) (org-get-todo-state)
+           (org-entry-get nil "SCHEDULED"))))
 
 (defun org-workflow-target--unfinished-p ()
   "Return non-nil when the current heading has an unfinished TODO state."
@@ -219,7 +231,7 @@ Typed notes are not tasks, but real tasks nested below them still count."
            (forward-line 1)
            (not (catch 'task
                   (while (re-search-forward org-heading-regexp end t)
-                    (when (org-workflow-target--task-p)
+                    (when (org-workflow-target--blocking-task-p)
                       (throw 'task t)))))))))
 
 (defun org-workflow-target--unfinished-leaf-p ()

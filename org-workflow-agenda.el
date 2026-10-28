@@ -48,8 +48,33 @@
   "Set a statistics parent to DONE when all counted children are done.
 N-DONE and N-NOT-DONE are Org's counted children, excluding typed notes.
 An empty count does not complete a task containing only notes."
+  ;; Org 的原生计数按关键词，不能按 :QA: 排除节点。在公开统计 hook
+  ;; 重算当前 cookie；不修改 Org 实现，也不让解答疑问自动完成父任务。
+  (when (and (not (org-workflow-qa-p))
+             (save-excursion
+               (let ((end (save-excursion (org-end-of-subtree t t))))
+                 (forward-line 1)
+                 (re-search-forward "^[*]+ .*:QA:" end t))))
+    (let ((level (org-outline-level))
+          (recursive (or (not org-hierarchical-todo-statistics)
+                         (string-match-p "recursive" (or (org-entry-get nil "COOKIE_DATA" t) "")))))
+      (setq n-done 0 n-not-done 0)
+      (save-excursion
+        (org-map-entries
+         (lambda ()
+           (when (and (> (org-outline-level) level)
+                      (or recursive (= (org-outline-level) (1+ level)))
+                      (org-workflow-target--blocking-task-p))
+             (if (org-entry-is-done-p) (cl-incf n-done) (cl-incf n-not-done)))) nil 'tree))
+      (save-excursion
+        (beginning-of-line)
+        (when (re-search-forward "\\[\\(?:[0-9]+/[0-9]+\\|[0-9]+%\\)\\]" (line-end-position) t)
+          (replace-match (if (string-match-p "%" (match-string 0))
+                             (format "[%d%%]" (/ (* 100 n-done) (max 1 (+ n-done n-not-done))))
+                           (format "[%d/%d]" n-done (+ n-done n-not-done))) t t)))))
   (when-let* ((state (org-get-todo-state)))
     (when (and (member state '("TODO" "DIVE" "DONE"))
+               (not (org-workflow-qa-p))
                (> (+ n-done n-not-done) 0))
       (let ((target-state (if (zerop n-not-done) "DONE"
                             (if (equal state "DIVE") "DIVE" "TODO"))))
