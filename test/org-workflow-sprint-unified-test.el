@@ -59,3 +59,16 @@
         (should (org-get-at-bol 'org-workflow-agenda-inbox-row))
         (goto-char (point-min)) (search-forward "Future capture")
         (should (org-get-at-bol 'org-workflow-agenda-inbox-row))))))
+
+(ert-deftest workflow-unified-inbox-always-excludes-held-and-completed-states ()
+  (org-workflow-workbench-test-with-files
+      '("#+TODO: TODO DIVE HOLD | DONE CANCELLED\n* Inbox\n** TODO Open\n** DIVE Active\n** HOLD Paused\n** DONE Finished\n** CANCELLED Cancelled\n** TODO Planned\nSCHEDULED: <2026-08-20 Thu>\n")
+    (let ((org-workflow-projects-file (car files)))
+      (should (equal '("TODO Open" "DIVE Active" "TODO Planned")
+                     (mapcar #'cadr (org-workflow-collection-inbox--pending files t))))
+      (should (equal '("TODO Open" "DIVE Active")
+                     (mapcar #'cadr (org-workflow-collection-inbox--pending files t t))))
+      (cl-letf (((symbol-function 'org-workflow-collection-inbox--review-files) (lambda () files)))
+        (org-workflow-workbench-test-open)
+        (should-not (string-match-p "Paused\\|Finished\\|Cancelled" (buffer-string)))
+        (should (string-match-p "Planned" (buffer-string)))))))

@@ -395,6 +395,7 @@ from the source.  Navigation, cancellation and failed moves save no buffers."
 (defun org-workflow-collection-inbox--pending (files &optional all unscheduled)
   "Return date/title/marker records still in collection headings in FILES.
 Include items captured in the last seven calendar days unless ALL.
+Held and completed items are always excluded, even with ALL.
 Undated unified Inbox items remain visible.  Nested headings belong to their
 containing captured item.  UNSCHEDULED selects only optional Sprint items
 before visiting any source."
@@ -424,12 +425,12 @@ before visiting any source."
                                             (or all (not captured)
                                                 (and (not (string< captured cutoff))
                                                      (not (string< today captured))))
-                                            (not (equal (org-get-todo-state) "DONE"))
+                                            ;; Status eligibility is independent of date visibility.
+                                            (not (org-entry-is-done-p))
+                                            (not (org-workflow--held-p))
                                             (or (not unscheduled)
                                                 (not (or (org-entry-get nil "SCHEDULED")
                                                          (org-entry-get nil "DEADLINE")
-                                                         (org-entry-is-done-p)
-                                                         (org-workflow--held-p)
                                                          (org-workflow-habit-p)))))
                                    (push (list (or captured "")
                                                (substring-no-properties (org-get-heading t nil t t))
