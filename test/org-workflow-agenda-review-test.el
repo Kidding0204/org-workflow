@@ -20,7 +20,7 @@
             (should org-workflow-agenda-completed-expanded)
             (goto-char (point-min)) (search-forward "Finished")
             (should (markerp (org-get-at-bol 'org-hd-marker)))
-            (should (string-match-p "今日 0:25" (buffer-string)))))
+            (should (string-match-p "0 时 25 分" (buffer-string)))))
       (when-let* ((buffer (get-file-buffer file))) (kill-buffer buffer))
       (delete-file file))))
 
@@ -109,11 +109,13 @@
   (cl-letf (((symbol-function 'org-workflow-target--today-string) (lambda () "2026-09-09")))
     (dolist (spec '(("" (0 nil) "无计时记录")
                     ("CLOCK: [2026-09-08 Tue 10:00]--[2026-09-08 Tue 10:25] =>  0:25\n"
-                     (0 t) "今日 0:00")
+                     (0 t) "0 时 0 分")
                     ("CLOCK: [2026-09-08 Tue 23:45]--[2026-09-09 Wed 00:15] =>  0:30\n"
-                     (15 t) "今日 0:15")
+                     (15 t) "0 时 15 分")
+                    ("CLOCK: [2026-09-09 Wed 09:00]--[2026-09-09 Wed 10:30] => 1:30\n"
+                     (90 t) "1 时 30 分")
                     ("CLOCK: [2026-09-09 Wed 10:00]--[2026-09-09 Wed 10:00] =>  0:00\n"
-                     (0 t) "今日 0:00")))
+                     (0 t) "0 时 0 分")))
       (with-temp-buffer
         (org-mode)
         (insert "* DONE Task\n" (car spec))

@@ -57,7 +57,8 @@
 (defun org-workflow-agenda--clock-summary-text (summary)
   "Format today's direct SUMMARY, distinguishing missing records from zero."
   (if (cadr summary)
-      (format "今日 %s" (org-duration-from-minutes (car summary)))
+      ;; 栏目标题已说明日期，行内只保留与时段总结一致的时长。
+      (format "%d 时 %d 分" (/ (car summary) 60) (% (car summary) 60))
     "无计时记录"))
 
 (defun org-workflow-agenda--file-has-closed-in-range-p (file start end)
