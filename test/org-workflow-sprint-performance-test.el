@@ -217,3 +217,48 @@
       (should-not org-workflow-source--read-cache))))
 
 (provide 'org-workflow-sprint-performance-test)
+
+(ert-deftest workflow-sprint-next-step-stops-after-first-active-candidate ()
+  (org-workflow-workbench-test-with-files
+      '("* DIVE Project\n** TODO Backlog\n*** TODO Backup\n** DIVE Active\n*** TODO Chosen\n*** TODO Unneeded\n")
+    (let ((tail-reads 0) (original (symbol-function 'org-workflow-projects--location)))
+      (cl-letf (((symbol-function 'org-workflow-projects--location)
+                 (lambda ()
+                   (when (equal "Unneeded" (org-get-heading t t t t)) (cl-incf tail-reads))
+                   (funcall original))))
+        (let ((next (plist-get (cadr (org-workflow-projects-collect)) :next)))
+          (should (equal "Chosen" (plist-get next :title)))
+          (should (equal "Active" (plist-get next :phase)))
+          (should (plist-get next :active))
+          (should (= 0 tail-reads)))))))
+
+(ert-deftest workflow-sprint-next-step-retains-first-fallback-without-active-work ()
+  (org-workflow-workbench-test-with-files
+      '("* DIVE Project\n** TODO Backlog\n*** TODO Backup\n*** TODO Later\n** DIVE Future\n*** TODO Tomorrow\nSCHEDULED: <2026-08-18 Tue>\n** HOLD Paused\n*** TODO Hidden\n")
+    (let ((next (plist-get (cadr (org-workflow-projects-collect)) :next)))
+      (should (equal "Backup" (plist-get next :title)))
+      (should (equal "Backlog" (plist-get next :phase)))
+      (should-not (plist-get next :active)))))
+
+(ert-deftest workflow-sprint-anytime-stops-scanning-after-four-results ()
+  (org-workflow-workbench-test-with-files
+      '("* DIVE Project\n** DIVE Stage\n*** TODO One\n*** TODO Two\n*** TODO Three\n*** TODO Four\n*** TODO Five\n*** TODO Six\n")
+    (let ((visits 0) (original (symbol-function 'org-map-entries)))
+      (cl-letf (((symbol-function 'org-map-entries)
+                 (lambda (reader &optional match scope &rest skip)
+                   (apply original (if (eq scope 'tree)
+                                       (lambda () (cl-incf visits) (funcall reader)) reader)
+                          match scope skip))))
+        (let ((entries (cdar (org-workflow-agenda-anytime-projects))))
+          (should (equal '("One" "Two" "Three" "Four")
+                         (mapcar #'org-workflow-target-entry-title entries)))
+          (should (= 6 visits)))))))
+
+(ert-deftest workflow-sprint-completed-period-skips-sources-without-todays-closed ()
+  (org-workflow-workbench-test-with-files
+      '("* DIVE Project\n** DIVE Stage\n*** DONE Yesterday\nCLOSED: [2026-08-16 Sun 18:00]\nSCHEDULED: <2026-08-16 Sun>\n*** TODO Pending\n")
+    (let ((scans 0) (original (symbol-function 'org-map-entries)))
+      (cl-letf (((symbol-function 'org-map-entries)
+                 (lambda (&rest args) (cl-incf scans) (apply original args))))
+        (should-not (org-workflow-agenda--completed-arranged "2026-08-17"))
+        (should (= 0 scans))))))

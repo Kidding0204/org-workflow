@@ -8,6 +8,7 @@
 (declare-function org-workflow-collection-inbox--pending "org-workflow-agenda-inbox" (files &optional all unscheduled))
 (declare-function org-workflow-collection-inbox--review-files "org-workflow-agenda-inbox" ())
 (declare-function org-workflow-agenda-note-toggle "org-workflow-agenda-notes" ())
+(declare-function org-workflow-agenda--file-has-closed-in-range-p "org-workflow-agenda-review" (file start end))
 
 (require 'org-workflow-projects)
 (require 'org-workflow-history)
@@ -34,20 +35,24 @@
 
 (defun org-workflow-agenda--completed-arranged (date)
   "Read leaves completed on DATE that belonged to its arranged queue."
-  (let (entries)
+  (let ((end (org-workflow-history-add-days date 1)) entries)
     (dolist (file (delete-dups (append (org-agenda-files t)
-                                     (org-workflow-collection-inbox--review-files))))
-      (with-current-buffer (find-file-noselect file)
-        (org-with-wide-buffer
-         (org-map-entries
-          (lambda ()
-            (when (and (equal (org-get-todo-state) "DONE")
-                       (org-workflow-target--task-leaf-p)
-                       (not (org-workflow-projects-kind))
-                       (not (org-workflow-projects-stage-p))
-                       (equal date (org-workflow-target--timestamp-date (org-entry-get nil "CLOSED")))
-                       (org-workflow--scheduled-on-or-before-p date))
-              (push (org-workflow-item-at-marker (point-marker) date) entries))) nil 'file))))
+                                       (org-workflow-collection-inbox--review-files))))
+      ;; Reuse the completed review's cheap live-text date filter before
+      ;; invoking Org's full scanner on files with no relevant CLOSED record.
+      (when (and (file-readable-p file)
+                 (org-workflow-agenda--file-has-closed-in-range-p file date end))
+        (with-current-buffer (find-file-noselect file)
+          (org-with-wide-buffer
+           (org-map-entries
+            (lambda ()
+              (when (and (equal (org-get-todo-state) "DONE")
+                         (org-workflow-target--task-leaf-p)
+                         (not (org-workflow-projects-kind))
+                         (not (org-workflow-projects-stage-p))
+                         (equal date (org-workflow-target--timestamp-date (org-entry-get nil "CLOSED")))
+                         (org-workflow--scheduled-on-or-before-p date))
+                (push (org-workflow-item-at-marker (point-marker) date) entries))) nil 'file)))))
     (org-workflow-target--order-entries entries)))
 
 (defun org-workflow-projects-progress (project)

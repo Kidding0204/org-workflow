@@ -105,30 +105,34 @@ Plain organizational headings, typed notes and simple habits are not projects."
 
 (defun org-workflow-projects--next ()
   "Read the next executable leaf in this project, preferring active branches."
-  (let ((root (point)) (end (save-excursion (org-end-of-subtree t t))) candidates)
+  (let ((root (point)) (end (save-excursion (org-end-of-subtree t t))) fallback)
     (save-excursion
-      (forward-line 1)
-      (while (re-search-forward org-heading-regexp end t)
-        (goto-char (line-beginning-position))
-        (cond
-         ((or (member (org-workflow-projects-kind) '("project" "goal"))
-              (member (org-get-todo-state) '("HOLD" "DONE"))
-              (equal (org-entry-get nil "STYLE") "habit"))
-          (org-end-of-subtree t t))
-         (t
-          (let ((date (org-workflow-target--timestamp-date (org-entry-get nil "SCHEDULED"))))
-            (when (and (org-workflow-target--unfinished-leaf-p)
-                       (not (org-workflow-projects-stage-p))
-                       (or (not date) (not (string< (org-workflow-target--today-string) date))))
-              (let ((item (org-workflow-projects--location)) phase active)
-                (save-excursion
-                  (while (and (org-up-heading-safe) (> (point) root))
-                    (unless phase (setq phase (org-get-heading t t t t)))
-                    (when (equal (org-get-todo-state) "DIVE") (setq active t))))
-                (push (append item (list :phase phase :active active)) candidates))))
-          (forward-line 1)))))
-    (setq candidates (nreverse candidates))
-    (or (seq-find (lambda (x) (plist-get x :active)) candidates) (car candidates))))
+      (catch 'next
+        (forward-line 1)
+        (while (re-search-forward org-heading-regexp end t)
+          (goto-char (line-beginning-position))
+          (cond
+           ((or (member (org-workflow-projects-kind) '("project" "goal"))
+                (member (org-get-todo-state) '("HOLD" "DONE"))
+                (equal (org-entry-get nil "STYLE") "habit"))
+            (org-end-of-subtree t t))
+           (t
+            (let ((date (org-workflow-target--timestamp-date (org-entry-get nil "SCHEDULED"))))
+              (when (and (org-workflow-target--unfinished-leaf-p)
+                         (not (org-workflow-projects-stage-p))
+                         (or (not date) (not (string< (org-workflow-target--today-string) date))))
+                (let ((item (org-workflow-projects--location)) phase active)
+                  (save-excursion
+                    (while (and (org-up-heading-safe) (> (point) root))
+                      (unless phase (setq phase (org-get-heading t t t t)))
+                      (when (equal (org-get-todo-state) "DIVE") (setq active t))))
+                  (setq item (append item (list :phase phase :active active)))
+                  ;; The first active leaf is the final answer.  Until then,
+                  ;; only the first fallback can affect the result.
+                  (when active (throw 'next item))
+                  (unless fallback (setq fallback item)))))
+            (forward-line 1))))
+        fallback))))
 
 (defun org-workflow-projects-collect ()
   "Read file goals and structural projects without changing sources."

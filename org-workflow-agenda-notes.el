@@ -62,7 +62,11 @@ Only positions survive a refresh; actionable items get fresh source markers."
                   (not (org-workflow-projects-kind))
                   (not (org-entry-get nil "SCHEDULED"))
                   (not (org-workflow-target--execution-blocked-p)))
-         (push (point) positions))) nil 'tree)
+         (push (point) positions)
+         ;; Native continuation skips the remaining subtree once the visible
+         ;; quota is full, including the scanner's tag/category preparation.
+         (when (= (length positions) 4)
+           (setq org-map-continue-from (point-max))))) nil 'tree)
     (nreverse positions)))
 
 (defvar org-workflow-agenda-note-row-map

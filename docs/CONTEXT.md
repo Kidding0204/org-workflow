@@ -18,6 +18,12 @@ source-cached-read 用 buffer-chars-modified-tick、源文件身份和 Org 解�
 org-workflow-source--clear-read-caches。历史基线见 reviews/2026-10-28-sprint-performance.md，
 后续验证与依赖规则见 reviews/2026-10-28-sprint-source-cache.md。
 
+首次读取另做有界扫描：projects--next 找到首个活跃候选即返回，仅保留首个后备候选；
+随时收满四项后使用原生 org-map-continue-from 跳过本项目余下部分；completed-arranged
+复用完成回顾的 live-text CLOSED 日期筛选，避免无当天完成记录的文件进入完整 Org 扫描。
+未增加缓存、hook、选项或预加载；首次 Org 链接模块加载仍保持原生行为。
+首次打开的分阶段测量与验证见 reviews/2026-10-28-sprint-cold-start.md。
+
 ## 2026-10-28 审查修复
 
 选择／执行保存原生标题范围与已有 ID，删除或替换后拒绝把动作施加到后继条目；
