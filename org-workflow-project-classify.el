@@ -46,6 +46,11 @@
     (org-workflow-project-classify--files (list marker))
     (unless (memq kind '(project heading)) (user-error "请选择项目或二级分组"))
     (org-with-point-at marker
+      (when (and (plist-get target :title)
+                 (not (and (equal (plist-get target :title) (org-get-heading t t t t))
+                           (or (not (plist-get target :id))
+                               (equal (plist-get target :id) (org-entry-get nil "ID"))))))
+        (user-error "目标身份已变化，请刷新"))
       (unless (and (org-at-heading-p)
                    (if (eq kind 'project) (equal (org-workflow-projects-kind) "project")
                      (org-workflow-projects-stage-p)))

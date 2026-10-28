@@ -75,6 +75,9 @@
 (defun org-workflow-agenda--apply-planning (operation)
   "Apply native Agenda OPERATION to marked tasks or the task at point.
 Validate every row first, and roll back source buffers if an operation fails."
+  (org-workflow-agenda-ensure-writeable)
+  (when (eq (org-workflow-agenda-selected-view) 'projects)
+    (user-error "请在今日／明日视图安排任务"))
   (let* ((markers (mapcar #'copy-marker
                          (delete-dups
                           (copy-sequence
@@ -193,6 +196,7 @@ Queue the rebuild after the command finishes its incremental line updates."
 (defun org-workflow-agenda-schedule-tomorrow ()
   "Defer selected Agenda items to tomorrow without creating new commitments."
   (interactive)
+  (when org-workflow-agenda--sprint-buffer-p (org-workflow-agenda-ensure-writeable))
   (let ((org-workflow-store--defer-without-draft t))
     (org-workflow-agenda--schedule-and-redo (org-workflow-agenda--date-offset 1))))
 

@@ -163,6 +163,13 @@ calendar gaps never count as verified continuity."
              'face face 'help-echo (plist-get item :title)))
     (org-workflow-agenda-projects--cookies start (point))))
 
+(defun org-workflow-agenda-project-todo ()
+  "Dispatch state editing by structural row, keeping ordinary Agenda TODO native."
+  (interactive)
+  (cond ((org-get-at-bol 'workflow-goal) (org-workflow-agenda-project-goal-toggle))
+        ((org-get-at-bol 'org-workflow-agenda-project-role) (org-workflow-agenda-project-state))
+        (t (org-workflow-agenda-ensure-writeable) (call-interactively #'org-agenda-todo))))
+
 (defun org-workflow-agenda-project-state (&optional marker state)
   "Set project or Heading MARKER to STATE through the shared project API."
   (interactive)
@@ -252,6 +259,87 @@ calendar gaps never count as verified continuity."
     (insert "\n")
     (add-text-properties start (point) '(org-agenda-type todo))))
 
+(autoload 'org-workflow-project-classify "org-workflow-project-classify")
+(autoload 'org-workflow-project-classify-save "org-workflow-project-classify")
+
+(defun org-workflow-agenda-classify-markers ()
+  "Return selected Inbox markers in visible order, independent of the active pane."
+  (let* ((buffers (org-workflow-agenda--workbench-buffers))
+         (selected (apply #'append (mapcar (lambda (b)
+                                            (buffer-local-value 'org-agenda-bulk-marked-entries b)) buffers)))
+         (fallback (org-get-at-bol 'org-hd-marker)) markers)
+    (dolist (buffer buffers)
+      (with-current-buffer buffer
+        (save-excursion
+          (goto-char (point-min))
+          (while (< (point) (point-max))
+            (when (org-get-at-bol 'org-workflow-agenda-inbox-row)
+              (let ((marker (org-get-at-bol 'org-hd-marker)))
+                (when (if selected (member marker selected) (equal marker fallback))
+                  (push (copy-marker marker) markers))))
+            (forward-line 1)))))
+    (nreverse markers)))
+
+(defun org-workflow-agenda-classify-entries (markers target)
+  "Classify MARKERS into TARGET, keeping both Sprint panes coherent."
+  (unless (eq (org-workflow-agenda-selected-view) 'projects)
+    (user-error "请在项目页归类 Inbox"))
+  (org-workflow-agenda-ensure-writeable)
+  (unless markers (user-error "请先选择 Inbox 条目"))
+  ;; Bulk marks are a stack, but a batch belongs in the source's visible order.
+  (let* ((left (org-workflow-agenda-workbench-primary org-workflow-agenda--workbench))
+         (order (with-current-buffer left
+                  (let (rows) (save-excursion
+                                (goto-char (point-min))
+                                (while (< (point) (point-max))
+                                  (when (org-get-at-bol 'org-workflow-agenda-inbox-row)
+                                    (push (org-get-at-bol 'org-hd-marker) rows))
+                                  (forward-line 1))) (nreverse rows))))
+         (sorted (seq-filter (lambda (m) (member m markers)) order)))
+    (unless (= (length markers) (length sorted)) (user-error "来源已不在本页 Inbox，请刷新"))
+    (let ((record (org-workflow-project-classify (mapcar #'copy-marker sorted) target)))
+      (org-workflow-agenda--clear-selection)
+      (let ((folds (org-workflow-agenda--setting 'org-workflow-agenda-project-folds))
+            (root (plist-get record :project)))
+        (dolist (marker (list root (when-let* ((m (car (plist-get record :markers))))
+                                       (org-with-point-at m (org-up-heading-safe) (point-marker)))))
+          (when marker
+            (let ((item (org-with-point-at marker (org-workflow-projects--location))))
+              (setf (alist-get (org-workflow-agenda-project-key item) folds nil nil #'equal) t))))
+        (org-workflow-agenda--set-setting 'org-workflow-agenda-project-folds folds))
+      (org-agenda-redo)
+      (when (eq (plist-get record :save-state) 'saved)
+        (message "已归类 %d 项" (length markers)))
+      record)))
+
+(defun org-workflow-agenda-classify-selected ()
+  "Move selected Inbox captures to this row, or choose a structural destination."
+  (interactive)
+  (let ((markers (org-workflow-agenda-classify-markers))
+        (target (org-get-at-bol 'org-workflow-agenda-classify-target)))
+    (unless target
+      (let (choices)
+        (dolist (buffer (org-workflow-agenda--workbench-buffers))
+          (with-current-buffer buffer
+            (save-excursion
+              (goto-char (point-min))
+              (while (< (point) (point-max))
+                (when-let* ((item (org-get-at-bol 'org-workflow-agenda-classify-target)))
+                  (let ((label (org-with-point-at (plist-get item :marker)
+                                 (concat (file-name-base buffer-file-name) " / "
+                                         (mapconcat #'identity (org-get-outline-path t) " / ")))))
+                    (push (cons (format "%s  (%d)" label (marker-position (plist-get item :marker))) item) choices)))
+                (forward-line 1)))))
+        (setq target (cdr (assoc (completing-read "归类到：" (nreverse choices) nil t) choices)))))
+    (org-workflow-agenda-classify-entries markers target)))
+
+(defun org-workflow-agenda-project-tab ()
+  "Fold structural rows, otherwise retain the existing QA source preview."
+  (interactive)
+  (if (or (org-get-at-bol 'workflow-goal) (org-get-at-bol 'org-workflow-agenda-project-role))
+      (org-workflow-agenda-project-toggle)
+    (call-interactively #'org-workflow-agenda-note-toggle)))
+
 (defun org-workflow-agenda-project-key (item)
   "Read ITEM's fold identity without creating an Org ID."
   (list (plist-get item :file) (or (plist-get item :id) (plist-get item :pos))))
@@ -286,7 +374,8 @@ calendar gaps never count as verified continuity."
            'org-workflow-agenda-classify-target
            (when (memq role '(project stage))
              (list :kind (if (eq role 'project) 'project 'heading)
-                   :marker (get-text-property start 'org-hd-marker)))))
+                   :marker (get-text-property start 'org-hd-marker)
+                   :id (plist-get item :id) :title (plist-get item :title)))))
     (when (memq role '(project stage))
       (save-excursion
         (goto-char (+ start indent))
@@ -305,7 +394,8 @@ calendar gaps never count as verified continuity."
                         (org-workflow-collection-inbox--review-files) t))
             (let* ((marker (nth 2 row)) (beg (point))
                    (entry (org-workflow-item-at-marker marker)))
-              (insert (org-workflow-agenda--stack-line entry 0) "\n")
+              (insert (org-workflow-agenda--stack-line entry 0)
+                      (if (org-with-point-at marker (org-workflow-qa-p)) " :QA:" "") "\n")
               (add-text-properties beg (point) '(org-workflow-agenda-inbox-row t)))))
       (let* ((items (org-workflow-projects-collect))
              (projects (seq-filter (lambda (p) (equal (plist-get p :kind) "project")) items))

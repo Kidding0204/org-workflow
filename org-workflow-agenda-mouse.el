@@ -40,13 +40,17 @@
 
 (defun org-workflow-agenda-mouse--row-kind ()
   "Classify the visible native task at point."
+  (cond ((or (org-get-at-bol 'workflow-goal) (org-get-at-bol 'org-workflow-agenda-project-role)) 'structural)
+        ((and (org-get-at-bol 'org-workflow-agenda-project-row)
+              (eq (org-workflow-agenda-selected-view) 'projects)) 'project-task)
+        (t
   (when-let* ((marker (org-get-at-bol 'org-hd-marker))
               ((marker-buffer marker))
               ((not (invisible-p (line-beginning-position)))))
     (org-with-point-at marker
 		       (cond ((equal (org-entry-get nil "STYLE") "habit") 'habit)
 			     ((org-entry-is-done-p) 'completed)
-			     (t 'task)))))
+			     (t 'task)))))))
 
 (defun org-workflow-agenda-mouse--clear-anchors (&rest _)
   "Release this workbench's range anchors."
@@ -143,6 +147,11 @@
   (interactive "e")
   (when (org-workflow-agenda-mouse--position event)
     (cond ((button-at (point)) (push-button (point)))
+          ((org-get-at-bol 'org-workflow-agenda-classify-target)
+           (if (org-workflow-agenda-classify-markers)
+               (org-workflow-agenda-classify-selected)
+             (org-workflow-agenda-project-toggle)))
+          ((org-get-at-bol 'workflow-goal) (org-workflow-agenda-project-toggle))
           ((org-get-at-bol 'org-hd-marker)
            (when (eq (org-workflow-agenda-mouse--row-kind) 'completed)
              (org-workflow-agenda--clear-selection))
@@ -199,6 +208,8 @@ When EVENT is nil, visit the task at point."
 	       (when kind (item 'open "访问源任务" 'org-workflow-agenda-mouse-open (unless single 'disabled)))
 	       (pcase kind
 		 ('task
+          (when (org-get-at-bol 'org-workflow-agenda-inbox-row)
+            (item 'project-classify "归类到项目／分组" 'org-workflow-agenda-classify-selected))
 		  (when (get-text-property (line-beginning-position) 'org-workflow-agenda-inbox-entry)
 		    (item 'classify "归类收集项" 'org-workflow-inbox-classify (unless single 'disabled))
 		    (item 'complete "完成收集项" 'org-workflow-inbox-state-done (unless single 'disabled)))
@@ -217,6 +228,14 @@ When EVENT is nil, visit the task at point."
 			(unless (and single scheduled (not org-agenda-tag-filter)) 'disabled))
 		  (item 'down "时段内下移" 'org-workflow-agenda-mouse-move-down
 			(unless (and single scheduled (not org-agenda-tag-filter)) 'disabled)))
+         ('project-task (item 'todo "状态" 'org-workflow-agenda-project-todo))
+         ('structural
+          (item 'fold "展开／折叠" 'org-workflow-agenda-project-toggle)
+          (if (org-get-at-bol 'workflow-goal)
+              (item 'state "暂停／恢复 Area" 'org-workflow-agenda-project-goal-toggle)
+            (item 'state "状态" 'org-workflow-agenda-project-state)
+            (when (eq (org-get-at-bol 'org-workflow-agenda-project-role) 'project)
+              (item 'start-date "开始日期" 'org-workflow-agenda-project-start))))
 		 ('habit
 		  (item 'complete "完成本次习惯" 'org-workflow-habits-complete
 			(when (org-with-point-at (org-get-at-bol 'org-hd-marker)
@@ -234,6 +253,9 @@ When EVENT is nil, visit the task at point."
 		  (item 'configure "时段／提醒" 'org-workflow-habits-configure)
 		  (item 'skip "跳过当前习惯提醒" 'org-workflow-panel-skip-habit)
 		  (item 'habit "新增习惯" 'org-workflow-habits-create)))
+         (item 'undo "撤销安排／归类" 'org-workflow-agenda-undo-last-operation)
+         (when (eq (plist-get (org-workflow-agenda--setting 'org-workflow-agenda-last-operation) :save-state) 'pending)
+           (item 'save-classify "重试保存归类" 'org-workflow-project-classify-save))
 	       (when (and (not kind) context)
 		 (item 'create (if (eq context 'habit) "新增习惯" "在该时段新增任务")
 		       'org-workflow-agenda-create-at-point))
@@ -326,22 +348,27 @@ When EVENT is nil, visit the task at point."
     (org-workflow-agenda-mouse--clear-anchors)))
 
 (defun org-workflow-agenda-mouse--target (position state)
-  "Resolve POSITION to a visible period in the originating workbench STATE."
+  "Resolve POSITION to a period or structural drop within workbench STATE."
   (let ((window (posn-window position)) (point (posn-point position)))
     (when (and (window-live-p window) (integer-or-marker-p point))
       (with-current-buffer (window-buffer window)
         (when (and org-workflow-agenda-mouse-mode (eq org-workflow-agenda--workbench state))
           (save-excursion
             (goto-char point)
-            (when (not (invisible-p (point)))
-              (let ((context (get-text-property (point) 'org-workflow-agenda-create-context)))
-                (when (and (consp context) (eq (car context) 'task)
-                           (memq (nth 2 context) '(?A ?B ?C)))
-                  (list window (copy-sequence context)
-                        (or (previous-single-property-change (1+ (point)) 'org-workflow-agenda-create-context)
-                            (point-min))
-                        (or (next-single-property-change (point) 'org-workflow-agenda-create-context)
-                            (point-max))))))))))))
+            (unless (invisible-p (point))
+              (let ((context (if (eq (org-workflow-agenda-selected-view) 'projects)
+                                 (when-let* ((target (org-get-at-bol 'org-workflow-agenda-classify-target)))
+                                   (list 'classify target))
+                               (let ((value (get-text-property (point) 'org-workflow-agenda-create-context)))
+                                 (when (and (consp value) (eq (car value) 'task)
+                                            (memq (nth 2 value) '(?A ?B ?C))) value)))))
+                (when context
+                  (list window context
+                        (if (eq (car context) 'classify) (line-beginning-position)
+                          (or (previous-single-property-change (1+ (point)) 'org-workflow-agenda-create-context) (point-min)))
+                        (if (eq (car context) 'classify) (line-end-position)
+                          (or (next-single-property-change (point) 'org-workflow-agenda-create-context)
+                              (point-max)))))))))))))
 
 (defun org-workflow-agenda-mouse--scroll-target (position &optional state)
   "Scroll the Sprint window near POSITION's vertical edges.
@@ -350,7 +377,7 @@ When STATE is non-nil, scroll only the workbench matching it."
     (when (and (window-live-p window) (consp xy) (numberp (cdr xy))
                (buffer-local-value 'org-workflow-agenda-mouse-mode (window-buffer window))
                (memq (buffer-local-value 'org-workflow-agenda--pane-role (window-buffer window))
-                     '(schedule combined))
+                     '(schedule combined candidates))
                (or (not state)
                    (eq state (buffer-local-value 'org-workflow-agenda--workbench (window-buffer window)))))
       (with-selected-window window
@@ -380,7 +407,9 @@ When STATE is non-nil, scroll only the workbench matching it."
            (origin-window (selected-window))
            (start-point (point))
            (double (memq 'double (event-modifiers event)))
-           (markers (when (and (eq kind 'task) (not modified) (not double))
+           (markers (when (and (eq kind 'task) (not modified) (not double)
+                               (or (not (eq (org-workflow-agenda-selected-view) 'projects))
+                                   (org-get-at-bol 'org-workflow-agenda-inbox-row)))
                       (mapcar #'copy-marker
                               (if (member marker org-agenda-bulk-marked-entries)
                                   org-agenda-bulk-marked-entries (list marker)))))
@@ -419,9 +448,12 @@ When STATE is non-nil, scroll only the workbench matching it."
                                                     (window-buffer (car target))))
                       (overlay-put highlight 'face 'highlight)
                       (overlay-put highlight 'window (car target))
+                      (if (eq (car (nth 1 target)) 'classify)
+                          (message "归类 %d 项 → %s" (length markers)
+                                   (plist-get (cadr (nth 1 target)) :title))
                       (message "安排 %d 项 → %s %s" (length markers) (nth 1 (nth 1 target))
                                (cdr (assq (nth 2 (nth 1 target))
-                                          '((?A . "上午") (?B . "下午") (?C . "晚上"))))))))
+                                          '((?A . "上午") (?B . "下午") (?C . "晚上")))))))))
                  ((eq type 'mouse-1)
                   (setq done 'released)
                   (when (and markers (not dragging)
@@ -445,9 +477,11 @@ When STATE is non-nil, scroll only the workbench matching it."
                                    (org-with-point-at (car identity)
 						      (equal (cdr identity) (org-get-heading t t t t))))
                         (user-error "拖动期间任务标题已变化，未修改安排")))
-                    (pcase-let ((`(task ,date ,priority) (nth 1 target)))
-                      (org-workflow-agenda-mouse--drop markers date priority)))
-                (message "未落在有效时段，安排未改变")))
+                    (if (eq (car (nth 1 target)) 'classify)
+                        (org-workflow-agenda-classify-entries markers (cadr (nth 1 target)))
+                      (pcase-let ((`(task ,date ,priority) (nth 1 target)))
+                        (org-workflow-agenda-mouse--drop markers date priority))))
+                (message "未落在有效目标，未作修改")))
              (t
               (select-window origin-window) (goto-char start-point)
               (cond (button (push-button start-point))

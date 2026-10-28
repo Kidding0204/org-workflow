@@ -156,3 +156,26 @@
           (record (org-workflow-project-classify (list one) (list :kind 'project :marker target))))
      (org-workflow-project-classify-undo record)
      (should (equal "Existing" (org-with-point-at existing (org-get-heading t t t t)))))))
+
+(ert-deftest workflow-project-keyboard-and-mouse-use-same-classifier ()
+  (workflow-classify-fixture
+   (let ((org-agenda-buffer-name (generate-new-buffer-name "*Classify UI*"))
+         (org-agenda-window-setup 'current-window) (org-workflow-agenda-current-view nil)
+         (org-workflow-agenda--workbench nil))
+     (save-window-excursion
+       (org-agenda nil "d")
+       (org-workflow-agenda-select-view 'projects)
+       (let* ((state org-workflow-agenda--workbench)
+              (left (org-workflow-agenda-workbench-primary state))
+              (tree (org-workflow-agenda-workbench-candidates state)))
+         (with-current-buffer left
+           (goto-char (point-min)) (search-forward "First")
+           (org-agenda-bulk-mark 1)
+           (goto-char (point-min)) (search-forward "Second") (org-agenda-bulk-mark 1))
+         (with-current-buffer tree
+           (goto-char (point-min)) (search-forward "HOLD Project")
+           (org-workflow-agenda-classify-selected))
+         (with-current-buffer (marker-buffer target)
+           (should (< (string-match "Second" (buffer-string)) (string-match "First" (buffer-string)))))
+         (with-current-buffer left (should-not (string-match-p "First\\|Second" (buffer-string))))
+         (mapc (lambda (b) (when (buffer-live-p b) (kill-buffer b))) (list left tree)))))))

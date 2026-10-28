@@ -68,6 +68,7 @@
 (defun org-workflow-agenda-create-at-point ()
   "Create a task or habit in the Sprint group at point."
   (interactive)
+  (org-workflow-agenda-ensure-writeable)
   (unless (and (derived-mode-p 'org-agenda-mode) org-workflow-agenda--sprint-buffer-p)
     (user-error "请在 Sprint 的时段或习惯栏使用此命令"))
   (let* ((context (get-text-property (line-beginning-position)
@@ -99,6 +100,8 @@
     ("N" "下次从这里开始" org-workflow-guidance-edit-resume)
     ("W" "访问／编辑阶段目标" org-workflow-agenda-open-goals)
     ("U" "撤销安排／归类" org-workflow-agenda-undo-last-operation)
+    ("C" "归类到项目／分组" org-workflow-agenda-classify-selected)
+    ("C-c C-s" "重试保存归类" org-workflow-project-classify-save)
     ("u" "上午" org-workflow-agenda-plan-morning)
     ("i" "下午" org-workflow-agenda-plan-afternoon)
     ("o" "晚上" org-workflow-agenda-plan-evening)
@@ -166,7 +169,9 @@
 (defvar-local org-workflow-agenda-console--base-misc-info nil)
 
 (defconst org-workflow-agenda-console--mode-line
-  '(:eval (concat " 安排：" (if org-workflow-agenda-plan-tomorrow "明天" "今天"))))
+  '(:eval (concat " Sprint：" (pcase (org-workflow-agenda-selected-view) ('projects "项目") ('tomorrow "明日") (_ "今日"))
+                  (when org-agenda-bulk-marked-entries
+                    (format " · 已选择 %d 项" (length org-agenda-bulk-marked-entries))))))
 
 (defun org-workflow-agenda-console-bindings-setup ()
   "Install Workflow bindings on an isolated map, restoring it outside Sprint."
@@ -180,6 +185,15 @@
             (define-key map (kbd (car entry)) (nth 2 entry))
             (when (fboundp 'evil-define-key*)
               (evil-define-key* 'normal map (kbd (car entry)) (nth 2 entry))))
+          (define-key map (kbd "TAB") #'org-workflow-agenda-project-tab)
+          (define-key map (kbd "t") #'org-workflow-agenda-project-todo)
+          (when (eq (org-workflow-agenda-selected-view) 'projects)
+            (define-key map (kbd "s") #'org-workflow-agenda-project-start))
+          (when (fboundp 'evil-define-key*)
+            (evil-define-key* 'normal map (kbd "TAB") #'org-workflow-agenda-project-tab)
+            (evil-define-key* 'normal map (kbd "t") #'org-workflow-agenda-project-todo)
+            (when (eq (org-workflow-agenda-selected-view) 'projects)
+              (evil-define-key* 'normal map (kbd "s") #'org-workflow-agenda-project-start)))
           ;; Host intercept maps may bind H/L to Evil buffer cycling.
           ;; Remap those commands only in the candidate pane.
           (when (eq org-workflow-agenda--pane-role 'candidates)
@@ -197,6 +211,9 @@
 
 (defun org-workflow-agenda-console--task-only (original &rest args)
   "Call ORIGINAL with ARGS only when the selected entries are not habits."
+  (org-workflow-agenda-ensure-writeable)
+  (when (eq (org-workflow-agenda-selected-view) 'projects)
+    (user-error "请切换今日／明日安排任务；项目页只调整归属"))
   (dolist (marker (or org-agenda-bulk-marked-entries
                       (list (org-get-at-bol 'org-hd-marker))))
     (when (and (markerp marker) (marker-buffer marker)
