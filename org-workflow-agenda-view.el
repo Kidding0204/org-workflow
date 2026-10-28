@@ -143,7 +143,7 @@
              names) " / ")))
 
 (defun org-workflow-agenda--entry-group-title (entry)
-  "Return bounded project and stage names, without a file/category prefix."
+  "Return bounded project and stage names for ENTRY, without file prefix."
   (let ((width (max 12 (- (window-body-width) 8))))
     (org-with-point-at (org-workflow-target-entry-marker entry)
       (let ((names (seq-take (org-get-outline-path) 2)))
@@ -530,6 +530,8 @@ Use native Agenda markers and the existing parent progress renderer."
                 (add-text-properties (line-beginning-position) (line-end-position)
                                      (list 'org-workflow-agenda-inbox-row t
                                            'org-workflow-agenda-inbox-entry t
+                                           'org-workflow-agenda-inbox-id
+                                           (org-with-point-at marker (org-entry-get nil "ID"))
                                            'org-workflow-collection-review-title original-title)))
             (unless shown
               (insert (propertize "  Inbox\n" 'face 'org-workflow-agenda-meta
@@ -543,6 +545,8 @@ Use native Agenda markers and the existing parent progress renderer."
               (insert (propertize (concat line "\n")
                                   'org-workflow-agenda-inbox-row t
                                   'org-workflow-agenda-inbox-entry t
+                                  'org-workflow-agenda-inbox-id
+                                  (org-with-point-at marker (org-entry-get nil "ID"))
                                   'org-workflow-collection-review-title original-title)))
             (when (org-with-point-at marker (org-workflow-qa-p))
               (org-workflow-agenda-insert-note-preview marker))))))

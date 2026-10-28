@@ -123,7 +123,7 @@ calendar gaps never count as verified continuity."
     count))
 
 (defun org-workflow-agenda-projects--week (days date)
-  "Render project DAYS in the same visual form as habit tracking."
+  "Render project DAYS around DATE in the same form as habit tracking."
   (let* ((time (org-time-string-to-time (concat date " 12:00")))
          (start (org-workflow-history-add-days date (- (nth 6 (decode-time time))))))
     (concat
@@ -265,7 +265,7 @@ calendar gaps never count as verified continuity."
     (add-text-properties start (point) '(org-agenda-type todo))))
 
 (defun org-workflow-agenda-project-summary-show ()
-  "Show this project or stage subtree using Org's other-window navigation."
+  "Show this project or stage subtree using Org's `other-window' navigation."
   (interactive)
   (org-agenda-show-1 3))
 
@@ -395,11 +395,14 @@ calendar gaps never count as verified continuity."
                                 (goto-char (point-min))
                                 (while (< (point) (point-max))
                                   (when (org-get-at-bol 'org-workflow-agenda-inbox-row)
-                                    (push (org-get-at-bol 'org-hd-marker) rows))
+                                    (push (list (org-get-at-bol 'org-hd-marker)
+                                                (org-get-at-bol 'org-workflow-agenda-inbox-id)
+                                                (org-get-at-bol 'org-workflow-collection-review-title)) rows))
                                   (forward-line 1))) (nreverse rows))))
-         (sorted (seq-filter (lambda (m) (member m markers)) order)))
+         (sources (seq-filter (lambda (row) (member (car row) markers)) order))
+         (sorted (mapcar #'car sources)))
     (unless (= (length markers) (length sorted)) (user-error "来源已不在本页 Inbox，请刷新"))
-    (let ((record (org-workflow-project-classify (mapcar #'copy-marker sorted) target)))
+    (let ((record (org-workflow-project-classify (mapcar #'copy-marker sorted) target sources)))
       (org-workflow-agenda--clear-selection)
       (let ((folds (org-workflow-agenda--setting 'org-workflow-agenda-project-folds))
             (root (plist-get record :project)))
@@ -483,7 +486,7 @@ calendar gaps never count as verified continuity."
   "Structural row actions only; ordinary task keys remain native Agenda keys.")
 
 (defun org-workflow-agenda-projects--tree-line (item indent role expanded)
-  "Render ITEM once, with separate fold and classification destinations."
+  "Render ITEM at INDENT with ROLE and EXPANDED fold state."
   (let ((start (point)))
     (org-workflow-agenda-projects--line item indent
                                       (when (plist-get item :qa) " :QA:") role)

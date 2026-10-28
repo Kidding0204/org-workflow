@@ -178,13 +178,19 @@ Plain organizational headings, typed notes and simple habits are not projects."
 
 (defun org-workflow-projects-superseded-p (row date)
   "Whether ROW stopped carrying forward into project duties by DATE."
-  (seq-some
-   (lambda (event)
-     (let ((since (plist-get (org-workflow-store--decode (car event)) :date)))
-       (and since (not (string< date since)))))
-   (sqlite-select (org-workflow-store--db)
-                  "SELECT payload FROM events WHERE id=? AND kind='project-superseded'"
-                  (list (car row)))))
+  (let ((events (sqlite-select
+                 (org-workflow-store--db)
+                 "SELECT seq,kind,payload FROM events WHERE id=? AND kind IN ('project-superseded','plan-corrected') ORDER BY seq"
+                 (list (car row))))
+        superseded)
+    (dolist (event events)
+      (let ((payload (org-workflow-store--decode (nth 2 event))))
+        (if (equal (nth 1 event) "plan-corrected")
+            ;; 更正只补偿这次安排新增的事件；旧替换和已结算快照仍保留。
+            (setq superseded (seq-remove (lambda (entry) (memq (car entry) (plist-get payload :events))) superseded))
+          (when-let* ((since (plist-get payload :date)))
+            (when (not (string< date since)) (push event superseded))))))
+    (and superseded t)))
 
 (defun org-workflow-projects--day-key (id date)
   "Return the daily responsibility key for project ID on DATE."
@@ -203,13 +209,13 @@ Plain organizational headings, typed notes and simple habits are not projects."
       (org-workflow-store--event (car row) "project-paused"))))
 
 (defun org-workflow-projects--row-blocked-p (project row)
-  "Whether ROW's frozen leaf is now inside a paused stage of PROJECT."
+  "Whether ROW's frozen leaf is inside a closed execution branch of PROJECT."
   (org-with-point-at (org-workflow-projects-marker project)
     (let ((task (nth 1 row)) blocked)
       (org-map-entries
        (lambda ()
          (when (equal task (org-entry-get nil "ID"))
-           (setq blocked (org-workflow--held-p)))) nil 'tree)
+           (setq blocked (org-workflow-target--execution-blocked-p)))) nil 'tree)
       blocked)))
 
 (defun org-workflow-projects--scheduled-first (date)

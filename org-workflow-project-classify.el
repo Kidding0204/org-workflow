@@ -2,7 +2,7 @@
 ;; Copyright (C) 2026 Jinwang Dong
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;; Commentary:
-;; Native refile owns subtree level adjustment. Workflow owns the batch,
+;; Native refile owns subtree level adjustment.  Workflow owns the batch,
 ;; durable recovery and the one-step record; rendering never writes identities.
 ;;; Code:
 (require 'org-workflow-projects)
@@ -79,7 +79,7 @@
              (let ((marker (point-marker))) (insert "** 未分组\n") marker)))))))
 
 (defun org-workflow-project-classify--source-p (marker)
-  "Validate a direct Inbox capture subtree and exclude a running clock."
+  "Validate MARKER's direct Inbox subtree and exclude a running clock."
   (org-with-point-at marker
     (unless (and (org-at-heading-p) (org-get-todo-state)
                  (not (org-entry-is-done-p))
@@ -173,8 +173,10 @@
            (message "归类已应用，保存未完成：%s；可重试保存或 U 撤销" (error-message-string err))))
   record)
 
-(defun org-workflow-project-classify (markers target)
-  "Move Inbox MARKERS into structural TARGET as one recoverable batch."
+(defun org-workflow-project-classify (markers target &optional source-identities)
+  "Move Inbox MARKERS into structural TARGET as one recoverable batch.
+SOURCE-IDENTITIES contains rendered (MARKER ID TITLE) rows from Sprint.
+Existing IDs identify rows; headings without IDs use the rendered Org title."
   (unless org-workflow-store-enabled (user-error "请先启用 Org Workflow 存储"))
   (when (eq (plist-get (org-workflow-agenda--setting 'org-workflow-agenda-last-operation) :save-state) 'pending)
     (user-error "请先保存或撤销上次已应用的归类"))
@@ -194,6 +196,15 @@
          (selected-id (plist-get selection-before :id))
          inserted record applied allocated-ids)
     (org-workflow-project-classify--clean files)
+    ;; marker 会跟随删除落到下一标题；写入前核对渲染时的 ID（无 ID 用标题）。
+    (dolist (source source-identities)
+      (org-with-point-at (car source)
+        (unless (and (org-at-heading-p)
+                     (if (cadr source)
+                         (equal (cadr source) (org-entry-get nil "ID"))
+                       (equal (nth 2 source)
+                              (substring-no-properties (org-get-heading t nil t t)))))
+          (user-error "来源身份已变化，请刷新"))))
     (mapc #'org-workflow-project-classify--source-p markers)
     ;; Detect an ambiguous/default closed Heading before changing any source.
     (when (eq (plist-get target :kind) 'project)
