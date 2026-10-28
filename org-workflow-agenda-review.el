@@ -23,6 +23,7 @@
 (defvar org-workflow-agenda-sprint-view)
 ;;; org-workflow-agenda-review.el --- Daily review beside Sprint -*- lexical-binding: t; -*-
 (require 'org-clock)
+(require 'org-workflow-journal)
 
 (defvar org-workflow-agenda-journal-context nil)
 
@@ -37,28 +38,26 @@
 (put 'org-workflow-agenda-completed-expanded 'permanent-local t)
 
 (defun org-workflow-agenda--clock-summary ()
-  "Return (TOTAL TODAY HAS-RECORD) for the current subtree using Org Clock."
+  "Return (TODAY HAS-RECORD) using only this heading's direct CLOCK records."
   (let* ((today (org-workflow-target--today-string))
          (start (org-time-string-to-time (concat today " 00:00")))
          (parts (decode-time start))
-         (end (encode-time 0 0 0 (1+ (nth 3 parts)) (nth 4 parts) (nth 5 parts))))
+         (end (encode-time 0 0 0 (1+ (nth 3 parts)) (nth 4 parts) (nth 5 parts)))
+         (marker (point-marker))
+         ;; 与时段总结共用直属 CLOCK 读取器，自动截取跨午夜记录。
+         (daily (org-workflow-journal-direct-clock-minutes marker start end)))
     (save-excursion
       (save-restriction
-        (org-narrow-to-subtree)
-        (let ((total (org-clock-sum nil nil nil 'org-workflow-agenda-clock-total))
-              (daily (org-clock-sum start end nil 'org-workflow-agenda-clock-today))
-              (record (progn
-                        (goto-char (point-min))
-                        (re-search-forward (concat "^[ \t]*" (regexp-quote org-clock-string)
-                                                   "[ \t]+\\(?:\\[\\|=>\\)") nil t))))
-          (list total daily (and record t)))))))
+        (narrow-to-region (point) (save-excursion (if (outline-next-heading) (point) (point-max))))
+        (let ((record (re-search-forward
+                       (concat "^[ \t]*" (regexp-quote org-clock-string)
+                               "[ \t]+\\(?:\\[\\|=>\\)") nil t)))
+          (list daily (and record t)))))))
 
 (defun org-workflow-agenda--clock-summary-text (summary)
-  "Format clock SUMMARY without presenting missing records as recorded zero."
-  (if (nth 2 summary)
-      (format "今日 %s · 累计 %s"
-              (org-duration-from-minutes (nth 1 summary))
-              (org-duration-from-minutes (car summary)))
+  "Format today's direct SUMMARY, distinguishing missing records from zero."
+  (if (cadr summary)
+      (format "今日 %s" (org-duration-from-minutes (car summary)))
     "无计时记录"))
 
 (defun org-workflow-agenda--file-has-closed-in-range-p (file start end)

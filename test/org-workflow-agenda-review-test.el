@@ -13,14 +13,14 @@
                   ((symbol-function 'org-workflow-target--today-string) (lambda () "2026-09-09")))
           (let ((entries (org-workflow-agenda--completed-entries)))
             (should (= 1 (length entries)))
-            (should (equal '(25 25 t) (nth 4 (car entries)))))
+            (should (equal '(25 t) (nth 4 (car entries)))))
           (with-temp-buffer
             (org-agenda-mode)
             (org-workflow-agenda-completed "")
             (should org-workflow-agenda-completed-expanded)
             (goto-char (point-min)) (search-forward "Finished")
             (should (markerp (org-get-at-bol 'org-hd-marker)))
-            (should (string-match-p "今日 0:25 · 累计 0:25" (buffer-string)))))
+            (should (string-match-p "今日 0:25" (buffer-string)))))
       (when-let* ((buffer (get-file-buffer file))) (kill-buffer buffer))
       (delete-file file))))
 
@@ -107,13 +107,13 @@
 (ert-deftest note-gtd-review-clock-summary-distinguishes-history-and-missing ()
   (require 'org-workflow-core)
   (cl-letf (((symbol-function 'org-workflow-target--today-string) (lambda () "2026-09-09")))
-    (dolist (spec '(("" (0 0 nil) "无计时记录")
+    (dolist (spec '(("" (0 nil) "无计时记录")
                     ("CLOCK: [2026-09-08 Tue 10:00]--[2026-09-08 Tue 10:25] =>  0:25\n"
-                     (25 0 t) "今日 0:00 · 累计 0:25")
+                     (0 t) "今日 0:00")
                     ("CLOCK: [2026-09-08 Tue 23:45]--[2026-09-09 Wed 00:15] =>  0:30\n"
-                     (30 15 t) "今日 0:15 · 累计 0:30")
+                     (15 t) "今日 0:15")
                     ("CLOCK: [2026-09-09 Wed 10:00]--[2026-09-09 Wed 10:00] =>  0:00\n"
-                     (0 0 t) "今日 0:00 · 累计 0:00")))
+                     (0 t) "今日 0:00")))
       (with-temp-buffer
         (org-mode)
         (insert "* DONE Task\n" (car spec))
@@ -166,3 +166,11 @@
         (with-current-buffer buffer (set-buffer-modified-p nil))
         (kill-buffer buffer))
       (delete-file file))))
+
+(ert-deftest note-gtd-review-clock-summary-excludes-descendant-clocks ()
+  (cl-letf (((symbol-function 'org-workflow-target--today-string) (lambda () "2026-09-09")))
+    (with-temp-buffer
+      (org-mode)
+      (insert "* DONE Task\nCLOCK: [2026-09-09 Wed 09:00]--[2026-09-09 Wed 09:25] => 0:25\n** TODO Question :QA:\nCLOCK: [2026-09-09 Wed 10:00]--[2026-09-09 Wed 10:40] => 0:40\n")
+      (goto-char (point-min))
+      (should (equal '(25 t) (org-workflow-agenda--clock-summary))))))
