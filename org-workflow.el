@@ -113,6 +113,7 @@
 (defun org-workflow--cancel-background-work ()
   "Cancel package timers without changing an existing Org clock record."
   (org-workflow-focus-timer--clear-state)
+  (org-workflow-source--clear-read-caches)
   ;; Selection identities belong to this enabled session, not a future one.
   ;; Standard Org Clock itself remains under native Org ownership.
   (setq org-workflow-target-selected-source nil

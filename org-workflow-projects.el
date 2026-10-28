@@ -141,30 +141,46 @@ Plain organizational headings, typed notes and simple habits are not projects."
   "Scan current sources for file goals and structural projects."
   (let (items)
     (dolist (file (org-agenda-files t))
-      (org-workflow-source-read
-       file
+      (let ((rows (org-workflow-source-read
+                   file (lambda ()
+                          (org-workflow-source-cached-read
+                           'projects (org-workflow-projects--read-context t)
+                           #'org-workflow-projects--file-items)))))
+        ;; Goal pause is a database fact, not part of the source text revision.
+        (when rows
+          (setf (plist-get (car rows) :paused)
+                (org-workflow-projects--goal-pause (plist-get (car rows) :id))))
+        (setq items (nconc items rows))))
+    items))
+
+(defun org-workflow-projects--read-context (&optional dated)
+  "Return project reader dependencies, including today when DATED."
+  (list org-workflow-task-type-keywords
+        (and (org-workflow-source-agenda-file-p) t)
+        (org-workflow-projects--file-goal-id)
+        (and dated (org-workflow-target--today-string))))
+
+(defun org-workflow-projects--file-items ()
+  "Read this source's structural project facts, excluding database pause."
+  (let (items)
+    (when (org-workflow--file-kind)
+      (push (list :kind "goal" :file-goal t :file buffer-file-name
+                  :pos (point-min) :id (org-workflow-projects--file-goal-id)
+                  :title (file-name-base buffer-file-name)) items)
+      (org-map-entries
        (lambda ()
-         (when (org-workflow--file-kind)
-           (let ((id (org-workflow-projects--file-goal-id)))
-             (push (list :kind "goal" :file-goal t :file buffer-file-name
-                         :pos (point-min) :id id
-                         :title (file-name-base buffer-file-name)
-                         :paused (org-workflow-projects--goal-pause id)) items))
-           (org-map-entries
-            (lambda ()
-              (when (member (org-workflow-projects-kind) '("goal" "project"))
-                (let* ((kind (org-workflow-projects-kind))
-                       (next (and (equal kind "project") (org-workflow-projects--next))))
-                  (push (append (org-workflow-projects--location)
-                                (list :kind kind :state (org-get-todo-state)
-                                      :goal-id (org-workflow-projects--goal-id)
-                                      :blocked (org-workflow-projects--blocked-p)
-                                      :paused (org-entry-get nil "WORKFLOW_PAUSED")
-                                      :pause-owner (org-entry-get nil "WORKFLOW_PAUSE_OWNER")
-                                      :deferred-start (org-entry-get nil "WORKFLOW_START_DEFERRED")
-                                      :start (org-workflow-target--timestamp-date (org-entry-get nil "SCHEDULED"))
-                                      :phase (plist-get next :phase) :next next)) items))))
-            nil 'file)))))
+         (when-let* ((kind (org-workflow-projects-kind)))
+           (let ((next (org-workflow-projects--next)))
+             (push (append (org-workflow-projects--location)
+                           (list :kind kind :state (org-get-todo-state)
+                                 :goal-id (org-workflow-projects--goal-id)
+                                 :blocked (org-workflow-projects--blocked-p)
+                                 :paused (org-entry-get nil "WORKFLOW_PAUSED")
+                                 :pause-owner (org-entry-get nil "WORKFLOW_PAUSE_OWNER")
+                                 :deferred-start (org-entry-get nil "WORKFLOW_START_DEFERRED")
+                                 :start (org-workflow-target--timestamp-date (org-entry-get nil "SCHEDULED"))
+                                 :phase (plist-get next :phase) :next next)) items))))
+       nil 'file))
     (nreverse items)))
 
 (defun org-workflow-projects-set-goal (_marker _goal-id)

@@ -7,6 +7,42 @@
 ;;; Code:
 (require 'org-workflow-lifecycle)
 
+(defvar org-workflow-source--reuse-reads nil
+  "Non-nil during a read-only Sprint render that may reuse source facts.")
+
+(defvar-local org-workflow-source--read-cache nil
+  "Text revision and derived plain values owned by this source buffer.")
+
+(defun org-workflow-source-cached-read (key context reader)
+  "Read plain source facts with READER, reusing KEY under CONTEXT in Sprint.
+Text edits invalidate this buffer's facts, including unsaved and indirect edits.
+Fontification and saving alone do not.  CONTEXT covers caller dependencies
+such as the execution date; it replaces the previous value for KEY.
+Never cache markers, clock totals or database state here."
+  (if (not org-workflow-source--reuse-reads) (funcall reader)
+    (let ((revision (list (buffer-chars-modified-tick) buffer-file-name
+                          org-file-tags org-todo-keywords-1 org-not-done-keywords
+                          org-done-keywords org-todo-regexp org-complex-heading-regexp
+                          org-odd-levels-only org-use-property-inheritance)))
+      (unless (equal revision (car org-workflow-source--read-cache))
+        (setq org-workflow-source--read-cache
+              (cons (copy-tree revision) (make-hash-table :test #'equal))))
+      (let* ((cache (cdr org-workflow-source--read-cache))
+             (record (gethash key cache)))
+        (unless (and record (equal context (car record)))
+          (setq record (cons (copy-tree context) (funcall reader)))
+          (puthash key record cache))
+        ;; Callers may normalize a plist or reverse children.  Keep cache-owned
+        ;; conses private so such changes cannot corrupt the following refresh.
+        (copy-tree (cdr record))))))
+
+(defun org-workflow-source--clear-read-caches ()
+  "Release source facts when Workflow is disabled."
+  (dolist (buffer (buffer-list))
+    (with-current-buffer buffer
+      (when (local-variable-p 'org-workflow-source--read-cache)
+        (setq org-workflow-source--read-cache nil)))))
+
 (defvar org-workflow-source--agenda-cache nil
   "File membership snapshot bound only during a read-only Sprint render.
 The t key holds canonical Agenda paths; file-name keys memoize membership.")

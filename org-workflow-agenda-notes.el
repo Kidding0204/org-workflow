@@ -41,19 +41,29 @@
                  (not (plist-get project :blocked))
                  (not (org-workflow-projects--goal-pause (plist-get project :goal-id))))
         (org-with-point-at (org-workflow-projects-marker project)
-          (let (entries)
-            (org-map-entries
-             (lambda ()
-               (when (and (< (length entries) 4)
-                          (org-workflow-target--unfinished-leaf-p)
-                          (not (org-workflow-qa-p))
-                          (not (org-workflow-projects-stage-p))
-                          (not (org-workflow-projects-kind))
-                          (not (org-entry-get nil "SCHEDULED"))
-                          (not (org-workflow-target--execution-blocked-p)))
-                 (push (org-workflow-item-at-marker (point-marker)) entries))) nil 'tree)
-            (when entries (push (cons project (nreverse entries)) groups))))))
+          (let* ((positions (org-workflow-source-cached-read
+                             (list 'anytime (point)) (org-workflow-projects--read-context)
+                             #'org-workflow-agenda--anytime-positions))
+                 (entries (mapcar (lambda (position)
+                                    (org-workflow-item-at-marker (copy-marker position))) positions)))
+            (when entries (push (cons project entries) groups))))))
     (nreverse groups)))
+
+(defun org-workflow-agenda--anytime-positions ()
+  "Read at most four unarranged leaf positions in the current project.
+Only positions survive a refresh; actionable items get fresh source markers."
+  (let (positions)
+    (org-map-entries
+     (lambda ()
+       (when (and (< (length positions) 4)
+                  (org-workflow-target--unfinished-leaf-p)
+                  (not (org-workflow-qa-p))
+                  (not (org-workflow-projects-stage-p))
+                  (not (org-workflow-projects-kind))
+                  (not (org-entry-get nil "SCHEDULED"))
+                  (not (org-workflow-target--execution-blocked-p)))
+         (push (point) positions))) nil 'tree)
+    (nreverse positions)))
 
 (defvar org-workflow-agenda-note-row-map
   (let ((map (make-sparse-keymap)))

@@ -52,42 +52,48 @@
 
 (defun org-workflow-projects-progress (project)
   "Read PROJECT and stage leaf counts without counting QA or habits."
+  (org-workflow-source-read
+   (plist-get project :file)
+   (lambda ()
+     (goto-char (plist-get project :pos))
+     (org-workflow-source-cached-read
+      (list 'progress (point)) (org-workflow-projects--read-context)
+      #'org-workflow-projects--progress-at-point))))
+
+(defun org-workflow-projects--progress-at-point ()
+  "Count ordinary leaves and stage children in the project at point."
   (let ((done 0) (total 0) stages stage)
-    (org-workflow-source-read
-     (plist-get project :file)
-     (lambda ()
-       (goto-char (plist-get project :pos))
-       (let ((level (org-outline-level)))
-         (org-map-entries
-          (lambda ()
-            (let ((depth (org-outline-level)))
-              (cond
-               ((or (org-workflow-qa-p) (equal (org-entry-get nil "STYLE") "habit"))
-                (when (= depth (1+ level)) (setq stage nil))
-                (when (and stage (> depth (1+ level)) (org-workflow-qa-p) (org-get-todo-state))
-                  (push (append (org-workflow-projects--location)
-                                (list :state (org-get-todo-state) :depth (- depth level) :qa t))
-                        (plist-get stage :children)))
-                (setq org-map-continue-from (save-excursion (org-end-of-subtree t t))))
-               (t
-                (when (= depth (1+ level))
-                  (setq stage nil)
-                  (when (org-workflow-projects-stage-p)
-                    (setq stage (append (org-workflow-projects--location)
-                                        (list :state (org-get-todo-state) :children nil :done 0 :total 0)))
-                    (push stage stages)))
-                (when (and stage (> depth (1+ level)) (org-get-todo-state))
-                  (push (append (org-workflow-projects--location)
-                                (list :state (org-get-todo-state) :depth (- depth level)))
-                        (plist-get stage :children)))
-                (when (and (> depth (1+ level)) (org-workflow-target--task-leaf-p))
-                  (cl-incf total)
-                  (when stage (cl-incf (plist-get stage :total)))
-                  ;; HOLD is an Org done keyword in the default sequence,
-                  ;; but represents paused work, not Workflow completion.
-                  (when (equal (org-get-todo-state) "DONE")
-                    (cl-incf done)
-                    (when stage (cl-incf (plist-get stage :done))))))))) nil 'tree))))
+    (let ((level (org-outline-level)))
+      (org-map-entries
+       (lambda ()
+         (let ((depth (org-outline-level)))
+           (cond
+            ((or (org-workflow-qa-p) (equal (org-entry-get nil "STYLE") "habit"))
+             (when (= depth (1+ level)) (setq stage nil))
+             (when (and stage (> depth (1+ level)) (org-workflow-qa-p) (org-get-todo-state))
+               (push (append (org-workflow-projects--location)
+                             (list :state (org-get-todo-state) :depth (- depth level) :qa t))
+                     (plist-get stage :children)))
+             (setq org-map-continue-from (save-excursion (org-end-of-subtree t t))))
+            (t
+             (when (= depth (1+ level))
+               (setq stage nil)
+               (when (org-workflow-projects-stage-p)
+                 (setq stage (append (org-workflow-projects--location)
+                                     (list :state (org-get-todo-state) :children nil :done 0 :total 0)))
+                 (push stage stages)))
+             (when (and stage (> depth (1+ level)) (org-get-todo-state))
+               (push (append (org-workflow-projects--location)
+                             (list :state (org-get-todo-state) :depth (- depth level)))
+                     (plist-get stage :children)))
+             (when (and (> depth (1+ level)) (org-workflow-target--task-leaf-p))
+               (cl-incf total)
+               (when stage (cl-incf (plist-get stage :total)))
+               ;; HOLD is an Org done keyword in the default sequence,
+               ;; but represents paused work, not Workflow completion.
+               (when (equal (org-get-todo-state) "DONE")
+                 (cl-incf done)
+                 (when stage (cl-incf (plist-get stage :done))))))))) nil 'tree))
     (dolist (item stages)
       (setf (plist-get item :children) (nreverse (plist-get item :children))))
     (list :done done :total total :stages (nreverse stages))))

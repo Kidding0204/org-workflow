@@ -6,13 +6,17 @@
 
 ## 2026-10-28 Sprint 渲染复用
 
-agenda-view 的 workbench-view 在一次只读渲染内绑定两份临时缓存：sources 的
-Agenda 真实路径／文件归属，以及 projects 的 collect 结果。随时与项目摘要共享项目扫描，
-core 与 projects 共用 source-agenda-file-p，不在每个后代标题上重新解析全部文件路径。
-项目／阶段识别先检查标题层级，再检查文件归属。缓存随渲染退出（含错误）释放，
-不跨刷新／日期／工作台保留；源写入、原生 Org element cache 与后台 source-read 策略不变。
-每次 redo 仍读取未保存编辑和当前 org-agenda-files。验证及计时边界见
-reviews/2026-10-28-sprint-performance.md。
+agenda-view 的 workbench-view 在一次只读渲染内共享 Agenda 路径／文件归属与完整 collect 结果，
+core 与 projects 共用 source-agenda-file-p，项目／阶段先按层级排除不可能项。
+源 buffer 另持有跨刷新的纯事实缓存：各文件项目结构、项目进度、随时候选位置。
+source-cached-read 用 buffer-chars-modified-tick、源文件身份和 Org 解析设置检查版本；
+未保存编辑与间接 buffer 编辑同样失效，高亮或仅保存不失效。读依赖包含任务类型、
+当前文件归属、真实路径；下一步另依赖今天日期。旧 context 按 key 替换，不按日期无限累积。
+只有 Sprint 只读渲染启用复用，写命令和后台 source-read 策略不变。Area 数据库暂停状态
+在读完源事实后新取，CLOCK 时长不缓存；任务动作 marker 每次重新创建。
+文件关闭释放其缓存，停用 Workflow 也清空；如开发中重载了读取算法，可调用
+org-workflow-source--clear-read-caches。历史基线见 reviews/2026-10-28-sprint-performance.md，
+后续验证与依赖规则见 reviews/2026-10-28-sprint-source-cache.md。
 
 ## 2026-10-28 审查修复
 

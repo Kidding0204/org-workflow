@@ -470,9 +470,10 @@ Use native Agenda markers and the existing parent progress renderer."
 
 (defun org-workflow-agenda-workbench-view (_match)
   "Render the independent candidate, schedule or combined workbench pane."
-  ;; These sections are read-only.  Share their source facts for this render,
-  ;; then release them: redo must see unsaved edits and changed Agenda files.
-  (let* ((org-workflow-source--agenda-cache (org-workflow-source--agenda-snapshot))
+  ;; Share file membership within this render.  Source-owned plain facts may
+  ;; also survive redo, guarded by text revision and reader dependencies.
+  (let* ((org-workflow-source--reuse-reads t)
+         (org-workflow-source--agenda-cache (org-workflow-source--agenda-snapshot))
          (org-workflow-projects--read-cache (make-hash-table :test #'eq))
          (role (or (bound-and-true-p org-workflow-agenda--pane-role) 'combined))
          (habit-rows (when (and (memq role '(combined schedule))
