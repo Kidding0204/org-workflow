@@ -361,6 +361,9 @@ archive locations; save destinations before removing source entries on disk."
                          (when (member (buffer-file-name) org-agenda-files) t)))
   (message "Saving org-agenda-files buffers... done"))
 
+(defvar org-workflow-refile-defer-save nil
+  "Non-nil only inside a Workflow batch which saves after its facts commit.")
+
 (defun org-workflow-refile--save-participants (original &rest args)
   "Call ORIGINAL with ARGS and save buffers involved in a successful refile.
 Save destinations first, so a destination write failure cannot persist removal
@@ -370,7 +373,7 @@ from the source.  Navigation, cancellation and failed moves save no buffers."
           (cons (lambda () (cl-pushnew (current-buffer) destinations))
                 org-after-refile-insert-hook))
          (result (apply original args)))
-    (when destinations
+    (when (and destinations (not org-workflow-refile-defer-save))
       (dolist (buffer (delete-dups (append destinations (list source))))
         (when (buffer-live-p buffer)
           (with-current-buffer buffer

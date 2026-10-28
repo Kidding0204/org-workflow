@@ -228,6 +228,10 @@ Preserve the effective dates of historical promises."
                          (org-workflow-store--attach (org-workflow-store-commitment (car row)))))
     (org-with-point-at source (org-workflow-store--detach))))
 
+(defvar org-workflow-store--after-commit-function nil
+  "Optional operation-local callback, after acceptance and before checkpoint.
+Classification registers its pending undo here, before post-commit I/O can fail.")
+
 (defvar org-workflow-store--extra-source-files nil
   "Additional source files participating in the current operation.")
 
@@ -285,6 +289,8 @@ Retain recoverable source images when committing or rolling back changes."
           (ignore-errors (sqlite-execute db "ROLLBACK"))
           (cancel-change-group groups)
           (sqlite-execute db "UPDATE operations SET state='rolled-back',before_text='nil',after_text=NULL WHERE id=?" (list id))))
+      (when org-workflow-store--after-commit-function
+        (funcall org-workflow-store--after-commit-function))
       ;; Saves inside the operation skip the save hook until facts commit.
       (let ((org-workflow-store--in-operation nil)) (org-workflow-store-checkpoint))
       (let ((org-workflow-store--in-operation nil)) (org-workflow-target-refresh t))
