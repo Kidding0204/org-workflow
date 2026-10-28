@@ -270,9 +270,11 @@ calendar gaps never count as verified continuity."
   (org-agenda-show-1 3))
 
 (defun org-workflow-agenda-project-summary-expanded-p (project)
-  "Read PROJECT's summary-only fold choice, defaulting to collapsed."
-  (cdr (assoc (cons 'summary (org-workflow-agenda-project-key project))
-              (org-workflow-agenda--setting 'org-workflow-agenda-project-folds))))
+  "Read PROJECT's explicit summary fold choice, otherwise expand DIVE."
+  (let ((choice (assoc (cons 'summary (org-workflow-agenda-project-key project))
+                       (org-workflow-agenda--setting 'org-workflow-agenda-project-folds))))
+    ;; An explicit nil is a manual collapse, distinct from no prior choice.
+    (if choice (cdr choice) (equal (plist-get project :state) "DIVE"))))
 
 (defun org-workflow-agenda-project-summary-toggle ()
   "Show or hide eligible stages under this summary project."
@@ -292,8 +294,9 @@ calendar gaps never count as verified continuity."
 (defvar org-workflow-agenda-project-summary-map
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "t") #'org-workflow-agenda-project-state)
-    (define-key map (kbd "<backtab>") #'org-workflow-agenda-project-summary-toggle)
-    (define-key map (kbd "TAB") #'org-workflow-agenda-project-summary-show)
+    ;; ASCII C-i equals TAB; graphical Tab is a distinct event.
+    (define-key map (kbd "C-i") #'org-workflow-agenda-project-summary-toggle)
+    (define-key map [tab] #'org-workflow-agenda-project-summary-show)
     (define-key map (kbd "RET") #'org-agenda-switch-to)
     map)
   "Summary rows edit state or visit Org, rather than folding the task tree.")

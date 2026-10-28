@@ -8,7 +8,7 @@
 
 单栏 combined pane 在随时与今日已完成之间插入项目区，明日同样显示；双栏不重复插入。
 按 Area、项目、阶段源顺序，只列状态／名称／进度三列；项目与阶段仅显示 TODO／DIVE。
-默认只列项目，点击项目名称／箭头或 Shift-TAB 展开符合条件的阶段。折叠选择在工作台中保留，
+DIVE 项目默认展开阶段、TODO 项目默认收起；C-i 或点击项目名称／箭头切换。手动选择优先并保留，
 以 summary 命名空间复用折叠设置，不干扰双栏树。隐藏状态只影响展示，不影响完整任务进度。
 agenda-projects 的共享 progress 读取器返回项目与各阶段 :done/:total，统计普通叶任务，
 排除 QA 整棵子树及习惯，父任务不重复计数；仅 DONE 计完成（默认 Org 序列的 HOLD 也不算）。
@@ -16,7 +16,8 @@ agenda-projects 的共享 progress 读取器返回项目与各阶段 :done/:tota
 摘要移除标题已有 cookie，在 Agenda 内生成进度 cookie，零任务显示 —，不写源文件或 DB。
 复用现有 org-modern TODO／cookie 样式，无新依赖或渲染 advice。
 
-摘要行 t／状态按钮沿用项目状态事务；TAB 通过 org-agenda-show-1 3 另窗展示源子树并
+摘要行 C-i（ASCII TAB）折叠，图形物理 Tab 单独绑定为原文访问；t／状态按钮沿用项目状态事务。
+物理 Tab 通过 org-agenda-show-1 3 另窗展示源子树并
 保留 Agenda 焦点；RET 使用 org-agenda-switch-to 当前窗访问。状态变更后退出筛选的行回到
 非操作性栏目标题，防止连续 t 意外修改其他条目。行属性与 TAB 分发限定
 摘要，不改变双栏树折叠或 QA 正文预览。维护入口为 agenda-projects 的 project-summary。
