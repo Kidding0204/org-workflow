@@ -1,6 +1,6 @@
 # Sprint Project Summary Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** 单栏在随时与完成回顾之间展示可管理状态的项目／阶段摘要。
 
@@ -36,9 +36,9 @@
 - Consumes: org-workflow-projects-collect, org-workflow-projects-progress, org-workflow-agenda-project-state and source markers.
 - Produces: stage :done/:total in progress; org-workflow-agenda-project-summary rendering, summary row identity and source navigation.
 
-- [ ] Write ERTs for weighted project/stage statistics, single vs double pane placement, minimal rows, status editing, org-modern and native TAB/Enter navigation; run RED.
+- [x] Write ERTs for weighted project/stage statistics, single vs double pane placement, minimal rows, status editing, org-modern and native TAB/Enter navigation; run RED.
   Expected: new summary tests fail before implementation, with existing tests unaffected.
-- [ ] Extend the existing progress reader, render compact summary rows, add combined-pane insertion and native interactions; run GREEN.
+- [x] Extend the existing progress reader, render compact summary rows, add combined-pane insertion and native interactions; run GREEN.
   Expected: focused new and prior project/Workbench tests pass using temporary Org/SQLite only.
-- [ ] Run necessary related ERT, package compilation and diff checks; document and commit.
+- [x] Run necessary related ERT, package compilation and diff checks; document and commit.
   Expected: no new related failures, clean compilation, focused Git commit.

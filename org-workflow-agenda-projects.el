@@ -83,7 +83,9 @@
                 (when (and (> depth (1+ level)) (org-workflow-target--task-leaf-p))
                   (cl-incf total)
                   (when stage (cl-incf (plist-get stage :total)))
-                  (when (org-entry-is-done-p)
+                  ;; HOLD is an Org done keyword in the default sequence,
+                  ;; but represents paused work, not Workflow completion.
+                  (when (equal (org-get-todo-state) "DONE")
                     (cl-incf done)
                     (when stage (cl-incf (plist-get stage :done))))))))) nil 'tree))))
     (dolist (item stages)
@@ -196,11 +198,32 @@ calendar gaps never count as verified continuity."
   "Set project or Heading MARKER to STATE through the shared project API."
   (interactive)
   (org-workflow-agenda-ensure-writeable)
-  (org-workflow-projects-set-state
-   (or marker (org-get-at-bol 'org-hd-marker) (user-error "请选择项目／分组"))
-   (or state (completing-read "状态：" '("TODO" "DIVE" "HOLD" "DONE") nil t)))
-  (org-workflow-agenda-invalidate-last-operation "最近操作为项目状态调整，请通过状态入口调整")
-  (when (derived-mode-p 'org-agenda-mode) (org-agenda-redo)))
+  (let* ((source (or marker (org-get-at-bol 'org-hd-marker) (user-error "请选择项目／分组")))
+         (summary (when (org-get-at-bol 'org-workflow-agenda-project-summary) (copy-marker source)))
+         (column (current-column)))
+    (unwind-protect
+        (progn
+          (org-workflow-projects-set-state
+           source (or state (completing-read "状态：" '("TODO" "DIVE" "HOLD" "DONE") nil t)))
+          (org-workflow-agenda-invalidate-last-operation "最近操作为项目状态调整，请通过状态入口调整")
+          (when (derived-mode-p 'org-agenda-mode)
+            (org-agenda-redo)
+            ;; Pausing removes earlier arranged/anytime rows. Keep the edited
+            ;; summary's source identity rather than its former line number.
+            (when summary
+              (when-let* ((position
+                           (save-excursion
+                             (goto-char (point-min))
+                             (catch 'found
+                               (while (< (point) (point-max))
+                                 (when (and (org-get-at-bol 'org-workflow-agenda-project-summary)
+                                            (equal summary (org-get-at-bol 'org-hd-marker)))
+                                   (throw 'found (point)))
+                                 (forward-line 1))
+                               nil))))
+                (goto-char position)
+                (move-to-column column)))))
+      (when summary (set-marker summary nil)))))
 
 (defun org-workflow-agenda-project-start (&optional remove)
   "Set the source project's start date, or REMOVE it with a prefix."
@@ -256,7 +279,7 @@ calendar gaps never count as verified continuity."
   (let* ((marker (org-workflow-projects-marker item))
          (state (plist-get item :state))
          (title (string-trim (replace-regexp-in-string
-                             "\\[[0-9]+\\(?:/[0-9]+\\|%\\)\\]" "" (plist-get item :title))))
+                             "\\[[0-9]*\\(?:/[0-9]*\\|%\\)\\]" "" (plist-get item :title))))
          (name (concat (if (eq role 'stage) "  " "") title))
          (total (plist-get progress :total))
          (cookie (if (zerop total) "—" (format "[%d/%d]" (plist-get progress :done) total)))

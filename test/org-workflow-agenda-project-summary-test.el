@@ -123,5 +123,34 @@
   (org-workflow-workbench-test-with-files (list workflow-summary-fixture)
     (let* ((source (find-file-noselect (car files)))
            (position (with-current-buffer source (goto-char (point-min)) (search-forward "First") (point))))
+      (with-current-buffer source (narrow-to-region position (point-max)))
       (with-temp-buffer (org-workflow-agenda-project-summary))
-      (should (= position (with-current-buffer source (point)))))))
+      (should (= position (with-current-buffer source (point))))
+      (should (= position (with-current-buffer source (point-min)))))))
+
+(ert-deftest workflow-summary-held-tasks-do-not-count-as-completed ()
+  (org-workflow-workbench-test-with-files
+      '("#+TODO: TODO DIVE | DONE HOLD\n* DIVE Project\n** DIVE Stage\n*** DONE Finished\n*** HOLD Paused\n*** TODO Open\n")
+    (let ((progress (org-workflow-projects-progress (cadr (org-workflow-projects-collect)))))
+      (should (= 3 (plist-get progress :total)))
+      (should (= 1 (plist-get progress :done)))
+      (should (= 1 (plist-get (car (plist-get progress :stages)) :done))))))
+
+(ert-deftest workflow-summary-native-empty-cookies-are-replaced ()
+  (org-workflow-workbench-test-with-files '("* DIVE Project [/]\n** Stage [%]\n*** TODO Task\n")
+    (org-workflow-workbench-test-open)
+    (goto-char (point-min))
+    (while (< (point) (point-max))
+      (when (org-get-at-bol 'org-workflow-agenda-project-summary)
+        (should-not (string-match-p "\\[/\\]\\|\\[%\\]"
+                                    (buffer-substring-no-properties (line-beginning-position) (line-end-position)))))
+      (forward-line 1))))
+
+(ert-deftest workflow-summary-state-change-retains-row-when-earlier-tasks-disappear ()
+  (org-workflow-workbench-test-with-files
+      '("* DIVE Project\n** DIVE Stage\n*** TODO Task\nSCHEDULED: <2026-08-17 Mon>\n* HOLD Other\n** DIVE Other stage\n")
+    (org-workflow-workbench-test-open)
+    (goto-char (text-property-any (point-min) (point-max) 'org-workflow-agenda-project-summary t))
+    (org-workflow-agenda-project-state nil "HOLD")
+    (should (equal "Project" (plist-get (org-get-at-bol 'workflow-project) :title)))
+    (should (equal "HOLD" (org-get-at-bol 'todo-state)))))

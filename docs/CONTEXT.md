@@ -9,7 +9,8 @@
 单栏 combined pane 在随时与今日已完成之间插入项目区，明日同样显示；双栏不重复插入。
 按 Area、项目、阶段源顺序，只列状态／名称／进度三列，保留全部状态和无状态阶段。
 agenda-projects 的共享 progress 读取器返回项目与各阶段 :done/:total，统计普通叶任务，
-排除 QA 整棵子树及习惯，父任务不重复计数；汇总项目任务，不平均阶段百分比。
+排除 QA 整棵子树及习惯，父任务不重复计数；仅 DONE 计完成（默认 Org 序列的 HOLD 也不算）。
+汇总项目任务，不平均阶段百分比。
 摘要移除标题已有 cookie，在 Agenda 内生成进度 cookie，零任务显示 —，不写源文件或 DB。
 复用现有 org-modern TODO／cookie 样式，无新依赖或渲染 advice。
 
