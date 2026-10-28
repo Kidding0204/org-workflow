@@ -51,8 +51,16 @@
                (:constructor org-workflow-agenda-workbench-create))
               primary candidates window settings window-configuration tab-frame)
 
+(defvar org-workflow-agenda-current-view nil)
+(defvar org-workflow-agenda-project-folds nil)
+(defvar org-workflow-agenda-last-operation nil)
+(defvar org-workflow-agenda--daily-columns nil)
+(defvar org-workflow-agenda-view-positions nil)
+
 (defconst org-workflow-agenda--shared-settings
-  '(org-workflow-agenda-plan-tomorrow org-workflow-agenda-planning-all
+  '(org-workflow-agenda-current-view org-workflow-agenda-project-folds
+    org-workflow-agenda-last-operation org-workflow-agenda--daily-columns
+    org-workflow-agenda-view-positions org-workflow-agenda-plan-tomorrow org-workflow-agenda-planning-all
 				org-workflow-agenda-selected-group
                                 org-workflow-agenda-completed-expanded org-workflow-agenda-columns-enabled
                                 org-agenda-tag-filter))
@@ -109,13 +117,53 @@
     (with-current-buffer buffer
       (when org-agenda-bulk-marked-entries (org-agenda-bulk-unmark-all)))))
 
+(defun org-workflow-agenda-selected-view ()
+  "Read this workbench's view, including old today/tomorrow settings."
+  (or (org-workflow-agenda--setting 'org-workflow-agenda-current-view)
+      (if (org-workflow-agenda--setting 'org-workflow-agenda-plan-tomorrow) 'tomorrow 'today)))
+
+(defun org-workflow-agenda-select-view (view)
+  "Select VIEW in this Sprint, retaining independent page positions."
+  (interactive (list (intern (completing-read "视图：" '("today" "tomorrow" "projects") nil t))))
+  (unless (memq view '(today tomorrow projects)) (user-error "未知 Sprint 视图"))
+  (unless org-workflow-agenda--workbench (org-workflow-agenda--ensure-workbench))
+  (let* ((old (org-workflow-agenda-selected-view))
+         (positions (org-workflow-agenda--setting 'org-workflow-agenda-view-positions))
+         (saved (mapcar (lambda (b)
+                          (with-current-buffer b
+                            (list b (org-workflow-agenda--buffer-position (point))
+                                  (when-let* ((w (get-buffer-window b)))
+                                    (org-workflow-agenda--buffer-position (window-start w))))))
+                        (org-workflow-agenda--workbench-buffers))))
+    (setf (alist-get old positions) saved)
+    (org-workflow-agenda--set-setting 'org-workflow-agenda-view-positions positions)
+    (org-workflow-agenda--clear-selection)
+    (when (and (eq view 'projects) (not (eq old 'projects)))
+      (org-workflow-agenda--set-setting 'org-workflow-agenda--daily-columns
+                                      (org-workflow-agenda--setting 'org-workflow-agenda-columns-enabled)))
+    (org-workflow-agenda--set-setting 'org-workflow-agenda-current-view view)
+    (unless (eq view 'projects)
+      (org-workflow-agenda--set-setting 'org-workflow-agenda-plan-tomorrow (eq view 'tomorrow)))
+    (org-workflow-agenda--set-setting 'org-workflow-agenda-columns-enabled
+                                    (if (eq view 'projects) t
+                                      (if (eq old 'projects)
+                                          (org-workflow-agenda--setting 'org-workflow-agenda--daily-columns)
+                                        (org-workflow-agenda--setting 'org-workflow-agenda-columns-enabled))))
+    (org-workflow-agenda--apply-columns)
+    (org-agenda-redo)
+    (dolist (row (alist-get view positions))
+      (when (buffer-live-p (car row))
+        (with-current-buffer (car row)
+          (goto-char (org-workflow-agenda--restore-position (cadr row)))
+          (when-let* ((w (get-buffer-window (car row))))
+            (set-window-point w (point))
+            (when (nth 2 row) (set-window-start w (org-workflow-agenda--restore-position (nth 2 row)) t))))))
+  (force-mode-line-update t)))
+
 (defun org-workflow-agenda-set-day (tomorrow)
   "Select today or TOMORROW for both display and planning commands."
   (interactive)
-  (org-workflow-agenda--clear-selection)
-  (org-workflow-agenda--set-setting 'org-workflow-agenda-plan-tomorrow tomorrow)
-  (org-agenda-redo)
-  (force-mode-line-update t))
+  (org-workflow-agenda-select-view (if tomorrow 'tomorrow 'today)))
 
 (defun org-workflow-agenda--isolate-prepare (original &rest args)
   "Call ORIGINAL with ARGS after giving Sprint its own native marker pool."

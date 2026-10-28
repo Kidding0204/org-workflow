@@ -43,7 +43,7 @@
     (org-workflow-target--order-entries entries)))
 
 (defun org-workflow-projects-progress (project)
-  "Read PROJECT's done/total concrete steps and stage source records."
+  "Read concrete steps and all structural Headings without counting QA."
   (let ((done 0) (total 0) stages)
     (org-workflow-source-read
      (plist-get project :file)
@@ -52,24 +52,20 @@
        (let ((level (org-outline-level)))
          (org-map-entries
           (lambda ()
-            (when (org-workflow-qa-p)
-              (setq org-map-continue-from (save-excursion (org-end-of-subtree t t))))
-            (when (and (= (org-outline-level) (1+ level))
-                       (org-workflow-target--blocking-task-p)
-                       (not (equal (org-entry-get nil "STYLE") "habit")))
-              (push (append (org-workflow-projects--location)
-                            (list :state (org-get-todo-state) :children nil)) stages))
-            (when (and stages (= (org-outline-level) (+ level 2))
-                       (org-workflow-target--blocking-task-p))
-              (setf (plist-get (car stages) :children)
-                    (append (plist-get (car stages) :children)
-                            (list (append (org-workflow-projects--location)
-                                          (list :state (org-get-todo-state)))))))
-            (when (and (> (org-outline-level) (1+ level))
-                       (org-workflow-target--task-leaf-p)
-                       (not (org-workflow-qa-p)))
-              (cl-incf total)
-              (when (equal (org-get-todo-state) "DONE") (cl-incf done)))) nil 'tree))))
+            (let ((depth (org-outline-level)) (qa (org-workflow-qa-p)))
+              (when (and (= depth (1+ level)) (org-workflow-projects-stage-p))
+                (push (append (org-workflow-projects--location)
+                              (list :state (org-get-todo-state) :children nil)) stages))
+              (when (and stages (> depth (1+ level)) (org-get-todo-state))
+                (setf (plist-get (car stages) :children)
+                      (append (plist-get (car stages) :children)
+                              (list (append (org-workflow-projects--location)
+                                            (list :state (org-get-todo-state) :depth (- depth level)
+                                                  :qa qa))))))
+              (cond (qa (setq org-map-continue-from (save-excursion (org-end-of-subtree t t))))
+                    ((and (> depth (1+ level)) (org-workflow-target--task-leaf-p))
+                     (cl-incf total)
+                     (when (equal (org-get-todo-state) "DONE") (cl-incf done)))))) nil 'tree))))
     (list :done done :total total :stages (nreverse stages))))
 
 (defun org-workflow-projects-tracking (project date)
@@ -232,6 +228,90 @@ calendar gaps never count as verified continuity."
                         (org-workflow-agenda-projects--line task 8)))))))))))
     (unless projects (insert (propertize "    暂无项目\n" 'face 'shadow)))
     (insert "\n")
+    (add-text-properties start (point) '(org-agenda-type todo))))
+
+(defun org-workflow-agenda-project-key (item)
+  "Read ITEM's fold identity without creating an Org ID."
+  (list (plist-get item :file) (or (plist-get item :id) (plist-get item :pos))))
+
+(defun org-workflow-agenda-project-expanded-p (item default)
+  "Read ITEM's explicit fold choice, falling back to DEFAULT."
+  (let ((choice (assoc (org-workflow-agenda-project-key item)
+                       (org-workflow-agenda--setting 'org-workflow-agenda-project-folds))))
+    (if choice (cdr choice) default)))
+
+(defun org-workflow-agenda-project-toggle ()
+  "Toggle the source-backed project, Heading or Area at point."
+  (interactive)
+  (let* ((item (or (org-get-at-bol 'workflow-project) (org-get-at-bol 'workflow-goal)))
+         (key (org-workflow-agenda-project-key item))
+         (folds (org-workflow-agenda--setting 'org-workflow-agenda-project-folds)))
+    (unless item (user-error "请选择项目、分组或 Area"))
+    (setf (alist-get key folds nil nil #'equal)
+          (not (org-get-at-bol 'org-workflow-agenda-expanded)))
+    (org-workflow-agenda--set-setting 'org-workflow-agenda-project-folds folds)
+    (org-agenda-redo)))
+
+(defun org-workflow-agenda-projects--tree-line (item indent role expanded)
+  "Render ITEM once, with separate fold and classification destinations."
+  (let ((start (point)))
+    (org-workflow-agenda-projects--line item indent
+                                      (when (plist-get item :qa) " :QA:") role)
+    (add-text-properties
+     start (point)
+     (list 'org-workflow-agenda-expanded expanded
+           'mouse-face 'highlight
+           'org-workflow-agenda-classify-target
+           (when (memq role '(project stage))
+             (list :kind (if (eq role 'project) 'project 'heading)
+                   :marker (get-text-property start 'org-hd-marker)))))
+    (when (memq role '(project stage))
+      (save-excursion
+        (goto-char (+ start indent))
+        (let ((inhibit-read-only t))
+          (insert-text-button (if expanded "▾ " "▸ ")
+                              'follow-link t 'org-workflow-agenda-fold-button t
+                              'action (lambda (_) (org-workflow-agenda-project-toggle))))))))
+
+(defun org-workflow-agenda-projects-render (&optional inbox-role)
+  "Render the project's Inbox or the shared Area/project/Heading/task tree."
+  (let ((start (point)))
+    (if inbox-role
+        (progn
+          (insert (org-workflow-agenda--section-header "Inbox"))
+          (dolist (row (org-workflow-collection-inbox--pending
+                        (org-workflow-collection-inbox--review-files) t))
+            (let* ((marker (nth 2 row)) (beg (point))
+                   (entry (org-workflow-item-at-marker marker)))
+              (insert (org-workflow-agenda--stack-line entry 0) "\n")
+              (add-text-properties beg (point) '(org-workflow-agenda-inbox-row t)))))
+      (let* ((items (org-workflow-projects-collect))
+             (projects (seq-filter (lambda (p) (equal (plist-get p :kind) "project")) items))
+             (goals (seq-filter (lambda (p) (equal (plist-get p :kind) "goal")) items)))
+        (dolist (goal goals)
+          (let* ((children (seq-filter (lambda (p) (equal (plist-get p :goal-id) (plist-get goal :id))) projects))
+                 (expanded (org-workflow-agenda-project-expanded-p goal t))
+                 (beg (point)))
+            (insert (propertize (concat (if expanded "▾ " "▸ ") (plist-get goal :title)
+                                        (when (plist-get goal :paused) "  HOLD") "\n")
+                                'face 'org-workflow-agenda-project-goal 'workflow-goal goal
+                                'org-workflow-agenda-expanded expanded 'org-agenda-structural-header t
+                                'keymap org-workflow-agenda-project-goal-map 'mouse-face 'highlight))
+            (put-text-property beg (+ beg 2) 'org-workflow-agenda-area-fold t)
+            (when expanded
+              (dolist (project children)
+                (let ((open (org-workflow-agenda-project-expanded-p
+                             project (equal (plist-get project :state) "DIVE"))))
+                  (org-workflow-agenda-projects--tree-line project 2 'project open)
+                  (when open
+                    (dolist (stage (plist-get (org-workflow-projects-progress project) :stages))
+                      (let ((show (org-workflow-agenda-project-expanded-p stage t)))
+                        (org-workflow-agenda-projects--tree-line stage 4 'stage show)
+                        (when show
+                          (dolist (task (plist-get stage :children))
+                            (org-workflow-agenda-projects--tree-line
+                             task (+ 4 (* 2 (or (plist-get task :depth) 2))) nil nil)))))))))
+            (insert "\n")))))
     (add-text-properties start (point) '(org-agenda-type todo))))
 
 (provide 'org-workflow-agenda-projects)

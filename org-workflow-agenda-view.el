@@ -224,17 +224,17 @@
     periods))
 
 (defun org-workflow-agenda--insert-day-tabs ()
-  "Insert target-day controls for this workbench."
-  (let ((tomorrow (org-workflow-agenda--setting 'org-workflow-agenda-plan-tomorrow)))
-    (dolist (item '((nil . "今天") (t . "明天")))
-      (insert-text-button
-       (concat " " (cdr item) " ")
-       'face (if (eq tomorrow (car item)) 'org-workflow-agenda-group 'org-workflow-agenda-meta)
-       'follow-link t 'keymap org-workflow-agenda-header-button-map
-       'org-workflow-agenda-day (car item)
-       'action (lambda (button)
-                 (org-workflow-agenda-set-day (button-get button 'org-workflow-agenda-day))))
-      (insert "  "))))
+  "Insert the shared Sprint view controls."
+  (dolist (item '((today . "今日") (tomorrow . "明日") (projects . "项目")))
+    (insert-text-button
+     (concat " " (cdr item) " ")
+     'face (if (eq (org-workflow-agenda-selected-view) (car item))
+               'org-workflow-agenda-group 'org-workflow-agenda-meta)
+     'follow-link t 'keymap org-workflow-agenda-header-button-map
+     'org-workflow-agenda-view (car item)
+     'action (lambda (button)
+               (org-workflow-agenda-select-view (button-get button 'org-workflow-agenda-view))))
+    (insert "  ")))
 
 (defun org-workflow-agenda--candidate-group ()
   "Return identity and label of the current leaf's level-one ancestor."
@@ -466,6 +466,11 @@ Use native Agenda markers and the existing parent progress renderer."
 
 (defun org-workflow-agenda-workbench-view (_match)
   "Render the independent candidate, schedule or combined workbench pane."
+  (if (eq (org-workflow-agenda-selected-view) 'projects)
+      (progn
+        (org-workflow-agenda--insert-day-tabs) (insert "\n\n")
+        (org-workflow-agenda-projects-render
+         (not (eq org-workflow-agenda--pane-role 'candidates))))
   (let* ((role (or (bound-and-true-p org-workflow-agenda--pane-role) 'combined))
          (habit-rows (when (and (memq role '(combined schedule))
                                 (not (org-workflow-agenda--setting 'org-workflow-agenda-plan-tomorrow)))
@@ -478,7 +483,7 @@ Use native Agenda markers and the existing parent progress renderer."
     (when (memq role '(combined schedule))
       (org-workflow-agenda-inbox nil habit-rows)
       (unless (org-workflow-agenda--setting 'org-workflow-agenda-plan-tomorrow)
-        (org-workflow-agenda-completed nil)))))
+        (org-workflow-agenda-completed nil))))))
 
 (require 'org-workflow-agenda-notes)
 
