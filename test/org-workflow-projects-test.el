@@ -195,7 +195,7 @@
 (ert-deftest workflow-project-active-goal-can-fold ()
   (workflow-project-fixture
    (workflow-project-native-view-test
-    (goto-char (point-min)) (search-forward "project")
+    (goto-char (point-min)) (search-forward "▾ project")
     (org-workflow-project-view-toggle)
     (should-not (string-match-p "Compiler" (buffer-string)))
     (org-workflow-project-view-toggle)

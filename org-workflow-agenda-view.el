@@ -14,7 +14,7 @@
 ;;; Commentary:
 ;; A component of org-workflow.  Activation is coordinated by its global mode.
 ;;; Code:
-(declare-function org-workflow-agenda-projects-render "org-workflow-agenda-projects" (&optional inbox-role))
+(declare-function org-workflow-agenda-projects-render "org-workflow-agenda-projects" ())
 
 (require 'org-workflow-lifecycle)
 
@@ -227,7 +227,7 @@
 
 (defun org-workflow-agenda--insert-day-tabs ()
   "Insert the shared Sprint view controls."
-  (dolist (item '((today . "今日") (tomorrow . "明日") (projects . "项目")))
+  (dolist (item '((today . "今日") (tomorrow . "明日")))
     (insert-text-button
      (concat " " (cdr item) " ")
      'face (if (eq (org-workflow-agenda-selected-view) (car item))
@@ -296,14 +296,12 @@ CURRENT-ONLY limits entries to the current DIVE stages."
              org-workflow-agenda--workbench
              (org-workflow-agenda-workbench-tab-frame org-workflow-agenda--workbench))
     (setq-local tab-line-format nil))
-  (if (eq (org-workflow-agenda-selected-view) 'projects)
-      (tab-line-mode -1)
   (when (eq org-workflow-agenda--pane-role 'candidates)
     (setq-local tab-line-tabs-function #'org-workflow-agenda-candidate-tabs
                 tab-line-new-button-show nil
                 tab-line-close-button-show nil)
     (tab-line-mode 1)
-    (tab-line-force-update nil))))
+    (tab-line-force-update nil)))
 
 (defun org-workflow-agenda--cycle-candidate-project (count)
   "Cycle goal files by signed COUNT, including All."
@@ -470,13 +468,6 @@ Use native Agenda markers and the existing parent progress renderer."
 
 (defun org-workflow-agenda-workbench-view (_match)
   "Render the independent candidate, schedule or combined workbench pane."
-  (if (eq (org-workflow-agenda-selected-view) 'projects)
-      (let ((start (point)))
-        (unless (eq org-workflow-agenda--pane-role 'candidates)
-          (org-workflow-agenda--insert-day-tabs) (insert "\n\n"))
-        (org-workflow-agenda-projects-render
-         (not (eq org-workflow-agenda--pane-role 'candidates)))
-        (add-text-properties start (point) '(org-agenda-type todo)))
   (let* ((role (or (bound-and-true-p org-workflow-agenda--pane-role) 'combined))
          (habit-rows (when (and (memq role '(combined schedule))
                                 (not (org-workflow-agenda--setting 'org-workflow-agenda-plan-tomorrow)))
@@ -489,10 +480,20 @@ Use native Agenda markers and the existing parent progress renderer."
     (when (memq role '(combined schedule))
       (org-workflow-agenda-inbox nil habit-rows)
       (unless (org-workflow-agenda--setting 'org-workflow-agenda-plan-tomorrow)
-        (org-workflow-agenda-completed nil))))))
+        (org-workflow-agenda-completed nil)))))
 
 (require 'org-workflow-agenda-notes)
 
+
+(defun org-workflow-agenda--inbox-visible-row (marker)
+  "Return MARKER's existing task row, to keep arranged Inbox captures unique."
+  (save-excursion
+    (goto-char (point-min))
+    (catch 'found
+      (while (< (point) (point-max))
+        (when (equal marker (org-get-at-bol 'org-hd-marker)) (throw 'found (point)))
+        (forward-line 1))
+      nil)))
 
 (cl-defun org-workflow-agenda-inbox
     (_match &optional
@@ -507,30 +508,42 @@ Use native Agenda markers and the existing parent progress renderer."
                                     (not (get-text-property 0 'org-workflow-agenda-habit-done (cdr row)))))
                   habit-rows))
          (collected (org-workflow-collection-inbox--pending
-                     (org-workflow-collection-inbox--review-files) t t))
+                     (org-workflow-collection-inbox--review-files) t))
          (seen (make-hash-table :test #'equal)))
     (insert "\n" (org-workflow-agenda--section-header "随时"))
     (when habits
       (insert (propertize "  习惯\n" 'face 'org-workflow-agenda-meta
                           'org-agenda-structural-header t 'org-workflow-agenda-create-context 'habit))
       (dolist (row habits) (insert (cdr row))))
-    (when collected
-      (insert (propertize "  Inbox\n" 'face 'org-workflow-agenda-meta
-                          'org-agenda-structural-header t))
+    (let (shown)
       (dolist (record collected)
         (let ((original-title (cadr record)) (marker (nth 2 record)))
           (org-with-point-at marker
             (puthash (list buffer-file-name (point)) t seen))
-          (let ((line (org-with-point-at marker
-                        (org-workflow-agenda--stack-line
-                         (org-workflow-target-entry-create
-                          :marker marker :title (org-link-display-format (org-get-heading t t t t))
-                          :priority (org-workflow--effective-priority-at-point)) nil))))
-            (insert (propertize (concat line "\n")
-                                'org-workflow-agenda-inbox-entry t
-                                'org-workflow-collection-review-title original-title)))
-          (when (org-with-point-at marker (org-workflow-qa-p))
-            (org-workflow-agenda-insert-note-preview marker)))))
+          (if-let* ((position (org-workflow-agenda--inbox-visible-row marker)))
+              ;; Already arranged for this day: retain its position and make it
+              ;; the same classification source as an unplanned Inbox row.
+              (save-excursion
+                (goto-char position)
+                (add-text-properties (line-beginning-position) (line-end-position)
+                                     (list 'org-workflow-agenda-inbox-row t
+                                           'org-workflow-agenda-inbox-entry t
+                                           'org-workflow-collection-review-title original-title)))
+            (unless shown
+              (insert (propertize "  Inbox\n" 'face 'org-workflow-agenda-meta
+                                  'org-agenda-structural-header t))
+              (setq shown t))
+            (let ((line (org-with-point-at marker
+                          (org-workflow-agenda--stack-line
+                           (org-workflow-target-entry-create
+                            :marker marker :title (org-link-display-format (org-get-heading t t t t))
+                            :priority (org-workflow--effective-priority-at-point)) nil))))
+              (insert (propertize (concat line "\n")
+                                  'org-workflow-agenda-inbox-row t
+                                  'org-workflow-agenda-inbox-entry t
+                                  'org-workflow-collection-review-title original-title)))
+            (when (org-with-point-at marker (org-workflow-qa-p))
+              (org-workflow-agenda-insert-note-preview marker))))))
     (let ((questions (org-workflow-agenda-pending-questions)) shown)
       (dolist (marker questions)
         (unless (org-with-point-at marker

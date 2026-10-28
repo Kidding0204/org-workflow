@@ -55,12 +55,11 @@
 (defvar org-workflow-agenda-project-folds nil)
 (defvar org-workflow-agenda-last-operation nil)
 (defvar org-workflow-agenda-undo-reason nil)
-(defvar org-workflow-agenda--daily-columns nil)
 (defvar org-workflow-agenda-view-positions nil)
 
 (defconst org-workflow-agenda--shared-settings
   '(org-workflow-agenda-current-view org-workflow-agenda-project-folds
-    org-workflow-agenda-last-operation org-workflow-agenda-undo-reason org-workflow-agenda--daily-columns
+    org-workflow-agenda-last-operation org-workflow-agenda-undo-reason
     org-workflow-agenda-view-positions org-workflow-agenda-plan-tomorrow org-workflow-agenda-planning-all
 				org-workflow-agenda-selected-group
                                 org-workflow-agenda-completed-expanded org-workflow-agenda-columns-enabled
@@ -119,16 +118,20 @@
       (when org-agenda-bulk-marked-entries (org-agenda-bulk-unmark-all)))))
 
 (defun org-workflow-agenda-selected-view ()
-  "Read this workbench's view, including old today/tomorrow settings."
-  (or (org-workflow-agenda--setting 'org-workflow-agenda-current-view)
-      (if (org-workflow-agenda--setting 'org-workflow-agenda-plan-tomorrow) 'tomorrow 'today)))
+  "Return the planning day, accepting the former project-page setting."
+  (let ((view (org-workflow-agenda--setting 'org-workflow-agenda-current-view)))
+    (if (memq view '(today tomorrow)) view
+      (if (org-workflow-agenda--setting 'org-workflow-agenda-plan-tomorrow) 'tomorrow 'today))))
 
 (defun org-workflow-agenda-select-view (view)
-  "Select VIEW in this Sprint, retaining independent page positions."
-  (interactive (list (intern (completing-read "视图：" '("today" "tomorrow" "projects") nil t))))
+  "Select today's or tomorrow's Sprint, retaining independent page positions.
+The former `projects' value opens the daily columns without changing the day."
+  (interactive (list (intern (completing-read "视图：" '("today" "tomorrow") nil t))))
   (unless (memq view '(today tomorrow projects)) (user-error "未知 Sprint 视图"))
   (unless org-workflow-agenda--workbench (org-workflow-agenda--ensure-workbench))
   (let* ((old (org-workflow-agenda-selected-view))
+         (columns (eq view 'projects))
+         (view (if columns old view))
          (positions (org-workflow-agenda--setting 'org-workflow-agenda-view-positions))
          (saved (mapcar (lambda (b)
                           (with-current-buffer b
@@ -139,17 +142,9 @@
     (setf (alist-get old positions) saved)
     (org-workflow-agenda--set-setting 'org-workflow-agenda-view-positions positions)
     (org-workflow-agenda--clear-selection)
-    (when (and (eq view 'projects) (not (eq old 'projects)))
-      (org-workflow-agenda--set-setting 'org-workflow-agenda--daily-columns
-                                      (org-workflow-agenda--setting 'org-workflow-agenda-columns-enabled)))
     (org-workflow-agenda--set-setting 'org-workflow-agenda-current-view view)
-    (unless (eq view 'projects)
-      (org-workflow-agenda--set-setting 'org-workflow-agenda-plan-tomorrow (eq view 'tomorrow)))
-    (org-workflow-agenda--set-setting 'org-workflow-agenda-columns-enabled
-                                    (if (eq view 'projects) t
-                                      (if (eq old 'projects)
-                                          (org-workflow-agenda--setting 'org-workflow-agenda--daily-columns)
-                                        (org-workflow-agenda--setting 'org-workflow-agenda-columns-enabled))))
+    (org-workflow-agenda--set-setting 'org-workflow-agenda-plan-tomorrow (eq view 'tomorrow))
+    (when columns (org-workflow-agenda--set-setting 'org-workflow-agenda-columns-enabled t))
     (org-workflow-agenda--apply-columns)
     (org-agenda-redo)
     (dolist (row (alist-get view positions))

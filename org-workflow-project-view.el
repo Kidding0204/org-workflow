@@ -10,7 +10,7 @@
 
 ;;;###autoload
 (defun org-workflow-project-view ()
-  "Reuse the current Sprint or open its unified project management page."
+  "Open the existing daily Sprint columns for classification and arranging."
   (interactive)
   (unless (and (derived-mode-p 'org-agenda-mode) org-workflow-agenda--sprint-buffer-p)
     (let ((existing

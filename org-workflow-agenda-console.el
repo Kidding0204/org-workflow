@@ -175,7 +175,7 @@
 (defvar-local org-workflow-agenda-console--base-misc-info nil)
 
 (defconst org-workflow-agenda-console--mode-line
-  '(:eval (concat " Sprint：" (pcase (org-workflow-agenda-selected-view) ('projects "项目") ('tomorrow "明日") (_ "今日"))
+  '(:eval (concat " Sprint：" (if (eq (org-workflow-agenda-selected-view) 'tomorrow) "明日" "今日")
                   (when org-agenda-bulk-marked-entries
                     (format " · 已选择 %d 项" (length org-agenda-bulk-marked-entries))))))
 
@@ -192,16 +192,8 @@
             (when (fboundp 'evil-define-key*)
               (evil-define-key* 'normal map (kbd (car entry)) (nth 2 entry))))
           (define-key map (kbd "TAB") #'org-workflow-agenda-project-tab)
-          (when (eq (org-workflow-agenda-selected-view) 'projects)
-            (define-key map (kbd "s") #'org-workflow-agenda-project-start)
-            (define-key map (kbd "R") #'org-workflow-project-view-sync)
-            (define-key map (kbd "D") #'org-workflow-project-view-toggle-done))
           (when (fboundp 'evil-define-key*)
-            (evil-define-key* 'normal map (kbd "TAB") #'org-workflow-agenda-project-tab)
-            (when (eq (org-workflow-agenda-selected-view) 'projects)
-              (evil-define-key* 'normal map (kbd "s") #'org-workflow-agenda-project-start)
-              (evil-define-key* 'normal map (kbd "R") #'org-workflow-project-view-sync)
-              (evil-define-key* 'normal map (kbd "D") #'org-workflow-project-view-toggle-done)))
+            (evil-define-key* 'normal map (kbd "TAB") #'org-workflow-agenda-project-tab))
           ;; Host intercept maps may bind H/L to Evil buffer cycling.
           ;; Remap those commands only in the candidate pane.
           (when (eq org-workflow-agenda--pane-role 'candidates)
@@ -220,8 +212,6 @@
 (defun org-workflow-agenda-console--task-only (original &rest args)
   "Call ORIGINAL with ARGS only when the selected entries are not habits."
   (org-workflow-agenda-ensure-writeable)
-  (when (eq (org-workflow-agenda-selected-view) 'projects)
-    (user-error "请切换今日／明日安排任务；项目页只调整归属"))
   (dolist (marker (or org-agenda-bulk-marked-entries
                       (list (org-get-at-bol 'org-hd-marker))))
     (when (and (markerp marker) (marker-buffer marker)

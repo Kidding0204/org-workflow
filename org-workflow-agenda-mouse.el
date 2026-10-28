@@ -46,8 +46,6 @@
 (defun org-workflow-agenda-mouse--row-kind ()
   "Classify the visible native task at point."
   (cond ((or (org-get-at-bol 'workflow-goal) (org-get-at-bol 'org-workflow-agenda-project-role)) 'structural)
-        ((and (org-get-at-bol 'org-workflow-agenda-project-row)
-              (eq (org-workflow-agenda-selected-view) 'projects)) 'project-task)
         (t
   (when-let* ((marker (org-get-at-bol 'org-hd-marker))
               ((marker-buffer marker))
@@ -233,7 +231,6 @@ When EVENT is nil, visit the task at point."
 			(unless (and single scheduled (not org-agenda-tag-filter)) 'disabled))
 		  (item 'down "时段内下移" 'org-workflow-agenda-mouse-move-down
 			(unless (and single scheduled (not org-agenda-tag-filter)) 'disabled)))
-         ('project-task (item 'todo "状态" 'org-workflow-agenda-project-todo))
          ('structural
           (item 'fold "展开／折叠" 'org-workflow-agenda-project-toggle)
           (if (org-get-at-bol 'workflow-goal)
@@ -361,8 +358,7 @@ When EVENT is nil, visit the task at point."
           (save-excursion
             (goto-char point)
             (unless (invisible-p (point))
-              (let ((context (if (eq (org-workflow-agenda-selected-view) 'projects)
-                                 (when-let* ((target (org-get-at-bol 'org-workflow-agenda-classify-target)))
+              (let ((context (or (when-let* ((target (org-get-at-bol 'org-workflow-agenda-classify-target)))
                                    (list 'classify target))
                                (let ((value (get-text-property (point) 'org-workflow-agenda-create-context)))
                                  (when (and (consp value) (eq (car value) 'task)
@@ -381,10 +377,6 @@ When STATE is non-nil, scroll only the workbench matching it."
   (let ((window (posn-window position)) (xy (posn-x-y position)))
     (when (and (window-live-p window) (consp xy) (numberp (cdr xy))
                (buffer-local-value 'org-workflow-agenda-mouse-mode (window-buffer window))
-               (or (memq (buffer-local-value 'org-workflow-agenda--pane-role (window-buffer window))
-                         '(schedule combined))
-                   (with-current-buffer (window-buffer window)
-                     (eq (org-workflow-agenda-selected-view) 'projects)))
                (or (not state)
                    (eq state (buffer-local-value 'org-workflow-agenda--workbench (window-buffer window)))))
       (with-selected-window window
@@ -414,9 +406,7 @@ When STATE is non-nil, scroll only the workbench matching it."
            (origin-window (selected-window))
            (start-point (point))
            (double (memq 'double (event-modifiers event)))
-           (markers (when (and (eq kind 'task) (not modified) (not double)
-                               (or (not (eq (org-workflow-agenda-selected-view) 'projects))
-                                   (org-get-at-bol 'org-workflow-agenda-inbox-row)))
+           (markers (when (and (eq kind 'task) (not modified) (not double))
                       (mapcar #'copy-marker
                               (if (member marker org-agenda-bulk-marked-entries)
                                   org-agenda-bulk-marked-entries (list marker)))))
