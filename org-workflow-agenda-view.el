@@ -38,6 +38,7 @@
 
 (require 'tab-line)
 (require 'org-workflow-sources)
+(defvar org-workflow-projects--read-cache)
 (autoload 'org-workflow-agenda-projects "org-workflow-agenda-projects")
 (autoload 'org-workflow-agenda--completed-arranged "org-workflow-agenda-projects")
 
@@ -469,7 +470,11 @@ Use native Agenda markers and the existing parent progress renderer."
 
 (defun org-workflow-agenda-workbench-view (_match)
   "Render the independent candidate, schedule or combined workbench pane."
-  (let* ((role (or (bound-and-true-p org-workflow-agenda--pane-role) 'combined))
+  ;; These sections are read-only.  Share their source facts for this render,
+  ;; then release them: redo must see unsaved edits and changed Agenda files.
+  (let* ((org-workflow-source--agenda-cache (org-workflow-source--agenda-snapshot))
+         (org-workflow-projects--read-cache (make-hash-table :test #'eq))
+         (role (or (bound-and-true-p org-workflow-agenda--pane-role) 'combined))
          (habit-rows (when (and (memq role '(combined schedule))
                                 (not (org-workflow-agenda--setting 'org-workflow-agenda-plan-tomorrow)))
                        (org-workflow-evening--habit-rows (org-workflow-agenda-target-date)))))

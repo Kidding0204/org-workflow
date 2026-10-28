@@ -11,20 +11,20 @@
 
 (defvar org-workflow-projects--syncing nil)
 (defvar org-workflow-projects--batch nil)
+(defvar org-workflow-projects--read-cache nil
+  "Project collection shared only by sections of one read-only Sprint render.")
 (declare-function org-workflow-history--row-state "org-workflow-history" (row date))
 
 (defun org-workflow-projects--agenda-file-p ()
   "Whether this buffer belongs to the configured Agenda sources."
-  (and buffer-file-name
-       (member (file-truename buffer-file-name)
-               (mapcar #'file-truename (org-agenda-files t)))))
+  (org-workflow-source-agenda-file-p))
 
 (defun org-workflow-projects-kind ()
   "Return project for a level-one TODO heading in an Agenda source.
 Plain organizational headings, typed notes and simple habits are not projects."
-  (when (and (org-workflow-projects--agenda-file-p)
-             (not (org-before-first-heading-p))
+  (when (and (not (org-before-first-heading-p))
              (= (org-outline-level) 1)
+             (org-workflow-projects--agenda-file-p)
              (org-workflow-target--blocking-task-p)
              (not (org-entry-get nil "JOURNAL_INBOX"))
              (not (and (fboundp 'org-workflow-collection-inbox--heading-p)
@@ -34,8 +34,8 @@ Plain organizational headings, typed notes and simple habits are not projects."
 
 (defun org-workflow-projects-stage-p ()
   "Whether point is a structural stage rather than an executable step."
-  (and (org-workflow-projects--agenda-file-p)
-       (= (org-outline-level) 2)
+  (and (= (org-outline-level) 2)
+       (org-workflow-projects--agenda-file-p)
        (not (org-workflow-qa-p))
        (not (equal (org-entry-get nil "STYLE") "habit"))
        (save-excursion
@@ -132,6 +132,13 @@ Plain organizational headings, typed notes and simple habits are not projects."
 
 (defun org-workflow-projects-collect ()
   "Read file goals and structural projects without changing sources."
+  (if (not org-workflow-projects--read-cache) (org-workflow-projects--collect)
+    (let ((items (gethash 'projects org-workflow-projects--read-cache 'unknown)))
+      (if (not (eq items 'unknown)) items
+        (puthash 'projects (org-workflow-projects--collect) org-workflow-projects--read-cache)))))
+
+(defun org-workflow-projects--collect ()
+  "Scan current sources for file goals and structural projects."
   (let (items)
     (dolist (file (org-agenda-files t))
       (org-workflow-source-read

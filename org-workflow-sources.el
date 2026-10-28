@@ -7,6 +7,31 @@
 ;;; Code:
 (require 'org-workflow-lifecycle)
 
+(defvar org-workflow-source--agenda-cache nil
+  "File membership snapshot bound only during a read-only Sprint render.
+The t key holds canonical Agenda paths; file-name keys memoize membership.")
+
+(defun org-workflow-source--agenda-snapshot ()
+  "Return a fresh Agenda membership table for one read-only render."
+  (let ((cache (make-hash-table :test #'equal)))
+    (puthash t (mapcar #'file-truename (org-agenda-files t)) cache)
+    cache))
+
+(defun org-workflow-source-agenda-file-p ()
+  "Whether the current buffer belongs to the configured Agenda sources.
+During Sprint rendering resolve each source once, including negative results.
+Outside that bounded read, consult the current Agenda configuration directly."
+  (when buffer-file-name
+    (if (not org-workflow-source--agenda-cache)
+        (member (file-truename buffer-file-name)
+                (mapcar #'file-truename (org-agenda-files t)))
+      (let ((known (gethash buffer-file-name org-workflow-source--agenda-cache 'unknown)))
+        (if (not (eq known 'unknown)) known
+          (puthash buffer-file-name
+                   (and (member (file-truename buffer-file-name)
+                                (gethash t org-workflow-source--agenda-cache)) t)
+                   org-workflow-source--agenda-cache))))))
+
 (defun org-workflow-source-read (file function)
   "Call FUNCTION on FILE's text without visiting an otherwise closed file.
 Reuse a visited buffer and its native cache, including unsaved text.

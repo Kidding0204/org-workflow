@@ -321,9 +321,7 @@ A QA may outlive its completed ordinary task, but not a closed project/stage."
   (cond
    ((member "project" org-file-tags) 'project)
    ((member "area" org-file-tags) 'area)
-   ((and buffer-file-name
-         (member (file-truename buffer-file-name)
-                 (mapcar #'file-truename (org-agenda-files t)))) 'project)))
+   ((org-workflow-source-agenda-file-p) 'project)))
 
 (defun org-workflow--eligible-heading-p (kind _date)
   "Return non-nil when KIND identifies a heading eligible for schedule transfer."
