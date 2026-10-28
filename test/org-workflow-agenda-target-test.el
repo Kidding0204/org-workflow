@@ -1395,55 +1395,8 @@ SCHEDULED: <2026-08-17 Mon>
 (ert-deftest org-workflow-current-target-capture-template-is-a-todo-with-context ()
   "The current-target capture template keeps content and its source together."
   (should
-   (equal "- [ ] %?\n  %a"
-          (nth 4 (assoc "c" org-capture-templates)))))
-
-(ert-deftest org-workflow-target-capture-adds-body-note-without-new-heading ()
-  "Capturing to the current task adds a TODO item, not a child."
-  (org-workflow-target-test-with-files
-   '("#+filetags: :area:\n* TODO Current\nSCHEDULED: <2026-08-17 Mon>\n** DONE Finished\n** TODO Open\n")
-   (let* ((target-buffer (find-file-noselect (car org-agenda-files)))
-          (marker (with-current-buffer target-buffer
-                    (goto-char (point-min))
-                    (re-search-forward "^\\* TODO Current")
-                    (beginning-of-line)
-                    (copy-marker (point))))
-          (org-workflow-target-stack
-           (list (org-workflow-target-entry-create :marker marker
-                                             :title "Current")))
-          (org-capture-mode-hook nil)
-          capture-buffer)
-     (cl-letf (((symbol-function 'org-workflow-target-refresh)
-                (lambda (&optional _) org-workflow-target-stack))
-               ((symbol-function 'current-time)
-                (lambda () (encode-time 0 2 16 27 8 2026)))
-               (system-time-locale "C"))
-       (let ((heading-count
-              (with-current-buffer target-buffer
-                (how-many org-heading-regexp (point-min) (point-max)))))
-         (unwind-protect
-             (progn
-               (org-capture nil "c")
-               (setq capture-buffer (current-buffer))
-               (insert "foo")
-               (with-current-buffer target-buffer
-                 (should (= heading-count
-                            (how-many org-heading-regexp
-                                      (point-min) (point-max))))
-                 (goto-char (point-min))
-                 (re-search-forward "^\\* TODO Current")
-                 (beginning-of-line)
-                 (let ((first-child (save-excursion
-                                      (outline-next-heading)
-                                      (point))))
-                   (should
-                    (re-search-forward
-                     (regexp-quote
-                      "- [ ] foo")
-                     first-child t)))))
-           (when (buffer-live-p capture-buffer)
-             (with-current-buffer capture-buffer
-               (org-capture-kill)))))))))
+   (equal (cdr (assoc "qc" org-capture-templates))
+          (cdr (assoc "c" org-capture-templates)))))
 
 (defun note-gtd-target-test--open-columns ()
   "Enable actual independent planning panes in the current test workbench."
@@ -1537,11 +1490,11 @@ SCHEDULED: <2026-08-17 Mon>
          (should-not (string-match-p hidden text)))
        (should (= 1 (how-many "Packages, Please" (point-min)
                                     (save-excursion (goto-char (point-min))
-                                                    (search-forward "收集箱\n")))))
+                                                    (search-forward "随时\n")))))
        (should-not (string-match-p "Tomorrow book"
                                    (substring text 0 (string-match "项目\n" text))))
        (should (= 1 (how-many "Summary" (point-min)
-                                    (save-excursion (goto-char (point-min)) (search-forward "收集箱\n")))))
+                                    (save-excursion (goto-char (point-min)) (search-forward "随时\n")))))
        (should (string-match-p "◇ Packages, Please" text))
        (should-not (string-match-p ":promise:" text))))))
 
@@ -1580,7 +1533,7 @@ SCHEDULED: <2026-08-17 Mon>
      (let* ((text (note-gtd-target-test--workbench-text))
             (stack (string-match "安排" text))
             (task (string-match "Agenda View Customization" text))
-            (planning (string-match "收集箱" text)))
+            (planning (string-match "随时" text)))
        (should stack)
        (should task)
        (should planning)
@@ -1608,7 +1561,7 @@ SCHEDULED: <2026-08-17 Mon>
    (with-current-buffer org-agenda-buffer-name
      (note-gtd-target-test--goto-agenda-title "Plan tomorrow")
      (org-workflow-agenda-schedule-tomorrow)
-     (should (string-match-p "Plan tomorrow" (buffer-string)))
+     (should-not (string-match-p "Plan tomorrow" (buffer-string)))
      (org-workflow-agenda-set-day t)
      (set-buffer (org-workflow-agenda-workbench-primary org-workflow-agenda--workbench))
      (note-gtd-target-test--goto-agenda-title "Plan tomorrow")
@@ -1642,7 +1595,7 @@ SCHEDULED: <2026-08-17 Mon>
      (note-gtd-target-test--goto-agenda-title "Reschedule me")
      (let* ((text (note-gtd-target-test--workbench-text))
             (stack (string-match "安排" text))
-            (planning (string-match "项目" text))
+            (planning (string-match "随时" text))
             (task (string-match "Reschedule me" text planning)))
        (should stack)
        (should planning)
@@ -1659,7 +1612,8 @@ SCHEDULED: <2026-08-17 Mon>
    '("#+filetags: :area:
 #+TODO: TODO DIVE | DONE HOLD
 * DIVE [#C] Configuration
-** TODO Reprioritize
+** DIVE Stage
+*** TODO Reprioritize
 SCHEDULED: <2026-08-17 Mon>
 ")
    (org-agenda nil "d")
@@ -1822,8 +1776,8 @@ SCHEDULED: <2026-08-19 Wed>
    (with-current-buffer org-agenda-buffer-name
      (note-gtd-target-test--goto-agenda-title "Chapter two")
      (should (string-match-p "Chapter two" (buffer-string)))
-     (should-not (string-match-p "Plan next" (buffer-string)))
-     (should-not (string-match-p "Later" (buffer-string))))))
+     (should (string-match-p "Plan next" (buffer-string)))
+     (should (string-match-p "Later" (buffer-string))))))
 
 (ert-deftest org-workflow-dive-counts-direct-unscheduled-and-scheduled-leaves ()
   "Count direct unfinished leaves independent of scheduling, ignoring depth."
@@ -2122,7 +2076,7 @@ SCHEDULED: <2026-08-18 Tue>
                                         (buffer-substring (point-min)
                                                           (save-excursion
                                                             (goto-char (point-min))
-                                                            (search-forward "收集箱\n"))))))
+                                                            (search-forward "随时\n"))))))
           (should (= 3 (length (window-list))))
           (org-workflow-agenda--apply-columns)
           (should (= 3 (length (window-list))))
@@ -2146,7 +2100,7 @@ SCHEDULED: <2026-08-18 Tue>
          (should (= 1 (length (window-list))))
          (should (eq 'combined org-workflow-agenda--pane-role))
          (should-not (string-match-p "未来 7 天" (buffer-string)))
-         (should (string-match-p "收集箱" (buffer-string)))
+         (should (string-match-p "随时" (buffer-string)))
          (should (string-match-p "安排" (buffer-string))))))))
 
 (provide 'org-workflow-agenda-target-test)

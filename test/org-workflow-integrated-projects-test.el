@@ -8,7 +8,7 @@
 (defmacro workflow-integrated-fixture (&rest body)
   `(org-workflow-store-test
     (erase-buffer)
-    (insert "* DIVE Compiler\n** DIVE Lexing\n*** TODO Tokens\n*** TODO Parser\n*** TODO Codegen\n* TODO Algebra\n** TODO Matrices\n*** TODO Product\n* HOLD Old\n** TODO Review\n*** TODO Again\n")
+    (insert "* DIVE Compiler\n** DIVE Lexing\n*** TODO Tokens\nSCHEDULED: <2026-09-16 Wed>\n*** TODO Parser\n*** TODO Codegen\n* TODO Algebra\n** TODO Matrices\n*** TODO Product\n* HOLD Old\n** TODO Review\n*** TODO Again\n")
     (org-mode)
     (let ((org-workflow-projects--syncing nil))
       (cl-letf (((symbol-function 'org-workflow-store--now)
@@ -47,14 +47,9 @@
    (goto-char (point-min)) (search-forward "** TODO Matrices") (beginning-of-line)
    (should-not (org-workflow-target--eligible-leaf-p 'project "2026-09-16"))))
 
-(ert-deftest workflow-integrated-preview-limit ()
-  (should (= 3 (org-workflow-agenda--successor-limit 3)))
-  (should (= 2 (org-workflow-agenda--successor-limit 7)))
-  (should (= 1 (org-workflow-agenda--successor-limit 12))))
-
 (provide 'org-workflow-integrated-projects-test)
 
-(ert-deftest workflow-integrated-completion-retains-successors ()
+(ert-deftest workflow-integrated-completion-keeps-only-arranged-row ()
   (workflow-integrated-fixture
    (org-workflow-projects-sync)
    (let ((source (current-buffer)) (org-workflow-agenda-plan-tomorrow nil))
@@ -62,7 +57,8 @@
        (org-agenda-mode)
        (let ((inhibit-read-only t))
          (org-workflow-agenda-task-stack nil)
-         (should (string-match-p "Tokens\n.*Parser\n.*Codegen" (buffer-string)))
+         (should (string-match-p "Tokens" (buffer-string)))
+         (should-not (string-match-p "Parser\\|Codegen" (buffer-string)))
          (let ((before (buffer-string)))
            (with-current-buffer source
              (goto-char (point-min)) (search-forward "*** TODO Tokens")
@@ -70,7 +66,8 @@
              (org-add-planning-info 'closed (org-time-string-to-time "2026-09-16")))
            (erase-buffer)
            (org-workflow-agenda-task-stack nil)
-           (should (string-match-p "Tokens\n.*Parser\n.*Codegen" (buffer-string)))
+           (should (string-match-p "Tokens" (buffer-string)))
+         (should-not (string-match-p "Parser\\|Codegen" (buffer-string)))
            (should (= (string-match "Tokens" before)
                       (string-match "Tokens" (buffer-string))))))))))
 
@@ -94,13 +91,6 @@
    (should-not (org-workflow-history--responsibilities "2026-09-16"))
    (org-todo "DIVE")
    (should (= 1 (length (org-workflow-history--responsibilities "2026-09-16"))))))
-
-(ert-deftest workflow-integrated-preview-never-offers-empty-stage ()
-  (workflow-integrated-fixture
-   (goto-char (point-min)) (search-forward "* TODO Algebra") (beginning-of-line)
-   (insert "** TODO Empty stage\n")
-   (goto-char (point-min)) (search-forward "*** TODO Codegen") (beginning-of-line)
-   (should-not (org-workflow-agenda--successors (org-workflow-item-at-marker (point-marker)) 3))))
 
 (ert-deftest workflow-integrated-native-project-and-stage-actions ()
   (workflow-integrated-fixture

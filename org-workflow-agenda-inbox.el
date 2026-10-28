@@ -127,6 +127,17 @@ change group is not a reliable rollback for this operation."
              (set-buffer-modified-p nil))))
         (dolist (id ids) (org-id-add-location id (buffer-file-name source)))))))
 
+(defun org-workflow-inbox--retained-notes-p ()
+  "Whether this subtree holds questions or identified non-task notes."
+  ;; 问答与想法属于长期笔记，不能随普通 Inbox 完成项自动移入归档流。
+  (let (notes)
+    (org-map-entries
+     (lambda ()
+       (when (or (org-workflow-qa-p)
+                 (and (not (org-get-todo-state)) (org-entry-get nil "ID")))
+         (setq notes t))) nil 'tree)
+    notes))
+
 (defun org-workflow-inbox-archive-done (date)
   "Archive direct DONE Inbox items through settled DATE, preserving full trees.
 Newer CLOSED entries remain until their day is settled.  Follow native Org
@@ -141,7 +152,8 @@ archive locations; save destinations before removing source entries on disk."
            (org-map-entries
             (lambda ()
               (when (and (= 2 (org-outline-level))
-                         (equal "DONE" (org-get-todo-state)))
+                         (equal "DONE" (org-get-todo-state))
+                         (not (org-workflow-inbox--retained-notes-p)))
                 (let ((closed (org-workflow-target--timestamp-date (org-entry-get nil "CLOSED"))))
                   (when (or (null closed) (not (string< date closed)))
                     (push (point) positions))))) nil 'tree)))))
@@ -534,13 +546,11 @@ before visiting any source."
                    (point-min)))))
 
 (defun org-workflow-collection-inbox-review (&optional _all)
-  "Review all pending unified Inbox items.
-The optional _ALL prefix is accepted for compatibility and has no effect."
+  "Open the unified Sprint and locate its anytime Inbox."
   (interactive "P")
-  (pop-to-buffer (get-buffer-create "*日记收集回顾*"))
-  (org-workflow-collection-review-mode)
-  (setq org-workflow-collection-review-all t)
-  (org-workflow-collection-review-refresh))
+  (org-agenda nil "d")
+  (goto-char (point-min))
+  (when (search-forward "随时" nil t) (beginning-of-line)))
 
 (defun org-workflow-install-inbox-capture-templates ()
   "Install the single capture menu for tasks, questions and thoughts."

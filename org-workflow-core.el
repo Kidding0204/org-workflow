@@ -59,10 +59,10 @@
   :group 'org)
 
 (defcustom org-workflow-task-type-keywords '("QA" "LAB" "HW")
-  "Org type keywords for notes that are not Workflow execution tasks.
-These headings do not disqualify an ancestor from being a task leaf.
-Use bare keyword names.  Re-enable Workflow after changing this option.
-Files with local TODO definitions must also declare their type keywords."
+  "Legacy note keywords excluded from Workflow execution and parent structure.
+New questions use TODO with a direct QA tag; thoughts have no TODO state.
+This option no longer installs a second TODO sequence.  Existing files may
+keep local keyword definitions until their notes are migrated explicitly."
   :type '(repeat string)
   :group 'org-workflow)
 
@@ -282,6 +282,21 @@ DIVE is not inherited through intermediate headings or by a leaf itself."
           (throw 'held t))
         (unless (org-up-heading-safe)
           (throw 'held nil))))))
+
+(defun org-workflow-target--execution-blocked-p ()
+  "Whether this heading is below a closed or paused execution branch.
+A QA may outlive its completed ordinary task, but not a closed project/stage."
+  (let ((qa (org-workflow-qa-p)))
+    (save-excursion
+      (catch 'blocked
+        (while t
+          (when (or (equal (org-get-todo-state) "HOLD")
+                    (and (equal (org-get-todo-state) "DONE")
+                         (or (not qa)
+                             (and (fboundp 'org-workflow-projects-kind) (org-workflow-projects-kind))
+                             (and (fboundp 'org-workflow-projects-stage-p) (org-workflow-projects-stage-p)))))
+            (throw 'blocked t))
+          (unless (org-up-heading-safe) (throw 'blocked nil)))))))
 
 (defun org-workflow-agenda-skip-held ()
   "Skip the current Agenda match when it is inside a HOLD subtree."
@@ -1173,6 +1188,7 @@ active Focus and break phases need no Workflow target."
       (org-map-entries
        (lambda ()
          (when (and (> (point) root) (= (org-outline-level) (1+ level))
+                    (not (org-workflow-qa-p))
                     (org-workflow-target--task-leaf-p))
            (setq has-tasks t)
            (when (and (org-workflow-target--unfinished-p)
@@ -1209,6 +1225,7 @@ Return the newly opened sibling marker, or nil.  Preserve all existing tags."
 (defun org-workflow--advance-curr-after-state-change ()
   "Open siblings of DIVE ancestors of the changed task, without chaining."
   (when (and org-workflow-curr-lookahead-threshold
+             (not (org-workflow-qa-p))
              (not (equal (org-entry-get nil "STYLE") "habit"))
              (not org-workflow--advancing-curr)
              (not (equal org-state org-last-state))

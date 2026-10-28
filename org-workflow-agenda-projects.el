@@ -24,60 +24,6 @@
   '((t :inherit default))
   "Project stage heading." :group 'org-workflow)
 
-(defun org-workflow-agenda--successor-limit (total)
-  "Return the preview budget for TOTAL arranged tasks."
-  (cond ((>= total 10) 1) ((>= total 5) 2) (t 3)))
-
-(defun org-workflow-agenda--commitment-entry-p (entry date)
-  "Whether ENTRY anchors a commitment on DATE, including completed anchors."
-  (org-with-point-at (org-workflow-target-entry-marker entry)
-    (or (org-workflow--promise-p)
-        (and org-workflow-store-enabled
-             (when-let* ((row (org-workflow-store-commitment
-                              (org-entry-get nil "WORKFLOW_COMMITMENT_ID"))))
-               (and (equal (nth 3 row) date)
-                    (not (member (nth 6 row) '("withdrawn" "cancelled")))))))))
-
-(defun org-workflow-agenda--successors (entry limit)
-  "Read up to LIMIT unarranged steps after ENTRY within its project."
-  (org-with-point-at (org-workflow-target-entry-marker entry)
-    (org-with-wide-buffer
-     (let* ((origin (point))
-            (root (or (org-workflow-projects-root)
-                      (org-workflow-target-entry-group-marker entry)))
-            (end (and root (org-with-point-at root (org-end-of-subtree t t))))
-            rows)
-       (when end
-         (goto-char origin) (forward-line 1)
-         (while (and (< (length rows) limit) (re-search-forward org-heading-regexp end t))
-           (goto-char (line-beginning-position))
-           (cond
-            ((and (org-workflow-target--unfinished-leaf-p)
-                  (org-entry-get nil "SCHEDULED")) (goto-char end))
-            ((or (member (org-get-todo-state) '("HOLD" "DONE"))
-                 (equal (org-entry-get nil "STYLE") "habit")
-                 (equal (org-workflow-projects-kind) "project"))
-             (org-end-of-subtree t t))
-            (t
-             (when (and (org-workflow-target--unfinished-leaf-p)
-                        (not (org-workflow-projects-stage-p))
-                        (not (org-entry-get nil "SCHEDULED")))
-               (push (org-workflow-item-at-marker (point-marker)) rows))
-             (forward-line 1)))))
-       (nreverse rows)))))
-
-(defun org-workflow-agenda--successor-line (entry)
-  "Return a quiet indented preview for ENTRY with native source properties."
-  (let* ((native (org-workflow-agenda--stack-line entry nil))
-         (icon (if (char-displayable-p #xf0311) (string #xf0311) "↳"))
-         (line (apply #'propertize
-                      (concat "      " icon " " (org-workflow-target-entry-title entry))
-                      (text-properties-at 0 native))))
-    (add-text-properties 0 (length line)
-                         '(face org-workflow-agenda-meta org-workflow-agenda-preview t
-                           wrap-prefix "        ") line)
-    line))
-
 (defun org-workflow-agenda--with-completed (entries date tomorrow)
   "Merge DATE's completed scheduled leaves into ENTRIES in the same ordering.
 TOMORROW projections never include today's completions."
@@ -107,18 +53,19 @@ TOMORROW projections never include today's completions."
          (org-map-entries
           (lambda ()
             (when (and (= (org-outline-level) (1+ level))
-                       (org-workflow-target--task-p)
+                       (org-workflow-target--blocking-task-p)
                        (not (equal (org-entry-get nil "STYLE") "habit")))
               (push (append (org-workflow-projects--location)
                             (list :state (org-get-todo-state) :children nil)) stages))
             (when (and stages (= (org-outline-level) (+ level 2))
-                       (org-workflow-target--task-p))
+                       (org-workflow-target--blocking-task-p))
               (setf (plist-get (car stages) :children)
                     (append (plist-get (car stages) :children)
                             (list (append (org-workflow-projects--location)
                                           (list :state (org-get-todo-state)))))))
             (when (and (> (org-outline-level) (1+ level))
-                       (org-workflow-target--task-leaf-p))
+                       (org-workflow-target--task-leaf-p)
+                       (not (org-workflow-qa-p)))
               (cl-incf total)
               (when (equal (org-get-todo-state) "DONE") (cl-incf done)))) nil 'tree))))
     (list :done done :total total :stages (nreverse stages))))

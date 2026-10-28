@@ -7,7 +7,7 @@
 (defmacro workflow-project-fixture (&rest body)
   `(org-workflow-store-test
     (erase-buffer)
-    (insert "#+filetags: :project:\n* DIVE Compiler\n:PROPERTIES:\n:ID: compiler\n:END:\n** DIVE Lexing\n*** TODO Tokens\n*** TODO Parser\n* TODO Algebra\n:PROPERTIES:\n:ID: algebra\n:END:\n** TODO Basics\n*** TODO Matrices\n* HOLD Old\n:PROPERTIES:\n:ID: old\n:END:\n** TODO Review\n*** TODO Old step\n")
+    (insert "#+filetags: :project:\n* DIVE Compiler\n:PROPERTIES:\n:ID: compiler\n:END:\n** DIVE Lexing\n*** TODO Tokens\nSCHEDULED: <2026-09-16 Wed>\n*** TODO Parser\n* TODO Algebra\n:PROPERTIES:\n:ID: algebra\n:END:\n** TODO Basics\n*** TODO Matrices\nSCHEDULED: <2026-09-16 Wed>\n* HOLD Old\n:PROPERTIES:\n:ID: old\n:END:\n** TODO Review\n*** TODO Old step\n")
     (org-mode)
     (let ((org-workflow-projects--syncing nil)
           (org-workflow-projects--batch nil))
@@ -40,6 +40,8 @@
    (should (= 1 (length (org-workflow-store-due "2026-09-16"))))
    (let ((yesterday (caar (org-workflow-store-due "2026-09-16"))))
      (cl-letf (((symbol-function 'org-workflow-target--today-string) (lambda () "2026-09-17")))
+       (workflow-project-at "Tokens")
+       (org-add-planning-info 'scheduled (org-time-string-to-time "2026-09-17"))
        (org-workflow-projects-sync)
        (should (= 1 (length (org-workflow-history--responsibilities "2026-09-17"))))
        (workflow-project-at "Tokens")
@@ -69,6 +71,8 @@
 
 (ert-deftest workflow-project-start-date-stays-on-project ()
   (workflow-project-fixture
+   (workflow-project-at "Matrices")
+   (org-add-planning-info nil nil 'scheduled)
    (org-workflow-projects-set-start (workflow-project-at "Algebra") "2026-09-17")
    (workflow-project-at "Algebra")
    (should (org-entry-get nil "SCHEDULED"))
@@ -76,7 +80,7 @@
    (cl-letf (((symbol-function 'org-workflow-target--today-string) (lambda () "2026-09-17")))
      (org-workflow-projects-sync)
      (workflow-project-at "Algebra") (should (equal "DIVE" (org-get-todo-state)))
-     (workflow-project-at "Matrices") (should (org-entry-get nil "WORKFLOW_COMMITMENT_ID"))))
+     (workflow-project-at "Matrices") (should-not (org-entry-get nil "WORKFLOW_COMMITMENT_ID"))))
 )
 (ert-deftest workflow-project-completed-pause-does-not-create-another-promise ()
   (workflow-project-fixture

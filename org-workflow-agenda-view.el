@@ -37,10 +37,6 @@
 (require 'org-workflow-sources)
 (autoload 'org-workflow-agenda-projects "org-workflow-agenda-projects")
 (autoload 'org-workflow-agenda--with-completed "org-workflow-agenda-projects")
-(autoload 'org-workflow-agenda--successor-limit "org-workflow-agenda-projects")
-(autoload 'org-workflow-agenda--commitment-entry-p "org-workflow-agenda-projects")
-(autoload 'org-workflow-agenda--successors "org-workflow-agenda-projects")
-(autoload 'org-workflow-agenda--successor-line "org-workflow-agenda-projects")
 
 (defvar org-workflow-agenda-planning-all)
 
@@ -494,25 +490,14 @@ Use native Agenda markers and the existing parent progress renderer."
     (when (memq role '(combined schedule))
       (org-workflow-agenda-inbox nil habit-rows))))
 
-(defun org-workflow-agenda--optional-candidates ()
-  "Return the first two unscheduled tasks of each direct DIVE parent."
-  (let ((counts (make-hash-table :test #'equal)) result)
-    (dolist (row (org-workflow-agenda--candidate-entries t))
-      (let* ((entry (car row))
-             (parent (org-workflow-target-entry-group-marker entry))
-             (key (list (org-workflow-target-entry-file entry) (marker-position parent)))
-             (count (gethash key counts 0)))
-        (when (< count 2)
-          (puthash key (1+ count) counts)
-          (push entry result))))
-    (nreverse result)))
+(require 'org-workflow-agenda-notes)
+
 
 (cl-defun org-workflow-agenda-inbox
     (_match &optional
             (habit-rows (unless (org-workflow-agenda--setting 'org-workflow-agenda-plan-tomorrow)
                           (org-workflow-evening--habit-rows (org-workflow-agenda-target-date)))))
-  "Render free HABIT-ROWS and unscheduled Inbox captures.
-Stage candidates are previewed beneath commitments instead."
+  "Render free HABIT-ROWS, Inbox, pending questions and four steps per project."
   (require 'org-workflow-agenda-inbox)
   (goto-char (point-max))
   (let* ((start (point)) (inhibit-read-only t)
@@ -523,13 +508,13 @@ Stage candidates are previewed beneath commitments instead."
          (collected (org-workflow-collection-inbox--pending
                      (org-workflow-collection-inbox--review-files) t t))
          (seen (make-hash-table :test #'equal)))
-    (insert "\n" (org-workflow-agenda--section-header "收集箱"))
+    (insert "\n" (org-workflow-agenda--section-header "随时"))
     (when habits
       (insert (propertize "  习惯\n" 'face 'org-workflow-agenda-meta
                           'org-agenda-structural-header t 'org-workflow-agenda-create-context 'habit))
       (dolist (row habits) (insert (cdr row))))
     (when collected
-      (insert (propertize "  收集项\n" 'face 'org-workflow-agenda-meta
+      (insert (propertize "  Inbox\n" 'face 'org-workflow-agenda-meta
                           'org-agenda-structural-header t))
       (dolist (record collected)
         (let ((original-title (cadr record)) (marker (nth 2 record)))
@@ -543,9 +528,32 @@ Stage candidates are previewed beneath commitments instead."
             (insert (propertize (concat line "\n")
                                 'org-workflow-agenda-inbox-entry t
                                 'org-workflow-collection-review-title original-title)))
-          (set-marker marker nil))))
-    (unless (or habits collected)
-      (insert (propertize "    收集箱为空\n" 'face 'shadow)))
+          (when (org-with-point-at marker (org-workflow-qa-p))
+            (org-workflow-agenda-insert-note-preview marker)))))
+    (let ((questions (org-workflow-agenda-pending-questions)) shown)
+      (dolist (marker questions)
+        (unless (org-with-point-at marker
+                  (gethash (list buffer-file-name (point)) seen))
+          (unless shown
+            (insert (propertize "  疑问\n" 'face 'org-workflow-agenda-meta
+                                'org-agenda-structural-header t))
+            (setq shown t))
+          (insert (org-workflow-agenda--stack-line (org-workflow-item-at-marker marker) nil) "\n")
+          (org-workflow-agenda-insert-note-preview marker))))
+    (dolist (group (org-workflow-agenda-anytime-projects))
+      (insert (propertize (concat "  " (plist-get (car group) :title) "\n")
+                          'face 'org-workflow-agenda-project-title 'org-agenda-structural-header t))
+      (let (previous-stage)
+        (dolist (entry (cdr group))
+          (let ((stage (org-with-point-at (org-workflow-target-entry-marker entry)
+                         (save-excursion
+                           (while (and (> (org-outline-level) 2) (org-up-heading-safe)))
+                           (org-get-heading t t t t)))))
+            (unless (equal stage previous-stage)
+              (setq previous-stage stage)
+              (insert (propertize (concat "    " stage "\n") 'face 'org-workflow-agenda-meta
+                                  'org-agenda-structural-header t))))
+          (insert (org-workflow-agenda--stack-line entry nil) "\n"))))
     (insert "\n")
     (add-text-properties start (point) '(org-agenda-type todo))))
 
@@ -560,8 +568,7 @@ Stage candidates are previewed beneath commitments instead."
                           (or (not tomorrow)
                               (equal target (org-workflow-target-entry-scheduled-date entry)))))
                    (org-workflow-target--ordered-entries (and tomorrow target))))
-         (entries (org-workflow-agenda--with-completed entries target tomorrow))
-         (limit (org-workflow-agenda--successor-limit (length entries))))
+         (entries (org-workflow-agenda--with-completed entries target tomorrow)))
     (insert (propertize "安排" 'face 'org-workflow-agenda-section
                         'org-agenda-structural-header t) "    ")
     (org-workflow-agenda--insert-day-tabs)
@@ -587,10 +594,7 @@ Stage candidates are previewed beneath commitments instead."
                        'keymap org-super-agenda-header-map
                        'local-map org-super-agenda-header-map
                        'org-super-agenda-header t)))
-            (insert (org-workflow-agenda--stack-line entry nil) "\n")
-            (when (org-workflow-agenda--commitment-entry-p entry target)
-              (dolist (next (org-workflow-agenda--successors entry limit))
-                (insert (org-workflow-agenda--successor-line next) "\n")))))
+            (insert (org-workflow-agenda--stack-line entry nil) "\n")))
         (when habit-rows
           (org-workflow-evening--insert-habits habit-rows letter 'late))
         (when (= content-start (point))

@@ -81,6 +81,12 @@ Org files store tasks, schedules and clocks; SQLite stores commitments, events, 
 
 The native history panel reads the same persisted history as the optional web export. Its charts have keyboard date selection as well as mouse interaction. See the documents in [`docs/`](docs/) for detailed workflows, current semantics and maintenance guidance.
 
+### Capture and daily Sprint
+
+See [捕捉、疑问与随时](docs/sprint-capture.md) for the five capture destinations,
+non-blocking QA tags, source-backed note editing, four unarranged steps per
+active project and fixed daily commitments selected from explicit schedules.
+
 ### Habit windows and reminders
 
 Configure work windows with `use-package` (gaps are allowed):

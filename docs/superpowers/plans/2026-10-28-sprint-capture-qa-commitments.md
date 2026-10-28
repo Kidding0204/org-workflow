@@ -74,41 +74,41 @@
 
 **边界：** 将“可执行”“阻塞父任务/计数”拆成独立判断，所有调用方复用；删除对新 QA 依赖自定义状态关键词的规则。
 
-- [ ] 在 test/org-workflow-agenda-target-test.el 与项目/历史相关现有测试中增加 QA 回归：无安排不执行、有安排可执行、父任务始终可执行、完成数量和直属 CLOCK 不重复、普通子任务原行为不变。
-- [ ] 先运行新增用例确认暴露当前差异，再修改上述原定义及调用点。
-- [ ] 验证通过后独立提交包修改；宿主状态声明在宿主提交中处理。
+- [x] 在 test/org-workflow-agenda-target-test.el 与项目/历史相关现有测试中增加 QA 回归：无安排不执行、有安排可执行、父任务始终可执行、完成数量和直属 CLOCK 不重复、普通子任务原行为不变。
+- [x] 先运行新增用例确认暴露当前差异，再修改上述原定义及调用点。
+- [x] 验证通过后独立提交包修改；宿主状态声明在宿主提交中处理。
 
 ### 任务二：统一 Capture 与 Supertag
 
 **修改：** org-workflow-agenda-inbox.el、org-workflow-core.el 的模板/定位；宿主 config/note-manage.el、config/org-workflow-config.el；必要时小型编辑返回实现放入包内职责相符的模块，不放宿主匿名函数。
 
-- [ ] 在 test/org-workflow-agenda-target-test.el、test/org-workflow-unified-inbox-test.el 增加五入口目标、子标题层级、时间/ID/正文来源、无当前任务错误、中止无残留与模板键唯一性的测试。
-- [ ] 运行新增用例后实现统一模板；更新宿主 supertag 同步范围，保留网页/截图兼容和现有中止补丁。
-- [ ] 临时 Org 目录验证捕捉后可索引，QA→DONE 保持 ID、主题和正文，原有 supertag 数据不变；分别提交包与宿主改动。
+- [x] 在 test/org-workflow-agenda-target-test.el、test/org-workflow-unified-inbox-test.el 增加五入口目标、子标题层级、时间/ID/正文来源、无当前任务错误、中止无残留与模板键唯一性的测试。
+- [x] 运行新增用例后实现统一模板；更新宿主 supertag 同步范围，保留网页/截图兼容和现有中止补丁。
+- [x] 临时 Org 目录验证捕捉后可索引，QA→DONE 保持 ID、主题和正文，原有 supertag 数据不变；分别提交包与宿主改动。
 
 ### 任务三：Sprint 随时
 
 **修改：** org-workflow-agenda-view.el、org-workflow-agenda-projects.el、org-workflow-agenda-inbox.el 与相关布局/帮助原定义。
 
-- [ ] 在 test/org-workflow-agenda-workbench-test.el、test/org-workflow-integrated-projects-test.el、收集箱测试中覆盖四项上限、跨阶段顺序、排除条件、QA 去重、想法排除、明日切换、来源 marker 和编辑返回位置。
-- [ ] 先运行新增用例，再替换渲染和旧后继入口，统一独立收集回顾命令指向 Sprint；正常与双栏 Sprint 均显示同一套规则。
-- [ ] 验证刷新不写 Org/SQLite，已有习惯与任务交互不受影响，提交。
+- [x] 在 test/org-workflow-agenda-workbench-test.el、test/org-workflow-integrated-projects-test.el、收集箱测试中覆盖四项上限、跨阶段顺序、排除条件、QA 去重、想法排除、明日切换、来源 marker 和编辑返回位置。
+- [x] 先运行新增用例，再替换渲染和旧后继入口，统一独立收集回顾命令指向 Sprint；正常与双栏 Sprint 均显示同一套规则。
+- [x] 验证刷新不写 Org/SQLite，已有习惯与任务交互不受影响，提交。
 
 ### 任务四：每日承诺与手动更换
 
 **修改：** org-workflow-projects.el、org-workflow-commands.el、org-workflow-store.el 中现有同步和事务；相关 Agenda 承诺命令保持一致。
 
-- [ ] 在 test/org-workflow-projects-test.el、test/org-workflow-integrated-projects-test.el 增加：当天精确日期、源顺序、无候选不写、未来不提前写、完成不追加、跨重启固定、改期重排不替换、手动更换/撤回不反弹、暂停恢复、已有未来草稿复用与历史不变。
-- [ ] 使用临时 SQLite/Org 数据先运行新增用例，再修改候选选择和持久决定；手动更换失败必须回滚两端。
-- [ ] 验证旧自动补日期和主动补选路径不再调用；提交。
+- [x] 在 test/org-workflow-projects-test.el、test/org-workflow-integrated-projects-test.el 增加：当天精确日期、源顺序、无候选不写、未来不提前写、完成不追加、跨重启固定、改期重排不替换、手动更换/撤回不反弹、暂停恢复、已有未来草稿复用与历史不变。
+- [x] 使用临时 SQLite/Org 数据先运行新增用例，再修改候选选择和持久决定；手动更换失败必须回滚两端。
+- [x] 验证旧自动补日期和主动补选路径不再调用；提交。
 
 ### 任务五：文档、集成验证与现场生效
 
-- [ ] 更新包 docs/CONTEXT.md、使用说明和宿主 config/README.md；在参数旁写简短中文维护注释，说明修改入口。
-- [ ] 用项目已有 batch 依赖初始化方式运行上述受影响 ERT 测试及必要语法/编译检查；复用已安装依赖，不为本次任务下载完整工具链。只在回归暴露新问题时扩大测试。
-- [ ] 检查包和宿主差异，确保不提交用户既有无关修改、缓存、笔记或数据库。
-- [ ] 尝试连接运行中的 Emacs，仅重载所需定义和设置并刷新相关 buffer；不重载全套配置，不重启 Emacs，不以“已保存”等同“已生效”。涉及持久事实的新行为上线当日不重算已确定承诺。
-- [ ] 将复杂图形体验留给用户：五入口各捕捉一次、当前任务不被 QA 替换、随时顺序/展开/返回、安排 QA、完成转 DONE、主题流查找、手动更换承诺。报告提交、批处理结果、实际会话生效范围及撤销方法。
+- [x] 更新包 docs/CONTEXT.md、使用说明和宿主 config/README.md；在参数旁写简短中文维护注释，说明修改入口。
+- [x] 用项目已有 batch 依赖初始化方式运行上述受影响 ERT 测试及必要语法/编译检查；复用已安装依赖，不为本次任务下载完整工具链。只在回归暴露新问题时扩大测试。
+- [x] 检查包和宿主差异，确保不提交用户既有无关修改、缓存、笔记或数据库。
+- [x] 尝试连接运行中的 Emacs，仅重载所需定义和设置并刷新相关 buffer；不重载全套配置，不重启 Emacs，不以“已保存”等同“已生效”。涉及持久事实的新行为上线当日不重算已确定承诺。
+- [x] 将复杂图形体验留给用户：五入口各捕捉一次、当前任务不被 QA 替换、随时顺序/展开/返回、安排 QA、完成转 DONE、主题流查找、手动更换承诺。报告提交、批处理结果、实际会话生效范围及撤销方法。
 
 ## 审阅重点
 
@@ -119,3 +119,10 @@
 5. Capture 中止、现场未保存文字、不同同步目录及旧状态文件不能丢失数据。
 
 以上重点分别由任务一至四的回归及任务五的现场检查覆盖。此方案不包含自动语义分类、旧笔记批量迁移、新时间线数据库、新主视图或 supertag 替代实现。
+
+## 实施验收记录
+
+2026-10-28：294 项相关 ERT 通过；宿主真实 Supertag 隔离集成 1 项通过；10 个改动包模块编译通过。
+当前 Emacs 已局部加载定义、五个捕捉入口和随时栏，旧收集箱标题已消失。
+Supertag 的新同步范围在下次正常启动生效：unified 模式无公开运行时扩展根目录入口，保留其配置保护，不自动重启。
+额外回归覆盖：自动归档保留长期笔记；完成承诺后手动更换只保留一份有效项目责任、原完成记录仍保留。

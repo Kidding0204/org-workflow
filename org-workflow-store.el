@@ -187,6 +187,10 @@ Preserve the effective dates of historical promises."
                                                          (1+ (string-to-number (substring today 8)))
                                                          (string-to-number (substring today 5 7))
                                                          (string-to-number (substring today 0 4))))))
+    ;; 项目当天责任一经确定就固定；改日期不隐式撤回或产生新责任。
+    (when (and row (fboundp 'org-workflow-projects-row-p)
+               (org-workflow-projects-row-p row) (equal today (nth 3 row)))
+      (setq before after))
     (when (and row (not (equal before after)))
       (cond
        ((string< today (nth 3 row))
@@ -199,6 +203,7 @@ Preserve the effective dates of historical promises."
                        (not org-workflow-store--defer-without-draft)))
           (org-workflow-store--detach) (setq row nil)))))
     (when (and (equal after tomorrow) (null row)
+               (not (and (fboundp 'org-workflow-projects-root) (org-workflow-projects-root)))
                (not org-workflow-store--defer-without-draft))
       (org-workflow-store-create after))))
 

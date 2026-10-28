@@ -33,6 +33,7 @@
   "Call ORIGINAL with ARGS and synchronize the heading's commitment schedule."
   (if (not (org-workflow-commands--scoped-p)) (apply original args)
     (let ((marker (point-marker))
+          (current (and (org-workflow-qa-p) (org-workflow-target-current-marker)))
           (before (org-workflow-target--timestamp-date (org-entry-get nil "SCHEDULED"))))
       (prog1 (apply original args)
         (org-with-point-at marker
@@ -42,6 +43,10 @@
                                    (org-entry-delete nil "WORKFLOW_START_DEFERRED")
                                    (org-workflow-projects-sync))
                                (org-workflow-store-schedule before after))
+                             (when current
+                               (setq org-workflow-target-selected-marker current
+                                     org-workflow-target-selected-date (org-workflow-target--today-string)))
+                             (org-workflow-projects-sync)
                              (when (and (not (equal before (org-workflow-target--timestamp-date (org-entry-get nil "SCHEDULED"))))
                                         (org-workflow-target--same-marker-p marker org-workflow-executing-marker))
                                (org-workflow--release-execution))))))))
@@ -58,25 +63,59 @@
     (apply original args)))
 
 (defun org-workflow-toggle-commitment ()
-  "Create a commitment draft or explicitly withdraw an existing responsibility."
+  "Explicitly withdraw, replace today's project duty, or create a future draft."
   (interactive)
   (unless org-workflow-store-enabled (user-error "Workflow storage has not been migrated"))
   (let ((marker (if (derived-mode-p 'org-agenda-mode)
                     (org-get-at-bol 'org-hd-marker) (point-marker))))
     (org-with-point-at marker
-                       (unless (org-workflow-commands--scoped-p) (user-error "Not a Workflow task"))
-                       (org-workflow-store--operation
-                        (lambda ()
-                          (let ((row (org-workflow-store-commitment (org-entry-get nil "WORKFLOW_COMMITMENT_ID"))))
-                            (if row
-                                (progn
-                                  (org-workflow-store--resolve row
-                                                               (if (string< (org-workflow-target--today-string) (nth 3 row)) "cancelled" "withdrawn"))
-                                  (org-workflow-store--detach))
-                              (let ((date (org-workflow-target--timestamp-date (org-entry-get nil "SCHEDULED"))))
-                                (unless (and date (string< (org-workflow-target--today-string) date))
-                                  (user-error "请先安排到明天；不能补写昨天的承诺"))
-                                (org-workflow-store-create date)))))))
+      (unless (and (org-workflow-commands--scoped-p)
+                   (org-workflow-target--unfinished-leaf-p)
+                   (not (org-workflow-projects-kind))
+                   (not (org-workflow-projects-stage-p)))
+        (user-error "请选择可执行的未完成任务"))
+      (org-workflow-store--operation
+       (lambda ()
+         (let* ((today (org-workflow-target--today-string))
+                (date (org-workflow-target--timestamp-date (org-entry-get nil "SCHEDULED")))
+                (row (org-workflow-store-commitment (org-entry-get nil "WORKFLOW_COMMITMENT_ID")))
+                (root (org-workflow-projects-root)))
+           (cond
+            ((and row (not (member (nth 6 row) '("withdrawn" "cancelled"))))
+             (org-workflow-store--resolve row (if (string< today (nth 3 row)) "cancelled" "withdrawn"))
+             (org-workflow-store--event (car row) "manual-withdrawal")
+             (org-workflow-store--detach))
+            ((and root (equal today date))
+             (when (or (org-workflow-target--execution-blocked-p)
+                       (org-with-point-at root
+                         (or (not (equal (org-get-todo-state) "DIVE"))
+                             (org-workflow-projects--goal-pause (org-workflow-projects--goal-id))
+                             (org-workflow-projects--blocked-p))))
+               (user-error "请先启用项目与所属阶段，再选择当天承诺"))
+             (let* ((project-id (org-with-point-at root (org-id-get-create)))
+                    (key (org-workflow-projects--day-key project-id today))
+                    (old (org-workflow-store-commitment (org-workflow-store-meta key))))
+               (when old
+                 (unless (member (nth 6 old) '("done" "adjusted-done" "cancelled" "withdrawn"))
+                   (org-workflow-store--resolve old "withdrawn"))
+                 (org-workflow-store--event (car old) "manual-replacement")
+                 ;; 完成记录留存，但手动替换后当天只计新责任。
+                 (org-workflow-store--event (car old) "project-superseded"
+                                            (list :date today :project project-id))
+                 (org-with-point-at root
+                   (org-map-entries
+                    (lambda ()
+                      (when (equal (car old) (org-entry-get nil "WORKFLOW_COMMITMENT_ID"))
+                        (org-workflow-store--detach))) nil 'tree)))
+               (let ((id (org-workflow-store-create today)))
+                 (org-workflow-store--event id "project-daily" (list :project project-id))
+                 (org-workflow-store--event id "manual-selection")
+                 (org-workflow-store-set-meta key id))))
+            ((and date (string< today date))
+             (when (org-workflow-target--execution-blocked-p)
+               (user-error "不能为暂停或完成的分支创建承诺"))
+             (org-workflow-store-create date))
+            (t (user-error "请先安排日期；当天更换承诺需属于项目")))))))
     (when (derived-mode-p 'org-agenda-mode) (org-workflow-agenda--redo-at-task marker))))
 
 (defun org-workflow-display-tags (&optional marker)

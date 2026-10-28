@@ -25,7 +25,7 @@ Plain organizational headings, typed notes and simple habits are not projects."
   (when (and (org-workflow-projects--agenda-file-p)
              (not (org-before-first-heading-p))
              (= (org-outline-level) 1)
-             (org-workflow-target--task-p)
+             (org-workflow-target--blocking-task-p)
              (not (org-entry-get nil "JOURNAL_INBOX"))
              (not (and (fboundp 'org-workflow-collection-inbox--heading-p)
                        (org-workflow-collection-inbox--heading-p)))
@@ -36,6 +36,7 @@ Plain organizational headings, typed notes and simple habits are not projects."
   "Whether point is a structural stage rather than an executable step."
   (and (org-workflow-projects--agenda-file-p)
        (= (org-outline-level) 2)
+       (not (org-workflow-qa-p))
        (not (equal (org-entry-get nil "STYLE") "habit"))
        (save-excursion
          (org-up-heading-safe)
@@ -211,6 +212,20 @@ Plain organizational headings, typed notes and simple habits are not projects."
            (setq blocked (org-workflow--held-p)))) nil 'tree)
       blocked)))
 
+(defun org-workflow-projects--scheduled-first (date)
+  "Return the first unfinished leaf explicitly scheduled on DATE in this project."
+  (let (candidate)
+    (org-map-entries
+     (lambda ()
+       (when (and (not candidate)
+                  (org-workflow-target--unfinished-leaf-p)
+                  (not (org-workflow-projects-kind))
+                  (not (org-workflow-projects-stage-p))
+                  (not (org-workflow-target--execution-blocked-p))
+                  (equal date (org-workflow-target--timestamp-date (org-entry-get nil "SCHEDULED"))))
+         (setq candidate (org-workflow-projects--location)))) nil 'tree)
+    candidate))
+
 (defun org-workflow-projects--ensure-day (project date)
   "Create or resume PROJECT's single frozen responsibility on DATE."
   (let ((row (org-workflow-projects--row project date)))
@@ -226,7 +241,7 @@ Plain organizational headings, typed notes and simple habits are not projects."
       ;; Resolve the project by ID again: an earlier project may have inserted
       ;; properties and moved un-ID'd leaf positions in this same buffer.
       (org-with-point-at (org-workflow-projects-marker project)
-        (when-let* ((next (org-workflow-projects--next)))
+        (when-let* ((next (org-workflow-projects--scheduled-first date)))
           (org-with-point-at (org-workflow-projects-marker next)
             (let* ((task (org-entry-get nil "ID"))
                    (existing (and task (car (sqlite-select
@@ -249,9 +264,8 @@ Plain organizational headings, typed notes and simple habits are not projects."
               (when existing (org-workflow-store--attach existing))
               (unless (org-workflow-projects-row-p (org-workflow-store-commitment id))
                 (org-workflow-store--event id "project-daily" (list :project (plist-get project :id))))
-              (org-workflow-store-set-meta (org-workflow-projects--day-key (plist-get project :id) date) id)
-              (unless (org-entry-get nil "SCHEDULED")
-                (org-add-planning-info 'scheduled (org-read-date nil t date))))))))))
+              ;; 日期/项目索引是当天决定；完成、改期和撤回后都保留它。
+              (org-workflow-store-set-meta (org-workflow-projects--day-key (plist-get project :id) date) id))))))))
 
 (defun org-workflow-projects--identify (projects)
   "Give PROJECTS stable IDs inside the caller's source/facts transaction."
