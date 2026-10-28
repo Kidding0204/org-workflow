@@ -1569,7 +1569,8 @@ Leave the default buffer alone when there is no current target."
        (list :available :false :task "" :parent ""
              :parentProgress "" :body ""))
      daily
-     (list :commitmentStreak streak)
+     (list :commitmentStreak streak
+           :workPeriod (org-workflow-periods-current-window))
      stage)))
 
 (defvar org-workflow-history--request-cache nil)

@@ -19,6 +19,8 @@ import {
     commitmentStreakText,
     dailyProgressState,
     drawDailyProgress,
+    drawPeriodProgress,
+    periodProgressState,
     PROGRESS_HEIGHT,
     PROGRESS_WIDTH,
     progressState,
@@ -98,6 +100,20 @@ export default class FocusTimerExtension extends Extension {
             y_align: Clutter.ActorAlign.CENTER, visible: false});
         this._parentLabel.clutter_text.ellipsize = 3;
 
+        this._periodRing = new St.DrawingArea({
+            width: 18, height: 18, y_align: Clutter.ActorAlign.CENTER,
+        });
+        this._periodRing.connect('repaint', area => {
+            const cr = area.get_context();
+            try {
+                const [width, height] = area.get_surface_size();
+                const state = periodProgressState(this._workflowStatus);
+                drawPeriodProgress(cr, width, height, state);
+                area.accessible_name = state.label;
+            } finally {
+                cr.$dispose();
+            }
+        });
         this._dailyProgress = new St.DrawingArea({
             width: PROGRESS_WIDTH, height: PROGRESS_HEIGHT,
             y_align: Clutter.ActorAlign.CENTER,
@@ -132,6 +148,7 @@ export default class FocusTimerExtension extends Extension {
 
         this._dailyGroup = new St.BoxLayout({style_class: 'workflow-action-group',
             y_align: Clutter.ActorAlign.CENTER});
+        this._dailyGroup.add_child(this._periodRing);
         this._dailyGroup.add_child(this._dailyProgress);
         this._dailyGroup.add_child(this._dailyLabel);
         this._focusGroup = new St.BoxLayout({style_class: 'workflow-action-group',
@@ -699,6 +716,7 @@ export default class FocusTimerExtension extends Extension {
         this._parentLabel.visible = this._timerStatus?.phase === 'inactive' &&
             status.available && Boolean(status.parent);
         const {text} = dailyProgressState(status);
+        this._periodRing.queue_repaint();
         this._dailyProgress.queue_repaint();
         this._dailyLabel.set_text(text);
         this._dailyLabel.accessible_name = `承诺完成 / 最低投入：${text}；实色表示承诺，斜纹表示时间`;
@@ -715,6 +733,7 @@ export default class FocusTimerExtension extends Extension {
         this._taskLabel.set_text(isServerUnavailable(message)
             ? 'Waiting for Emacs' : 'Workflow unavailable');
 
+        this._periodRing.queue_repaint();
         this._dailyProgress.queue_repaint();
         this._dailyLabel.set_text('—');
         this._dailyLabel.accessible_name = '每日进度暂不可用';
@@ -736,6 +755,6 @@ export default class FocusTimerExtension extends Extension {
         const timer = this._label?.text ?? 'F —';
         const streak = this._workflowStatus?.commitmentStreak ?? 0;
         this._indicator.accessible_name =
-            `${task}; Commitment streak: ${streak} ${streak === 1 ? 'day' : 'days'}; Focus Timer: ${timer}`;
+            `${periodProgressState(this._workflowStatus).label}; ${task}; Commitment streak: ${streak} ${streak === 1 ? 'day' : 'days'}; Focus Timer: ${timer}`;
     }
 }

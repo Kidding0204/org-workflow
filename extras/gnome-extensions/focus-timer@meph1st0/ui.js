@@ -129,3 +129,41 @@ export function drawDailyProgress(cr, width, height, state) {
     cr.stroke();
     cr.restore();
 }
+
+// Clock time within the configured window, independent of recorded focus time.
+// Keep the palette here; the schedule belongs exclusively to Emacs.
+const PERIODS = {
+    morning: {label: '上午', color: [0.49, 0.71, 1.0]},
+    afternoon: {label: '下午', color: [0.95, 0.65, 0.43]},
+    evening: {label: '晚上', color: [0.74, 0.62, 0.94]},
+};
+
+export function periodProgressState(status, now = Date.now() / 1000) {
+    const window = status?.workPeriod;
+    const period = PERIODS[window?.name];
+    if (!period || !Number.isFinite(window.start) || !Number.isFinite(window.end) ||
+        window.end <= window.start || !Number.isFinite(now))
+        return {available: false, fraction: 0, color: [0.75, 0.77, 0.80], label: '工作时段未开始'};
+    const fraction = Math.max(0, Math.min(1, (now - window.start) / (window.end - window.start)));
+    return {available: true, fraction, color: period.color,
+        label: `${period.label}已过 ${Math.floor(fraction * 100)}%`};
+}
+
+export function drawPeriodProgress(cr, width, height, state) {
+    const size = Math.min(width, height);
+    if (size <= 4)
+        return;
+    const lineWidth = size * 0.14;
+    const radius = (size - lineWidth) / 2 - 1;
+    const [r, g, b] = state.color;
+    cr.setLineWidth(lineWidth);
+    cr.setSourceRGBA(r, g, b, state.available ? 0.25 : 0.16);
+    cr.arc(width / 2, height / 2, radius, 0, Math.PI * 2);
+    cr.stroke();
+    if (state.fraction > 0) {
+        cr.setSourceRGBA(r, g, b, 1);
+        cr.arc(width / 2, height / 2, radius, -Math.PI / 2,
+            -Math.PI / 2 + Math.PI * 2 * state.fraction);
+        cr.stroke();
+    }
+}

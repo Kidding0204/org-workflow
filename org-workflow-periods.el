@@ -5,6 +5,7 @@
 ;; Share work-window boundaries between task availability and habit reminders.
 ;;; Code:
 (require 'org-workflow-lifecycle)
+(require 'seq)
 
 (defun org-workflow-periods--minutes (clock)
   "Parse CLOCK in HH:MM format as minutes after local midnight."
@@ -59,6 +60,28 @@ During gaps retain the preceding bands; before the first start return nil."
              for letter in '(?A ?B ?C)
              when (>= minutes (org-workflow-periods--minutes (nth 1 period)))
              collect letter)))
+
+(defun org-workflow-periods-current-window (&optional time)
+  "Return the latest started window at TIME as desktop clock boundaries.
+Gaps retain the preceding window.  Before morning return nil.  Use local
+calendar boundaries, so the desktop needs no duplicate schedule or timezone."
+  (org-workflow-periods--validate org-workflow-work-periods)
+  (let* ((now (or time (current-time)))
+         (day (decode-time now))
+         (minutes (+ (* 60 (decoded-time-hour day)) (decoded-time-minute day)))
+         (period (car (last (seq-filter
+                            (lambda (window)
+                              (>= minutes (org-workflow-periods--minutes (nth 1 window))))
+                            org-workflow-work-periods)))))
+    (when period
+      (cl-labels ((boundary (clock)
+                    (let ((value (org-workflow-periods--minutes clock)))
+                      (float-time (encode-time 0 (% value 60) (/ value 60)
+                                               (decoded-time-day day)
+                                               (decoded-time-month day)
+                                               (decoded-time-year day))))))
+        (list :name (symbol-name (car period))
+              :start (boundary (nth 1 period)) :end (boundary (nth 2 period)))))))
 
 (provide 'org-workflow-periods)
 ;;; org-workflow-periods.el ends here

@@ -278,3 +278,28 @@ week strip. The old idle-display switch has been retired; its schema is retained
 only for compatibility and saved values no longer affect presentation.
 On Wayland, installed JavaScript takes effect at the next login. No Emacs restart
 or business-data migration is needed.
+
+
+## Work-period ring (v28)
+
+The 18px ring before the left daily bar shows elapsed wall-clock time in the current
+work window, clockwise from twelve o'clock. Morning uses soft blue, afternoon warm
+orange, and evening lavender. The full faint track shares the period's color; the
+bright arc indicates elapsed time. No extra panel text is added.
+
+`org-workflow-work-periods` remains the only schedule: Emacs sends `workPeriod`
+with name and local-day start/end Unix timestamps. The ring reuses existing status
+refreshes; it adds no timer or Org scanning. Meal/rest gaps retain the previous full
+ring, the next start resets it, and before morning it is neutral. Old/unavailable
+backends show a neutral ring. Palette and drawing live in `ui.js` (`PERIODS`,
+`drawPeriodProgress`); the actor size is in `extension.js`.
+
+The daily investment target is independent: set `org-workflow-daily-minimum-minutes`
+in the host's `config/org-workflow-config.el` (240 minutes = 4 hours). The value is
+recorded once per day; later configuration changes affect the next unrecorded day,
+without rewriting past daily records. The present adjustment explicitly updates
+only today's stored threshold as well.
+
+Run `gjs -m tests/period.test.js` for boundary/palette and real Cairo drawing checks.
+On Wayland install the bundle above, then log out and back in when convenient to
+load the new JavaScript. Re-enabling alone can retain the already imported module.
