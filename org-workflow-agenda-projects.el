@@ -51,8 +51,8 @@
     (org-workflow-target--order-entries entries)))
 
 (defun org-workflow-projects-progress (project)
-  "Read concrete steps and all structural Headings without counting QA."
-  (let ((done 0) (total 0) stages)
+  "Read PROJECT and stage leaf counts without counting QA or habits."
+  (let ((done 0) (total 0) stages stage)
     (org-workflow-source-read
      (plist-get project :file)
      (lambda ()
@@ -60,20 +60,34 @@
        (let ((level (org-outline-level)))
          (org-map-entries
           (lambda ()
-            (let ((depth (org-outline-level)) (qa (org-workflow-qa-p)))
-              (when (and (= depth (1+ level)) (org-workflow-projects-stage-p))
-                (push (append (org-workflow-projects--location)
-                              (list :state (org-get-todo-state) :children nil)) stages))
-              (when (and stages (> depth (1+ level)) (org-get-todo-state))
-                (setf (plist-get (car stages) :children)
-                      (append (plist-get (car stages) :children)
-                              (list (append (org-workflow-projects--location)
-                                            (list :state (org-get-todo-state) :depth (- depth level)
-                                                  :qa qa))))))
-              (cond (qa (setq org-map-continue-from (save-excursion (org-end-of-subtree t t))))
-                    ((and (> depth (1+ level)) (org-workflow-target--task-leaf-p))
-                     (cl-incf total)
-                     (when (equal (org-get-todo-state) "DONE") (cl-incf done)))))) nil 'tree))))
+            (let ((depth (org-outline-level)))
+              (cond
+               ((or (org-workflow-qa-p) (equal (org-entry-get nil "STYLE") "habit"))
+                (when (= depth (1+ level)) (setq stage nil))
+                (when (and stage (> depth (1+ level)) (org-workflow-qa-p) (org-get-todo-state))
+                  (push (append (org-workflow-projects--location)
+                                (list :state (org-get-todo-state) :depth (- depth level) :qa t))
+                        (plist-get stage :children)))
+                (setq org-map-continue-from (save-excursion (org-end-of-subtree t t))))
+               (t
+                (when (= depth (1+ level))
+                  (setq stage nil)
+                  (when (org-workflow-projects-stage-p)
+                    (setq stage (append (org-workflow-projects--location)
+                                        (list :state (org-get-todo-state) :children nil :done 0 :total 0)))
+                    (push stage stages)))
+                (when (and stage (> depth (1+ level)) (org-get-todo-state))
+                  (push (append (org-workflow-projects--location)
+                                (list :state (org-get-todo-state) :depth (- depth level)))
+                        (plist-get stage :children)))
+                (when (and (> depth (1+ level)) (org-workflow-target--task-leaf-p))
+                  (cl-incf total)
+                  (when stage (cl-incf (plist-get stage :total)))
+                  (when (org-entry-is-done-p)
+                    (cl-incf done)
+                    (when stage (cl-incf (plist-get stage :done))))))))) nil 'tree))))
+    (dolist (item stages)
+      (setf (plist-get item :children) (nreverse (plist-get item :children))))
     (list :done done :total total :stages (nreverse stages))))
 
 (defun org-workflow-projects-tracking (project date)
@@ -224,6 +238,70 @@ calendar gaps never count as verified continuity."
     (org-workflow-agenda-projects-render)
     (add-text-properties start (point) '(org-agenda-type todo))))
 
+(defun org-workflow-agenda-project-summary-show ()
+  "Show this project or stage subtree using Org's other-window navigation."
+  (interactive)
+  (org-agenda-show-1 3))
+
+(defvar org-workflow-agenda-project-summary-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "t") #'org-workflow-agenda-project-state)
+    (define-key map (kbd "TAB") #'org-workflow-agenda-project-summary-show)
+    (define-key map (kbd "RET") #'org-agenda-switch-to)
+    map)
+  "Summary rows edit state or visit Org, rather than folding the task tree.")
+
+(defun org-workflow-agenda-project-summary--line (item role progress)
+  "Insert ITEM's state, name and PROGRESS as a source-backed summary ROLE."
+  (let* ((marker (org-workflow-projects-marker item))
+         (state (plist-get item :state))
+         (title (string-trim (replace-regexp-in-string
+                             "\\[[0-9]+\\(?:/[0-9]+\\|%\\)\\]" "" (plist-get item :title))))
+         (name (concat (if (eq role 'stage) "  " "") title))
+         (total (plist-get progress :total))
+         (cookie (if (zerop total) "—" (format "[%d/%d]" (plist-get progress :done) total)))
+         (width (max 10 (- (window-body-width) 10
+                           (max (string-width cookie)
+                                (if (and (boundp 'org-modern-progress) (integerp org-modern-progress))
+                                    org-modern-progress 0)))))
+         (regexps (org-with-point-at marker (list org-todo-regexp org-not-done-regexp)))
+         (start (point)))
+    (insert (format (concat "  %-4s %-" (number-to-string width) "s %s\n") (or state "")
+                    (truncate-string-to-width name width nil nil "…") cookie))
+    (add-text-properties
+     start (point)
+     (list 'org-marker marker 'org-hd-marker marker 'org-heading t 'todo-state state
+           'type "todo" 'org-agenda-type 'todo
+           'org-todo-regexp (car regexps) 'org-not-done-regexp (cadr regexps)
+           'org-workflow-agenda-project-summary t 'org-workflow-agenda-project-row t
+           'org-workflow-agenda-project-role role
+           'workflow-project item 'keymap org-workflow-agenda-project-summary-map
+           'help-echo (plist-get item :title)
+           'face (if (eq role 'project) 'org-workflow-agenda-project-goal 'org-workflow-agenda-project-stage)))
+    (when state
+      (make-text-button (+ start 2) (+ start 2 (length state))
+                        'keymap org-workflow-agenda-project-summary-map
+                        'face 'default 'mouse-face 'highlight 'follow-link t
+                        'action (lambda (_) (org-workflow-agenda-project-state))))
+    (org-workflow-agenda-projects--cookies start (point))))
+
+(defun org-workflow-agenda-project-summary ()
+  "Render all project and stage states/progress, without task details or writes."
+  (let* ((items (org-workflow-projects-collect))
+         (projects (seq-filter (lambda (p) (equal (plist-get p :kind) "project")) items)))
+    (when projects
+      (insert "\n" (org-workflow-agenda--section-header "项目"))
+      (dolist (area (seq-filter (lambda (p) (equal (plist-get p :kind) "goal")) items))
+        (let ((children (seq-filter (lambda (p) (equal (plist-get p :goal-id) (plist-get area :id))) projects)))
+          (when children
+            (insert (propertize (concat "  " (plist-get area :title) "\n")
+                                'face 'org-workflow-agenda-meta 'org-agenda-structural-header t))
+            (dolist (project children)
+              (let ((progress (org-workflow-projects-progress project)))
+                (org-workflow-agenda-project-summary--line project 'project progress)
+                (dolist (stage (plist-get progress :stages))
+                  (org-workflow-agenda-project-summary--line stage 'stage stage))))))))))
+
 (autoload 'org-workflow-project-classify "org-workflow-project-classify")
 (autoload 'org-workflow-project-classify-save "org-workflow-project-classify")
 
@@ -297,11 +375,13 @@ calendar gaps never count as verified continuity."
     (org-workflow-agenda-classify-entries markers target)))
 
 (defun org-workflow-agenda-project-tab ()
-  "Fold structural rows, otherwise retain the existing QA source preview."
+  "Visit summary sources, fold tree rows, or retain the QA source preview."
   (interactive)
-  (if (or (org-get-at-bol 'workflow-goal) (org-get-at-bol 'org-workflow-agenda-project-role))
-      (org-workflow-agenda-project-toggle)
-    (call-interactively #'org-workflow-agenda-note-toggle)))
+  (cond ((org-get-at-bol 'org-workflow-agenda-project-summary)
+         (org-workflow-agenda-project-summary-show))
+        ((or (org-get-at-bol 'workflow-goal) (org-get-at-bol 'org-workflow-agenda-project-role))
+         (org-workflow-agenda-project-toggle))
+        (t (call-interactively #'org-workflow-agenda-note-toggle))))
 
 (defun org-workflow-agenda-project-key (item)
   "Read ITEM's fold identity without creating an Org ID."

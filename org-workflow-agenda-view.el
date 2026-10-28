@@ -14,6 +14,7 @@
 ;;; Commentary:
 ;; A component of org-workflow.  Activation is coordinated by its global mode.
 ;;; Code:
+(declare-function org-workflow-agenda-project-summary "org-workflow-agenda-projects" ())
 (declare-function org-workflow-agenda-projects-render "org-workflow-agenda-projects" ())
 
 (require 'org-workflow-lifecycle)
@@ -479,6 +480,7 @@ Use native Agenda markers and the existing parent progress renderer."
       (org-workflow-agenda-projects nil))
     (when (memq role '(combined schedule))
       (org-workflow-agenda-inbox nil habit-rows)
+      (when (eq role 'combined) (org-workflow-agenda-project-summary))
       (unless (org-workflow-agenda--setting 'org-workflow-agenda-plan-tomorrow)
         (org-workflow-agenda-completed nil)))))
 

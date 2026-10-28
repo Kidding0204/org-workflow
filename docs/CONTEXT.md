@@ -4,12 +4,25 @@
 本文是当前代码的阅读地图与维护边界；行为事实以对应源码为准。
 修改入口、数据规则、依赖或验证方法时同步本页，避免继续使用历史方案。
 
+## 2026-10-28 Sprint 单栏项目摘要
+
+单栏 combined pane 在随时与今日已完成之间插入项目区，明日同样显示；双栏不重复插入。
+按 Area、项目、阶段源顺序，只列状态／名称／进度三列，保留全部状态和无状态阶段。
+agenda-projects 的共享 progress 读取器返回项目与各阶段 :done/:total，统计普通叶任务，
+排除 QA 整棵子树及习惯，父任务不重复计数；汇总项目任务，不平均阶段百分比。
+摘要移除标题已有 cookie，在 Agenda 内生成进度 cookie，零任务显示 —，不写源文件或 DB。
+复用现有 org-modern TODO／cookie 样式，无新依赖或渲染 advice。
+
+摘要行 t／状态按钮沿用项目状态事务；TAB 通过 org-agenda-show-1 3 另窗展示源子树并
+保留 Agenda 焦点；RET 使用 org-agenda-switch-to 当前窗访问。行属性与 TAB 分发限定
+摘要，不改变双栏树折叠或 QA 正文预览。维护入口为 agenda-projects 的 project-summary。
+
 ## 2026-10-28 Sprint 双栏归类与安排
 
 Sprint 仅保留今日／明日。左侧为安排、随时与今日已完成，右侧为 Area 项目树：
 Inbox 拖向项目／分组进行归类，项目任务拖向时段进行安排；共用 U，不另设项目归类页。
 菜单 p／Sprint P／M-x org-workflow-project-view 都打开当前日期的双栏；旧 select-view
-projects 参数仅作为此行为的兼容入口。真正的项目／阶段状态追踪视图尚待另行讨论。
+projects 参数仅作为此行为的兼容入口。
 
 项目与阶段仅 DIVE 默认展开，其他状态及普通 Heading 默认折叠；Area 默认展开。
 手动折叠与归类后的显式展开优先于默认值。折叠箭头独立 face 禁用下划线。

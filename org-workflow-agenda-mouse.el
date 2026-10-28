@@ -154,6 +154,7 @@
            (if (org-workflow-agenda-classify-markers)
                (org-workflow-agenda-classify-selected)
              (org-workflow-agenda-project-toggle)))
+          ((org-get-at-bol 'org-workflow-agenda-project-summary) nil)
           ((org-get-at-bol 'workflow-goal) (org-workflow-agenda-project-toggle))
           ((org-get-at-bol 'org-hd-marker)
            (when (eq (org-workflow-agenda-mouse--row-kind) 'completed)
@@ -232,7 +233,8 @@ When EVENT is nil, visit the task at point."
 		  (item 'down "时段内下移" 'org-workflow-agenda-mouse-move-down
 			(unless (and single scheduled (not org-agenda-tag-filter)) 'disabled)))
          ('structural
-          (item 'fold "展开／折叠" 'org-workflow-agenda-project-toggle)
+          (unless (org-get-at-bol 'org-workflow-agenda-project-summary)
+            (item 'fold "展开／折叠" 'org-workflow-agenda-project-toggle))
           (if (org-get-at-bol 'workflow-goal)
               (item 'state "暂停／恢复 Area" 'org-workflow-agenda-project-goal-toggle)
             (item 'state "状态" 'org-workflow-agenda-project-state)
