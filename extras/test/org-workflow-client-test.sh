@@ -23,7 +23,7 @@ export ORG_WORKFLOW_TEST_LOG="$test_dir/calls"
 export PATH="$test_dir/bin:$PATH"
 
 "$bridge" visit
-expected_visit=$'systemctl\034--user\034start\034emacs.service\034\nemacsclient\034--alternate-editor=false\034--no-wait\034--reuse-frame\034--frame-parameters\034((org-workflow-desktop . t))\034\nsystemctl\034--user\034start\034emacs.service\034\nemacsclient\034--alternate-editor=false\034--eval\034(org-workflow-dispatch-in-frame (quote visit))\034'
+expected_visit=$'systemctl\034--user\034start\034emacs.service\034\nemacsclient\034--alternate-editor=false\034--no-wait\034--reuse-frame\034\nsystemctl\034--user\034start\034emacs.service\034\nemacsclient\034--alternate-editor=false\034--eval\034(org-workflow-dispatch-in-frame (quote visit))\034'
 actual_visit=$(cat "$ORG_WORKFLOW_TEST_LOG")
 if [[ "$actual_visit" != "$expected_visit" ]]; then
     printf 'visit call sequence mismatch\nexpected: %q\nactual:   %q\n' \
@@ -33,14 +33,15 @@ fi
 
 : > "$ORG_WORKFLOW_TEST_LOG"
 "$bridge" select
-if ! tr '\034' '\n' < "$ORG_WORKFLOW_TEST_LOG" | grep -Fxq '(org-workflow-select-in-new-frame)'; then
-    printf 'select did not request a new selector frame\n' >&2
+expected_select=$'systemctl\034--user\034start\034emacs.service\034\nemacsclient\034--alternate-editor=false\034--no-wait\034--create-frame\034--frame-parameters=((name . "workflow-select") (minibuffer . only) (width . 100) (height . 18) (menu-bar-lines . 0) (tool-bar-lines . 0))\034--eval\034(org-workflow-select-in-new-frame)\034'
+if [[ $(cat "$ORG_WORKFLOW_TEST_LOG") != "$expected_select" ]]; then
+    printf 'select did not request the dedicated minibuffer frame\n' >&2
     exit 1
 fi
 
 : > "$ORG_WORKFLOW_TEST_LOG"
 "$bridge" step
-expected_step=$'systemctl\034--user\034start\034emacs.service\034\nemacsclient\034--alternate-editor=false\034--no-wait\034--reuse-frame\034--frame-parameters\034((org-workflow-desktop . t))\034\nsystemctl\034--user\034start\034emacs.service\034\nemacsclient\034--alternate-editor=false\034--eval\034(org-workflow-dispatch-in-frame (quote step))\034'
+expected_step=$'systemctl\034--user\034start\034emacs.service\034\nemacsclient\034--alternate-editor=false\034--no-wait\034--reuse-frame\034\nsystemctl\034--user\034start\034emacs.service\034\nemacsclient\034--alternate-editor=false\034--eval\034(org-workflow-dispatch-in-frame (quote step))\034'
 actual_step=$(cat "$ORG_WORKFLOW_TEST_LOG")
 if [[ "$actual_step" != "$expected_step" ]]; then
     printf 'step call sequence mismatch\nexpected: %q\nactual:   %q\n' \
@@ -48,7 +49,7 @@ if [[ "$actual_step" != "$expected_step" ]]; then
     exit 1
 fi
 
-for action in agenda week; do
+for action in agenda week history prerequisite; do
     : > "$ORG_WORKFLOW_TEST_LOG"
     "$bridge" "$action"
     expected=${expected_visit//quote visit/quote $action}

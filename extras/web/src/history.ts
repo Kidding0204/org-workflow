@@ -6,6 +6,7 @@ export type TaskRow = {
   task: string
   outcome: TaskOutcome
   focusMinutes: number
+  satisfied?: boolean
 }
 
 export type LeaveSlot = 'morning' | 'afternoon' | 'evening'
@@ -29,6 +30,9 @@ export type FinalizedDay = {
   habitCompleted?: number
   habitTasks?: TaskRow[]
   focusTotalMinutes: number
+  dailyMinimumMinutes?: number
+  dailyFloorComplete?: boolean
+  dailyFloorBasis?: 'commitment' | 'investment' | 'pending'
   optionalCompleted: number
   finalizedAt: string
   minimumTasks: TaskRow[]
@@ -166,7 +170,8 @@ function assertSafeNonNegativeInteger(
 
 function assertTaskRow(input: unknown, label: string): void {
   const task = asObject(input, label)
-  assertKeys(task, ['task', 'outcome', 'focusMinutes'], label)
+  assertKeys(task, ['task', 'outcome', 'focusMinutes',
+    ...(Object.hasOwn(task, 'satisfied') ? ['satisfied'] : [])], label)
 
   if (typeof task.task !== 'string' || task.task.length === 0) {
     throw new Error(`${label}.task must be a non-empty string`)
@@ -175,6 +180,9 @@ function assertTaskRow(input: unknown, label: string): void {
     throw new Error(`${label}.outcome is invalid`)
   }
   assertSafeNonNegativeInteger(task.focusMinutes, `${label}.focusMinutes`)
+  if (Object.hasOwn(task, 'satisfied') && typeof task.satisfied !== 'boolean') {
+    throw new Error(`${label}.satisfied must be a boolean`)
+  }
 }
 
 function assertTaskRows(input: unknown, label: string): void {
@@ -234,12 +242,25 @@ function assertFinalizedDay(input: Record<string, unknown>, index: number): void
       'finalizedAt',
       'minimumTasks',
       'optionalTasks',
+      // Floor and task satisfaction are backend facts; older snapshots omit them.
+      ...(['dailyMinimumMinutes', 'dailyFloorComplete', 'dailyFloorBasis']
+        .filter(key => Object.hasOwn(input, key))),
       ...(Object.hasOwn(input, 'habitFocusMinutes') ? ['habitFocusMinutes', 'habitCompleted', 'habitTasks'] : []),
       ...(Object.hasOwn(input, 'leaveRecords') ? ['leaveRecords'] : []),
     ],
     label,
   )
   assertIsoDate(input.date, `${label}.date`)
+  if (Object.hasOwn(input, 'dailyMinimumMinutes')) {
+    assertSafeNonNegativeInteger(input.dailyMinimumMinutes, `${label}.dailyMinimumMinutes`)
+  }
+  if (Object.hasOwn(input, 'dailyFloorComplete') && typeof input.dailyFloorComplete !== 'boolean') {
+    throw new Error(`${label}.dailyFloorComplete must be a boolean`)
+  }
+  if (Object.hasOwn(input, 'dailyFloorBasis') &&
+      !['commitment', 'investment', 'pending'].includes(input.dailyFloorBasis as string)) {
+    throw new Error(`${label}.dailyFloorBasis is invalid`)
+  }
   if (Object.hasOwn(input, 'leaveRecords')) assertLeaveRecords(input.leaveRecords, input.date, `${label}.leaveRecords`)
   if (input.recordState !== 'finalized') {
     throw new Error(`${label}.recordState must be finalized`)

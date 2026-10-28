@@ -237,7 +237,7 @@ Use the timer key sequences to control Focus Timer independently."
     ("P" "添加前置任务" org-workflow-target-prerequisite)
     ("x" "取消执行" org-workflow-target-cancel)]]
   [["回顾"
-    ("h" "长期历史" org-workflow-history-workbench)
+    ("h" "长期历史" org-workflow-history-panel)
     ("e" "晚间收尾" org-workflow-evening-open)
     ("r" "日志旁 Sprint" org-workflow-week-open-review)
     ("i" "收集箱回顾" org-workflow-collection-inbox-review)
