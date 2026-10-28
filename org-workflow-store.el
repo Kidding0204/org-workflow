@@ -19,6 +19,7 @@
 (require 'sqlite)
 
 (require 'org-id)
+(require 'org-clock)
 
 (require 'json)
 
@@ -235,6 +236,86 @@ Classification registers its pending undo here, before post-commit I/O can fail.
 (defvar org-workflow-store--extra-source-files nil
   "Additional source files participating in the current operation.")
 
+(defvar org-workflow-store--saved-files nil
+  "Operation-local source savepoints, captured by native save hooks.")
+
+(defun org-workflow-store--file-bytes (file)
+  "Read FILE literally, returning nil when it does not exist."
+  (when (file-exists-p file)
+    (with-temp-buffer
+      (set-buffer-multibyte nil)
+      (insert-file-contents-literally file)
+      (buffer-string))))
+
+(defun org-workflow-store--before-save ()
+  "Record disk bytes before saving a source inside an operation."
+  (when (and org-workflow-store--in-operation buffer-file-name
+             (derived-mode-p 'org-mode)
+             (not (assoc buffer-file-name org-workflow-store--saved-files)))
+    (push (list buffer-file-name (current-buffer)
+                (org-workflow-store--file-bytes buffer-file-name))
+          org-workflow-store--saved-files)))
+
+(defun org-workflow-store--restore-saves ()
+  "Restore transaction saves only while disk still matches our last write.
+Return files requiring manual recovery; never overwrite an external edit."
+  (let (failed)
+    (dolist (entry org-workflow-store--saved-files)
+      (pcase-let ((`(,file ,buffer ,before . ,_) entry))
+        (condition-case nil
+            (let ((disk (org-workflow-store--file-bytes file)))
+              (unless (equal disk before)
+                (unless (or (equal disk (nth 3 entry))
+                            (and (buffer-live-p buffer)
+                                 (equal (with-temp-buffer
+                                          (insert-file-contents file) (buffer-string))
+                                        (with-current-buffer buffer
+                                          (save-restriction (widen) (buffer-string))))))
+                  (error "Source changed externally"))
+                (if (null before) (delete-file file)
+                  ;; Write through the original path, preserving symlinks/modes.
+                  (with-temp-buffer
+                    (set-buffer-multibyte nil) (insert before)
+                    (let ((coding-system-for-write 'no-conversion)
+                          write-region-annotate-functions
+                          write-region-post-annotation-function)
+                      (write-region (point-min) (point-max) file nil 'silent)))))
+              (when (buffer-live-p buffer)
+                (with-current-buffer buffer (set-visited-file-modtime))))
+          (error (push file failed)))))
+    failed))
+
+(defun org-workflow-store--clock-snapshot ()
+  "Capture the live Org clock line before a text transaction."
+  (when (org-clocking-p)
+    (org-with-point-at org-clock-marker
+      (beginning-of-line)
+      (when (looking-at "[ \t]*CLOCK:")
+        (list (copy-marker (point))
+              (buffer-substring-no-properties (point) (line-end-position)))))))
+
+(defun org-workflow-store--clock-result (clock)
+  "Capture CLOCK's real close or cancellation before text rollback."
+  (when (and clock (marker-buffer (car clock))
+             (not (and (org-clocking-p)
+                       (equal (marker-buffer (car clock)) (marker-buffer org-clock-marker))
+                       (org-with-point-at org-clock-marker
+                         (= (line-beginning-position) (marker-position (car clock)))))))
+    (org-with-point-at (car clock)
+      (list clock (when (looking-at "[ \t]*CLOCK:.*--.*")
+                    (buffer-substring-no-properties (line-beginning-position) (line-end-position)))))))
+
+(defun org-workflow-store--retain-clock-result (result)
+  "Keep RESULT's actual clock close/cancel after other text has rolled back."
+  (when result
+    (pcase-let ((`((,marker ,before) ,after) result))
+      (org-with-point-at marker
+        (when (equal before (buffer-substring-no-properties
+                             (line-beginning-position) (line-end-position)))
+          (delete-region (line-beginning-position)
+                         (if after (line-end-position) (min (point-max) (1+ (line-end-position)))))
+          (when after (insert after)))))))
+
 (defun org-workflow-store--sources ()
   "Capture source buffers for crash recovery, never serialize Agenda buffers."
   (mapcar (lambda (file)
@@ -262,8 +343,13 @@ Retain recoverable source images when committing or rolling back changes."
       (apply original args)
     (let* ((org-workflow-store--in-operation t)
            (org-workflow--normalizing t)
+           (org-workflow-store--saved-files nil)
            (db (org-workflow-store--db)) (id (org-id-new))
            (before (org-workflow-store--sources))
+           (modified (mapcar (lambda (entry)
+                               (cons (get-file-buffer (car entry))
+                                     (buffer-modified-p (get-file-buffer (car entry))))) before))
+           (clock (org-workflow-store--clock-snapshot))
            (org-workflow-store--extra-source-files (mapcar #'car before))
            (groups (append
                     (mapcan (lambda (item) (prepare-change-group (get-file-buffer (car item)))) before)
@@ -282,13 +368,28 @@ Retain recoverable source images when committing or rolling back changes."
                             (list (org-workflow-store--encode
                                    (seq-remove (lambda (item) (equal (cadr item) (cadr (assoc (car item) before))))
                                                (org-workflow-store--sources))) id))
-            (sqlite-execute db "COMMIT")
-            (setq committed t)
-            (accept-change-group groups))
+            ;; A pending C-g must not split durable COMMIT from acceptance.
+            (let ((inhibit-quit t))
+              (sqlite-execute db "COMMIT")
+              (setq committed t)
+              (accept-change-group groups)))
         (unless committed
           (ignore-errors (sqlite-execute db "ROLLBACK"))
-          (cancel-change-group groups)
-          (sqlite-execute db "UPDATE operations SET state='rolled-back',before_text='nil',after_text=NULL WHERE id=?" (list id))))
+          (let ((clock-result (org-workflow-store--clock-result clock))
+                (failed (org-workflow-store--restore-saves)))
+            ;; This is our own text rollback, not an edit of the externally
+            ;; changed file.  Keep its real visited-file timestamp unchanged.
+            (dolist (group groups)
+              (with-current-buffer (car group)
+                (let (buffer-file-name buffer-file-truename)
+                  (cancel-change-group (list group)))))
+            (dolist (entry modified)
+              (when (buffer-live-p (car entry))
+                (with-current-buffer (car entry) (set-buffer-modified-p (cdr entry)))))
+            (org-workflow-store--retain-clock-result clock-result)
+            (if failed
+                (message "Workflow 保存回滚遇到外部变化；恢复记录 %s 已保留：%s" id failed)
+              (sqlite-execute db "UPDATE operations SET state='rolled-back',before_text='nil',after_text=NULL WHERE id=?" (list id))))))
       (when org-workflow-store--after-commit-function
         (funcall org-workflow-store--after-commit-function))
       ;; Saves inside the operation skip the save hook until facts commit.
@@ -341,7 +442,10 @@ Retain recoverable source images when committing or rolling back changes."
 
 (defun org-workflow-store--after-save ()
   "A successful source save supersedes its earlier recovery images."
-  (org-workflow-store-checkpoint buffer-file-name))
+  (if org-workflow-store--in-operation
+      (when-let* ((entry (assoc buffer-file-name org-workflow-store--saved-files)))
+        (setf (nthcdr 3 entry) (list (org-workflow-store--file-bytes buffer-file-name))))
+    (org-workflow-store-checkpoint buffer-file-name)))
 
 (defun org-workflow-store-checkpoint (&optional saved-file)
   "Retire persisted recovery images independently for each source.

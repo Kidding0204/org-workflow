@@ -153,6 +153,7 @@ Close time before the rollback boundary so a failure cannot lose it."
   (org-workflow--add-hook 'org-after-todo-state-change-hook #'org-workflow-commands--state -90)
   (org-workflow--advice-add 'org-workflow-target--step :around #'org-workflow-commands--step)
   (remove-hook 'after-save-hook #'org-workflow-store-checkpoint)
+  (org-workflow--add-hook 'before-save-hook #'org-workflow-store--before-save -90)
   (org-workflow--add-hook 'after-save-hook #'org-workflow-store--after-save)
   (dolist (command '(org-workflow-agenda--apply-planning
                      org-workflow-target-prerequisite org-workflow-target-defer-group))
