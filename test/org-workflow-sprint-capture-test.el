@@ -212,3 +212,9 @@
      (org-workflow-toggle-commitment)
      (should (equal "done" (nth 6 (org-workflow-store-commitment old))))
      (should (= 1 (length (org-workflow-history--responsibilities "2026-09-16")))))))
+
+(ert-deftest workflow-qa-refinement-does-not-block-containing-task ()
+  (with-temp-buffer
+    (insert "* TODO Work\n** TODO Question :QA:\nSCHEDULED: <2026-09-16 Wed>\n*** TODO Investigate\n")
+    (org-mode) (goto-char (point-min))
+    (should (org-workflow-target--task-leaf-p))))

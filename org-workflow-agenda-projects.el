@@ -52,6 +52,8 @@ TOMORROW projections never include today's completions."
        (let ((level (org-outline-level)))
          (org-map-entries
           (lambda ()
+            (when (org-workflow-qa-p)
+              (setq org-map-continue-from (save-excursion (org-end-of-subtree t t))))
             (when (and (= (org-outline-level) (1+ level))
                        (org-workflow-target--blocking-task-p)
                        (not (equal (org-entry-get nil "STYLE") "habit")))

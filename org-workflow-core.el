@@ -231,8 +231,10 @@ Typed notes are not tasks, but real tasks nested below them still count."
            (forward-line 1)
            (not (catch 'task
                   (while (re-search-forward org-heading-regexp end t)
-                    (when (org-workflow-target--blocking-task-p)
-                      (throw 'task t)))))))))
+                    (if (org-workflow-qa-p)
+                        (org-end-of-subtree t t)
+                      (when (org-workflow-target--blocking-task-p)
+                        (throw 'task t))))))))))
 
 (defun org-workflow-target--unfinished-leaf-p ()
   "Return non-nil when the current heading is an unfinished task leaf."

@@ -62,6 +62,8 @@ An empty count does not complete a task containing only notes."
       (save-excursion
         (org-map-entries
          (lambda ()
+           (when (org-workflow-qa-p)
+             (setq org-map-continue-from (save-excursion (org-end-of-subtree t t))))
            (when (and (> (org-outline-level) level)
                       (or recursive (= (org-outline-level) (1+ level)))
                       (org-workflow-target--blocking-task-p))
