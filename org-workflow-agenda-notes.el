@@ -5,6 +5,8 @@
 ;; Questions retain their Org source.  Sprint previews are read-only; editing
 ;; uses a narrowed indirect buffer and an explicit return command.
 ;;; Code:
+(declare-function org-workflow-collection-inbox--review-files "org-workflow-agenda-inbox" ())
+
 (require 'org-workflow-core)
 (require 'org-workflow-projects)
 

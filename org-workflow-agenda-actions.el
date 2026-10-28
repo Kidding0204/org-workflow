@@ -14,6 +14,9 @@
 ;;; Commentary:
 ;; A component of org-workflow.  Activation is coordinated by its global mode.
 ;;; Code:
+(declare-function org-workflow-agenda-selected-view "org-workflow-agenda-layout" ())
+(declare-function org-workflow-agenda-ensure-writeable "org-workflow-agenda-plan-undo" ())
+
 (require 'org-workflow-lifecycle)
 
 (declare-function org-workflow--effective-priority-at-point "org-workflow-core" ())
@@ -175,12 +178,14 @@ Standard Agendas retain Org's incremental rendering."
 Queue the rebuild after the command finishes its incremental line updates."
   (if (not (bound-and-true-p org-workflow-agenda--sprint-buffer-p))
       (apply original args)
+    (progn
+      (org-workflow-agenda-ensure-writeable)
     (let ((anchor (org-workflow-agenda--buffer-position (point) t))
           (marker (org-get-at-bol 'org-hd-marker)))
       (unwind-protect
           (prog1 (apply original args)
             (when marker (org-workflow-agenda--queue-native-refresh marker)))
-        (goto-char (org-workflow-agenda--restore-position anchor))))))
+        (goto-char (org-workflow-agenda--restore-position anchor)))))))
 
 (defun org-workflow-agenda--schedule-and-redo (date)
   "Schedule selected Agenda tasks for DATE, then rebuild the view."

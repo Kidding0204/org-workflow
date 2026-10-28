@@ -179,3 +179,10 @@
            (should (< (string-match "Second" (buffer-string)) (string-match "First" (buffer-string)))))
          (with-current-buffer left (should-not (string-match-p "First\\|Second" (buffer-string))))
          (mapc (lambda (b) (when (buffer-live-p b) (kill-buffer b))) (list left tree)))))))
+
+(ert-deftest workflow-classify-rejects-task-retained-by-break-timer ()
+  (workflow-classify-fixture
+   (let ((org-clock-marker nil)
+         (org-workflow-focus-timer-phase 'short-break)
+         (org-workflow-focus-timer-task-marker (copy-marker one)))
+     (should-error (org-workflow-project-classify (list one) (list :kind 'project :marker target)) :type 'user-error))))

@@ -1,16 +1,16 @@
-# 项目规划与每日推进
+# Sprint 项目管理与每日推进
 
 [文档入口](README.md) · [任务与历史模型](workflow-architecture.md)
 
-今日 Sprint 的顺序是 **安排 → 收集箱**。上午／下午／晚上仍是安排区的主要分组。
-项目区仅显示在双栏右侧；原独立项目视图仍可通过菜单 p、Sprint P 或
-`M-x org-workflow-project-view` 打开。
+Sprint 顶部统一为 **今日／明日／项目**。菜单 p、Sprint P 与
+`M-x org-workflow-project-view` 都进入同一项目页，不再打开独立项目 buffer。
+今日／明日负责时间安排，项目页负责归属与项目状态；切换保留各自位置。
 
 ## 文件与大纲
 
 加入 `org-agenda-files` 的文件名（不含扩展名）就是长期目标，无需 project/area 标签或
 登记。一级带 TODO 状态的标题是项目，二级是阶段，三级及其细分是具体任务。
-无 TODO 状态的组织标题、Inbox、QA/LAB/HW 类型节点及简单重复习惯不作为学习项目。
+无 TODO 状态的一级组织标题、Inbox、直接 :QA: 节点及简单重复习惯不作为项目；二级普通 Heading 可以显示。
 旧 `WORKFLOW_KIND` / `WORKFLOW_GOAL_ID` 不再决定身份或归属；真实 ID 与历史保留。
 
 例如 `AI_Compiler.org`：
@@ -31,7 +31,7 @@
 *** TODO 完成练习 1.2
 ```
 
-项目归属通过文件组织；使用 Org refile 移动项目。不会为了新界面自动搬动已有学习内容、
+项目归属通过文件组织；使用原生 Org refile 移动整个项目。不会为了新界面自动搬动已有学习内容、
 生成课程习题或将原有习惯历史伪造为项目完成记录。需要逐题推进的习惯改写成上述项目
 结构；仍然只是同一个动作的重复习惯继续使用 `STYLE: habit`。
 
@@ -47,25 +47,50 @@
 - 双栏左侧显示安排、随时和今日已完成；右侧仍按目标文件过滤项目。
 - 明天安排不显示今天的完成栏或时段总结，也不带当天习惯。
 
-## 今日项目栏
+## 项目页与每日候选栏
 
-按目标文件组织项目；项目行显示状态和源标题 cookie。同层条目保持相同样式，
-项目间不插空行，目标块之间留一行；非 DIVE 项目收起全部子节点和周记录。
-DIVE 项目显示直接阶段，只有首个 DIVE 阶段展开直接任务。项目、阶段和任务均带原生
-Agenda marker 和 TODO 正则属性，由 org-modern 渲染状态；可用原生 `t` 修改状态、
-RET 访问源文件。目标名称行的 `t` 批量暂停／恢复该目标。
+项目页左侧列出统一 Inbox 中全部未完成任务和 QA，包括旧条目和已有日期的条目；
+普通想法仍由 Supertag 组织。右侧按 Agenda 文件作为 Area、一级项目、二级 Heading、
+三级任务显示，顺序与源文件一致。原有细分任务继续缩进，QA 后代不冒充项目步骤。
 
-Agenda 关闭 visual-line-mode，长行截断显示。项目和阶段只显示源标题中的统计 cookie，
-由 org-modern 渲染；不再额外计算或添加进度条，也不覆盖 Org 原生的 cookie 统计规则。
-[0/0] 在看板上省略；源标题没有 cookie 时，不生成进度条。
-周追踪仅属于项目，沿用习惯的周日至周六复选框和行末连续天数样式（仅显示数字）：
-☑ 已完成，☐ 当天待完成，☒ 过去未完成，⊟ 未来／无承诺／已撤回。
-Streak 只统计完成承诺，尝试或最低投入达标不会替代完成。今天尚未完成不会提前断掉
-昨天的连续记录；有记录的撤回日作为休息，不增加天数；未知日期缺口不算已验证的连续。
+普通二级 Heading 不需要 TODO。项目、Heading 和 Area 都可折叠；TODO／HOLD／DONE
+项目也能展开查看，折叠不等于暂停。项目进度沿用源 cookie 和现有统计，QA 不计入分母，
+无 cookie 时不额外生成进度事实；0/0 不显示。每日右栏复用同一树，保留原周追踪与文件筛选。
 
-独立项目视图保留 RET、TAB、t、s/C-u s、D、g、R、a/q；n 直接访问目标文件。
-跨文件归属 G 和手动登记流程退出使用。所有显示与刷新只读；ID 在生命周期同步或
-状态操作的事务内按需生成，编辑仍由用户正常保存。
+点击箭头或 TAB 展开／折叠，RET 或双击访问原文；结构行 t 调整项目／阶段状态，Area 行 t
+暂停／恢复整个 Area。普通任务的 t 仍为原生 Agenda TODO。项目页 s／C-u s 设置／移除项目
+开始日期，R 显式同步，D 展开／折叠已完成项目。g 刷新，q 沿用 Sprint 返回规则。
+
+### 将 Inbox 归类到项目
+
+单击选择、Ctrl 增减、Shift 连选；拖动已选项会一并移动。可拖到具体二级 Heading，
+也可拖到项目标题，后者创建／复用该项目直属的普通二级“未分组”。只有一个同名直属分组
+才复用，多于一个会提示先合并。任务根调整为三级，后代相对层级、正文、ID、标签、主题、
+显式日期／优先级与 CLOCK 保留；祖先属性的继承继续遵循 Org 原生规则。
+
+勾选后点击目标名称也可归类，箭头始终只折叠；键盘 C 从当前目标归类，或选择目标路径。
+树中其他任务、Area 或空白处不是落点，Esc 取消。首期来源限定为 Inbox，不做树内拖动排序。
+归类可进入 TODO／DIVE／HOLD 项目，保持其状态；已完成项目／分组须先恢复。归类不安排日期、
+不启动计时、不自动补承诺。正在计时的条目需先停止，程序不会代停。
+
+源／目标有未保存编辑、外部版本变化或只读时整批拒绝，先保存／重新读取参与文件再操作。
+一批整体提交后先保存目的地再来源，不顺便保存其他文件。若出现“归类已应用，保存未完成”，
+条目已在内存中移动，请使用右键“重试保存归类”或 C-c C-s；也可 U 撤销，不要重复拖入。
+未处理完这次保存前，本工作台阻止继续写入。操作恢复记录会保留部分写盘状态。
+
+### U 单步撤销
+
+U 纠正本工作台最后一次安排或归类，批量归类整体还原原位置和顺序。预先存在的分组保留，
+只有本操作新建且未改变的“未分组”会一起撤掉。刷新、切页、折叠不覆盖记录；不支持多级
+redo 或跨重启撤销。归类后参与文件若有新编辑（包括新 CLOCK），拒绝快照回滚以保留更新，
+可用原生 refile 手动归回。其他文件编辑或保存相同文本不影响它。
+
+项目状态、开始日期、Area 暂停／恢复及显式项目同步不纳入 U，完成这些操作会清除旧记录，
+防止 U 撤销更早的安排／归类。状态调整继续使用现有项目 API 和暂停批次规则。
+
+维护入口：`agenda-layout` 管切页和每工作台状态，`agenda-projects` 管树与归类命令，
+`agenda-mouse` 管同一拖动循环，`project-classify` 管真实移动／保存／归类撤销，
+`agenda-plan-undo` 管统一 U 和原安排纠正。旧 `project-view` 只负责入口兼容。
 
 ## 状态、开始日期与承诺
 
@@ -77,7 +102,7 @@ Streak 只统计完成承诺，尝试或最低投入达标不会替代完成。�
 启动／午夜、原生状态／日期操作和 `M-x org-workflow-projects-sync` 同步今日承诺。
 直接编辑标题文字后可显式同步；不会补造关闭 Emacs 期间的过去承诺。
 系统选择当前推进分支第一个可执行未完成叶子，优先 DIVE 分支，排除 HOLD/DONE 子树、
-未来已安排步骤、习惯和空阶段。QA/LAB/HW 之下的真正 TODO 细分仍按任务处理。
+未来已安排步骤、习惯和空阶段。QA 整个子树不阻塞所属任务。
 
 当天完成后不追加承诺，未完成步骤翌日继续承担一份责任，不累积欠账，也不改写昨天。
 已有同日手动承诺复用；旧逾期责任通过带日期的接管事件停止继续携带，旧结算不改。
@@ -99,6 +124,27 @@ Org／SQLite 变更使用既有事务与恢复机制，不自动保存无关编�
 
 ## 运行验收
 
-重启 Emacs／daemon 后打开今日 Agenda；本次不重启用户会话、不改个人学习文件或安装
-桌面扩展。自动化验证使用临时 Org/SQLite，实际字体、Nerd Font 字形和窄窗口手感需在
-当前桌面中试用。没有新增 GNOME 协议或依赖。
+测试仅用临时 Org／SQLite，覆盖同／跨文件归类、未分组复用、保存失败、撤销冲突及视图切换。
+现有 Emacs 会话局部加载必要模块，不重启。真实拖动手感可用一个可丢弃 Inbox 条目验证：
+拖到项目 → 看未分组三级条目 → U 归回；再拖到具体分组，核对标签与正文。
+
+## 本次基线验证记录（2026-10-28）
+
+独立包改动前提交 `5fe45bc` 的完整 runner 复现了以下 10 个旧失败；本功能的针对性测试
+另行验证，不把这些失败报告成新功能通过。它们涉及旧承诺日期、旧二级任务 fixture、旧日志
+capture／复查和已移除的类型关键词规则：
+
+- `my/org-mouse-batch-commitment-updates-all-and-rolls-back-bad-date`
+- `my/org-mouse-drop-batch-undo-restores-source-and-two-panes`
+- `my/org-mouse-drop-no-op-keeps-source-and-undo-record`
+- `my/org-mouse-mixed-drop-skips-already-correct-task`
+- `note-gtd-journal-review-groups-original-items-without-copying`
+- `note-gtd-journal-review-refiles-original-and-refreshes`
+- `note-gtd-journal-template-install-preserves-current-target`
+- `org-workflow-agenda-inbox-complete-refreshes-review-without-copying-content`
+- `org-workflow-task-types-use-a-separate-org-type-set`
+- `workflow-inbox-excludes-stage-candidates-and-completes-without-focus`
+
+`workflow-sprint-create-new-file-commit-failure-restores-buffer` 在改动前后都停在 Org 的缺失
+Agenda 文件交互提示；完整批处理回归排除此项，留给单独交互验收。没有为通过旧测试而恢复
+旧关键词、旧 capture 或旧承诺语义。

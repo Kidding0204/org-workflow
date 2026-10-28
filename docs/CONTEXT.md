@@ -4,6 +4,22 @@
 本文是当前代码的阅读地图与维护边界；行为事实以对应源码为准。
 修改入口、数据规则、依赖或验证方法时同步本页，避免继续使用历史方案。
 
+## 2026-10-28 Sprint 项目页与归类
+
+Sprint 统一今日／明日／项目。项目页固定左 Inbox、右完整 Area 项目树；普通二级
+Heading 可显示／折叠，不为展示添加 TODO。候选栏复用同一树，按文件筛选仅影响每日候选。
+旧 project-view 库仅保留公开兼容命令，菜单 p／Sprint P／M-x 都转入同一工作台项目页。
+
+`org-workflow-project-classify.el` 以原生 refile 归类 Inbox 直接子树，拖到项目创建／复用
+普通二级“未分组”，任务根为三级。批次预检、延迟 refile 保存、先目的地后来源；store 的
+局部 after-commit callback 在任何 fallible 后处理前登记 pending record。提交前错误还原；
+已提交保存失败保留恢复事实，可重试保存／U，不重复移动。不得对用户真实数据做写入测试。
+
+U 每工作台单步纠正安排／归类。归类快照撤销要求参与文件无后续文本或外部变更，使用
+replace-region-contents 保留未移动区域的 marker，不回退 CLOCK／历史事件。状态、开始日期、
+Area 暂停／恢复使旧记录失效，不做不完整的状态补偿。相关维护／限制见 project-workbench.md，
+批准方案见 superpowers/plans/2026-10-28-sprint-project-management.md。
+
 ## 2026-10-28 时段进度环与个人最低投入
 
 GNOME 扩展 v28 在左侧每日进度前加入 18px 时段环：上午蓝、下午橙、晚上紫。

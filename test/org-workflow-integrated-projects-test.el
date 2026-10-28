@@ -268,7 +268,8 @@
      (with-temp-buffer
        (let ((org-workflow-agenda--pane-role 'candidates))
          (cl-letf (((symbol-function 'org-workflow-projects-collect) (lambda () items))
-                   ((symbol-function 'org-workflow-agenda--setting) (lambda (_) selected))
+                   ((symbol-function 'org-workflow-agenda--setting)
+                    (lambda (key) (when (eq key 'org-workflow-agenda-selected-group) selected)))
                    ((symbol-function 'org-workflow-agenda--set-setting) (lambda (_ value) (setq selected value))))
            (org-workflow-agenda-projects nil)
            (should (equal '("全部" "project" "Second")

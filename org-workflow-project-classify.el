@@ -9,6 +9,7 @@
 (require 'org-workflow-agenda-inbox)
 (require 'org-workflow-agenda-layout)
 (require 'org-id)
+(declare-function org-workflow-focus-timer-active-p "org-workflow-focus-timer" ())
 
 (defun org-workflow-project-classify--buffer (file)
   "Use FILE's live text without an implicit revert or an external-change prompt."
@@ -84,11 +85,15 @@
                  (not (org-entry-is-done-p))
                  (save-excursion (and (org-up-heading-safe) (org-workflow-collection-inbox--heading-p))))
       (user-error "归类来源已离开 Inbox 或已完成，请刷新"))
-    (when (and (bound-and-true-p org-clock-marker) (marker-buffer org-clock-marker)
-               (eq (marker-buffer marker) (marker-buffer org-clock-marker))
-               (<= (point) (marker-position org-clock-marker))
-               (< (marker-position org-clock-marker) (save-excursion (org-end-of-subtree t t))))
-      (user-error "请先停止此条目中的计时，再归类"))))
+    (dolist (clock (list (bound-and-true-p org-clock-marker)
+                         (and (fboundp 'org-workflow-focus-timer-active-p)
+                              (org-workflow-focus-timer-active-p)
+                              (bound-and-true-p org-workflow-focus-timer-task-marker))))
+      (when (and (markerp clock) (marker-buffer clock)
+                 (eq (marker-buffer marker) (marker-buffer clock))
+                 (<= (point) (marker-position clock))
+                 (< (marker-position clock) (save-excursion (org-end-of-subtree t t))))
+        (user-error "请先停止此条目的计时周期，再归类")))))
 
 (defun org-workflow-project-classify--identities (files)
   "Read ID/file pairs from live FILES, never creating IDs."
@@ -160,7 +165,7 @@
          (selected-id (when (and (markerp org-workflow-target-selected-marker)
                                  (marker-buffer org-workflow-target-selected-marker))
                         (org-with-point-at org-workflow-target-selected-marker (org-entry-get nil "ID"))))
-         inserted record applied)
+         inserted record applied allocated-ids)
     (org-workflow-project-classify--clean files)
     (mapc #'org-workflow-project-classify--source-p markers)
     ;; Detect an ambiguous/default closed Heading before changing any source.
@@ -190,7 +195,8 @@
                      (cons (lambda () (push (point-marker) inserted)) org-after-refile-insert-hook)))
                (dolist (marker markers)
                  (org-with-point-at marker
-                   (org-id-get-create)
+                   (unless (org-entry-get nil "ID")
+                     (push (org-id-get-create) allocated-ids))
                    (org-refile nil nil
                                (org-with-point-at group
                                  (list (org-get-heading t t t t) buffer-file-name nil (point))))))
@@ -200,7 +206,7 @@
                  (when-let* ((new (seq-find (lambda (m) (org-with-point-at m
                                                        (equal selected-id (org-entry-get nil "ID")))) inserted)))
                    (setq org-workflow-target-selected-marker (copy-marker new)))))))
-        (error
+        ((error quit)
          (if applied
              (setf (plist-get record :error) (error-message-string err))
            (org-workflow-project-classify--restore before)
@@ -208,6 +214,8 @@
              (with-current-buffer (org-workflow-project-classify--buffer (car row))
                (setq buffer-undo-list (cdr row)) (set-buffer-modified-p nil)))
            (org-workflow-project-classify--index files identities)
+           (when (hash-table-p org-id-locations)
+             (dolist (id allocated-ids) (remhash id org-id-locations)))
            (signal (car err) (cdr err))))))
     (if (plist-get record :error)
         (message "归类已应用，保存未完成：%s" (plist-get record :error))

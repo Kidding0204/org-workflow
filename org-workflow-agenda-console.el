@@ -14,6 +14,12 @@
 ;;; Commentary:
 ;; A component of org-workflow.  Activation is coordinated by its global mode.
 ;;; Code:
+(declare-function org-workflow-project-view-toggle-done "org-workflow-project-view" ())
+(declare-function org-workflow-project-view-sync "org-workflow-project-view" ())
+(declare-function org-workflow-agenda-project-start "org-workflow-agenda-projects" (&optional remove))
+(declare-function org-workflow-agenda-project-todo "org-workflow-agenda-projects" ())
+(declare-function org-workflow-agenda-project-tab "org-workflow-agenda-projects" ())
+
 (require 'org-workflow-lifecycle)
 
 (declare-function org-workflow-agenda--setting "org-workflow-agenda-layout" (variable))
@@ -186,14 +192,16 @@
             (when (fboundp 'evil-define-key*)
               (evil-define-key* 'normal map (kbd (car entry)) (nth 2 entry))))
           (define-key map (kbd "TAB") #'org-workflow-agenda-project-tab)
-          (define-key map (kbd "t") #'org-workflow-agenda-project-todo)
           (when (eq (org-workflow-agenda-selected-view) 'projects)
-            (define-key map (kbd "s") #'org-workflow-agenda-project-start))
+            (define-key map (kbd "s") #'org-workflow-agenda-project-start)
+            (define-key map (kbd "R") #'org-workflow-project-view-sync)
+            (define-key map (kbd "D") #'org-workflow-project-view-toggle-done))
           (when (fboundp 'evil-define-key*)
             (evil-define-key* 'normal map (kbd "TAB") #'org-workflow-agenda-project-tab)
-            (evil-define-key* 'normal map (kbd "t") #'org-workflow-agenda-project-todo)
             (when (eq (org-workflow-agenda-selected-view) 'projects)
-              (evil-define-key* 'normal map (kbd "s") #'org-workflow-agenda-project-start)))
+              (evil-define-key* 'normal map (kbd "s") #'org-workflow-agenda-project-start)
+              (evil-define-key* 'normal map (kbd "R") #'org-workflow-project-view-sync)
+              (evil-define-key* 'normal map (kbd "D") #'org-workflow-project-view-toggle-done)))
           ;; Host intercept maps may bind H/L to Evil buffer cycling.
           ;; Remap those commands only in the candidate pane.
           (when (eq org-workflow-agenda--pane-role 'candidates)

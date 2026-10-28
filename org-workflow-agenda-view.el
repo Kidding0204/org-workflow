@@ -14,6 +14,8 @@
 ;;; Commentary:
 ;; A component of org-workflow.  Activation is coordinated by its global mode.
 ;;; Code:
+(declare-function org-workflow-agenda-projects-render "org-workflow-agenda-projects" (&optional inbox-role))
+
 (require 'org-workflow-lifecycle)
 
 (declare-function org-workflow-agenda-completed "org-workflow-agenda-review" (_match))
@@ -294,12 +296,14 @@ CURRENT-ONLY limits entries to the current DIVE stages."
              org-workflow-agenda--workbench
              (org-workflow-agenda-workbench-tab-frame org-workflow-agenda--workbench))
     (setq-local tab-line-format nil))
+  (if (eq (org-workflow-agenda-selected-view) 'projects)
+      (tab-line-mode -1)
   (when (eq org-workflow-agenda--pane-role 'candidates)
     (setq-local tab-line-tabs-function #'org-workflow-agenda-candidate-tabs
                 tab-line-new-button-show nil
                 tab-line-close-button-show nil)
     (tab-line-mode 1)
-    (tab-line-force-update nil)))
+    (tab-line-force-update nil))))
 
 (defun org-workflow-agenda--cycle-candidate-project (count)
   "Cycle goal files by signed COUNT, including All."
@@ -467,10 +471,12 @@ Use native Agenda markers and the existing parent progress renderer."
 (defun org-workflow-agenda-workbench-view (_match)
   "Render the independent candidate, schedule or combined workbench pane."
   (if (eq (org-workflow-agenda-selected-view) 'projects)
-      (progn
-        (org-workflow-agenda--insert-day-tabs) (insert "\n\n")
+      (let ((start (point)))
+        (unless (eq org-workflow-agenda--pane-role 'candidates)
+          (org-workflow-agenda--insert-day-tabs) (insert "\n\n"))
         (org-workflow-agenda-projects-render
-         (not (eq org-workflow-agenda--pane-role 'candidates))))
+         (not (eq org-workflow-agenda--pane-role 'candidates)))
+        (add-text-properties start (point) '(org-agenda-type todo)))
   (let* ((role (or (bound-and-true-p org-workflow-agenda--pane-role) 'combined))
          (habit-rows (when (and (memq role '(combined schedule))
                                 (not (org-workflow-agenda--setting 'org-workflow-agenda-plan-tomorrow)))

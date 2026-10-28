@@ -327,7 +327,10 @@ task, or the previous one at the end.  Other anchors keep their coordinates."
   (unless (buffer-narrowed-p)
     (setq org-workflow-agenda--sprint-buffer-p org-workflow-agenda-sprint-view)
     (if org-workflow-agenda-sprint-view
-        (org-workflow-agenda--ensure-workbench)
+        (progn
+          (org-workflow-agenda--ensure-workbench)
+          ;; Custom block renderers have no native todo-list finalizer.
+          (setq buffer-read-only t))
       (when org-workflow-agenda--workbench
 	(let* ((state org-workflow-agenda--workbench)
                (window (org-workflow-agenda-workbench-window state))

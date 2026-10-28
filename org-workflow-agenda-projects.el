@@ -5,6 +5,10 @@
 ;; Read-only project summaries and task previews.  Native source markers keep
 ;; ordinary Agenda editing available for projects, stages and next steps.
 ;;; Code:
+(declare-function org-workflow-collection-inbox--pending "org-workflow-agenda-inbox" (files &optional all unscheduled))
+(declare-function org-workflow-collection-inbox--review-files "org-workflow-agenda-inbox" ())
+(declare-function org-workflow-agenda-note-toggle "org-workflow-agenda-notes" ())
+
 (require 'org-workflow-projects)
 (require 'org-workflow-history)
 (declare-function org-workflow-agenda--select-candidate-project "org-workflow-agenda-view" (id))
@@ -184,6 +188,8 @@ calendar gaps never count as verified continuity."
   "Set the source project's start date, or REMOVE it with a prefix."
   (interactive "P")
   (org-workflow-agenda-ensure-writeable)
+  (unless (eq (org-get-at-bol 'org-workflow-agenda-project-role) 'project)
+    (user-error "请选择一级项目行"))
   (org-workflow-projects-set-start
    (or (org-get-at-bol 'org-hd-marker) (user-error "请选择项目"))
    (unless remove (org-read-date)))
@@ -208,55 +214,10 @@ calendar gaps never count as verified continuity."
   "Goal-row pause action; project/stage rows use native Agenda TODO commands.")
 
 (defun org-workflow-agenda-projects (_match)
-  "Insert goals, projects, stages and weekly tracking in today's Agenda."
-  (let* ((start (point))
-         (items (org-workflow-projects-collect))
-         (goals (seq-filter (lambda (x) (equal (plist-get x :kind) "goal")) items))
-         (projects (seq-filter (lambda (x) (equal (plist-get x :kind) "project")) items))
-         (date (org-workflow-agenda-target-date))
-         (filtering (eq org-workflow-agenda--pane-role 'candidates))
-         (selected (and filtering (org-workflow-agenda--setting 'org-workflow-agenda-selected-group)))
-         shown-goal)
-    (when filtering
-      (unless (seq-some (lambda (goal) (equal selected (plist-get goal :id))) goals)
-        (setq selected nil)
-        (org-workflow-agenda--set-setting 'org-workflow-agenda-selected-group nil))
-      (setq-local org-workflow-agenda--candidate-tab-data
-                  (mapcar
-                   (lambda (goal)
-                     (let ((id (plist-get goal :id)))
-                       `((name . ,(or (plist-get goal :title) "全部"))
-                         (org-workflow-agenda-group-id . ,id)
-                         (select . ,(lambda () (org-workflow-agenda--select-candidate-project id))))))
-                   (cons nil goals))))
+  "Render daily candidates with the same project tree as the full project page."
+  (let ((start (point)))
     (insert (org-workflow-agenda--section-header "项目"))
-    (dolist (goal goals)
-      (let ((children (seq-filter (lambda (x) (equal (plist-get x :goal-id) (plist-get goal :id))) projects)))
-        (when (and children (or (null selected) (equal selected (plist-get goal :id))))
-          (when shown-goal (insert "\n"))
-          (setq shown-goal t)
-          (insert (propertize (concat "  " (plist-get goal :title)
-                                      (when (plist-get goal :paused) "  HOLD") "\n")
-                              'face 'org-workflow-agenda-project-goal 'workflow-goal goal
-                              'keymap org-workflow-agenda-project-goal-map
-                              'org-agenda-structural-header t
-                              'help-echo "t 暂停／恢复此目标"))
-          (dolist (project children)
-            (let* ((active (equal (plist-get project :state) "DIVE")))
-              (org-workflow-agenda-projects--line
-               project 4 nil 'project)
-              (when active
-                (insert "      " (org-workflow-agenda-projects--week
-                                  (org-workflow-projects-tracking project date) date) "\n")
-                (let (expanded)
-                  (dolist (stage (plist-get (org-workflow-projects-progress project) :stages))
-                    (org-workflow-agenda-projects--line stage 6 nil 'stage)
-                    (when (and (not expanded) (equal (plist-get stage :state) "DIVE"))
-                      (setq expanded t)
-                      (dolist (task (plist-get stage :children))
-                        (org-workflow-agenda-projects--line task 8)))))))))))
-    (unless projects (insert (propertize "    暂无项目\n" 'face 'shadow)))
-    (insert "\n")
+    (org-workflow-agenda-projects-render)
     (add-text-properties start (point) '(org-agenda-type todo))))
 
 (autoload 'org-workflow-project-classify "org-workflow-project-classify")
@@ -362,6 +323,13 @@ calendar gaps never count as verified continuity."
     (org-workflow-agenda--set-setting 'org-workflow-agenda-project-folds folds)
     (org-agenda-redo)))
 
+(defvar org-workflow-agenda-project-row-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "t") #'org-workflow-agenda-project-state)
+    (define-key map (kbd "TAB") #'org-workflow-agenda-project-toggle)
+    map)
+  "Structural row actions only; ordinary task keys remain native Agenda keys.")
+
 (defun org-workflow-agenda-projects--tree-line (item indent role expanded)
   "Render ITEM once, with separate fold and classification destinations."
   (let ((start (point)))
@@ -369,7 +337,8 @@ calendar gaps never count as verified continuity."
                                       (when (plist-get item :qa) " :QA:") role)
     (add-text-properties
      start (point)
-     (list 'org-workflow-agenda-expanded expanded
+     (list 'keymap (when role org-workflow-agenda-project-row-map)
+           'org-workflow-agenda-expanded expanded
            'mouse-face 'highlight
            'org-workflow-agenda-classify-target
            (when (memq role '(project stage))
@@ -399,8 +368,21 @@ calendar gaps never count as verified continuity."
               (add-text-properties beg (point) '(org-workflow-agenda-inbox-row t)))))
       (let* ((items (org-workflow-projects-collect))
              (projects (seq-filter (lambda (p) (equal (plist-get p :kind) "project")) items))
-             (goals (seq-filter (lambda (p) (equal (plist-get p :kind) "goal")) items)))
-        (dolist (goal goals)
+             (goals (seq-filter (lambda (p) (equal (plist-get p :kind) "goal")) items))
+             (full (eq (org-workflow-agenda-selected-view) 'projects))
+             (selected (unless full (org-workflow-agenda--setting 'org-workflow-agenda-selected-group))))
+        (when (and selected (not (seq-some (lambda (g) (equal selected (plist-get g :id))) goals)))
+          (setq selected nil)
+          (org-workflow-agenda--set-setting 'org-workflow-agenda-selected-group nil))
+        (unless full
+          (setq-local org-workflow-agenda--candidate-tab-data
+                      (mapcar (lambda (goal)
+                                (let ((id (plist-get goal :id)))
+                                  `((name . ,(or (plist-get goal :title) "全部"))
+                                    (org-workflow-agenda-group-id . ,id)
+                                    (select . ,(lambda () (org-workflow-agenda--select-candidate-project id))))))
+                              (cons nil goals))))
+        (dolist (goal (if selected (seq-filter (lambda (g) (equal selected (plist-get g :id))) goals) goals))
           (let* ((children (seq-filter (lambda (p) (equal (plist-get p :goal-id) (plist-get goal :id))) projects))
                  (expanded (org-workflow-agenda-project-expanded-p goal t))
                  (beg (point)))
@@ -416,13 +398,19 @@ calendar gaps never count as verified continuity."
                              project (equal (plist-get project :state) "DIVE"))))
                   (org-workflow-agenda-projects--tree-line project 2 'project open)
                   (when open
-                    (dolist (stage (plist-get (org-workflow-projects-progress project) :stages))
-                      (let ((show (org-workflow-agenda-project-expanded-p stage t)))
+                    (unless full
+                      (insert "      " (org-workflow-agenda-projects--week
+                                        (org-workflow-projects-tracking project (org-workflow-agenda-target-date))
+                                        (org-workflow-agenda-target-date)) "\n"))
+                    (let* ((stages (plist-get (org-workflow-projects-progress project) :stages))
+                           (first (or (seq-find (lambda (x) (equal (plist-get x :state) "DIVE")) stages) (car stages))))
+                    (dolist (stage stages)
+                      (let ((show (org-workflow-agenda-project-expanded-p stage (or full (eq stage first)))))
                         (org-workflow-agenda-projects--tree-line stage 4 'stage show)
                         (when show
                           (dolist (task (plist-get stage :children))
                             (org-workflow-agenda-projects--tree-line
-                             task (+ 4 (* 2 (or (plist-get task :depth) 2))) nil nil)))))))))
+                             task (+ 4 (* 2 (or (plist-get task :depth) 2))) nil nil))))))))))
             (insert "\n")))))
     (add-text-properties start (point) '(org-agenda-type todo))))
 

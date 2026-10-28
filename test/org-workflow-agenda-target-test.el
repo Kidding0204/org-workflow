@@ -1455,7 +1455,7 @@ SCHEDULED: <2026-08-17 Mon>
              (string-match "Packages, Please[ ]+:@deep:" text))
             (area-group (string-match "Fixture / Practice" text stack-header))
             (second-task (string-match "Summary" text))
-            (planning-header (string-match "项目" text)))
+            (planning-header (string-match "\n项目\n" text)))
        (should stack-header)
        (should lute-group)
        (should first-task)

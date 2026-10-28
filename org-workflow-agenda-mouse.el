@@ -14,6 +14,11 @@
 ;;; Commentary:
 ;; A component of org-workflow.  Activation is coordinated by its global mode.
 ;;; Code:
+(declare-function org-workflow-agenda-classify-entries "org-workflow-agenda-projects" (markers target))
+(declare-function org-workflow-agenda-project-toggle "org-workflow-agenda-projects" ())
+(declare-function org-workflow-agenda-classify-selected "org-workflow-agenda-projects" ())
+(declare-function org-workflow-agenda-classify-markers "org-workflow-agenda-projects" ())
+
 (require 'org-workflow-lifecycle)
 
 (declare-function org-workflow-agenda--apply-planning "org-workflow-agenda-actions" (operation))
@@ -376,8 +381,10 @@ When STATE is non-nil, scroll only the workbench matching it."
   (let ((window (posn-window position)) (xy (posn-x-y position)))
     (when (and (window-live-p window) (consp xy) (numberp (cdr xy))
                (buffer-local-value 'org-workflow-agenda-mouse-mode (window-buffer window))
-               (memq (buffer-local-value 'org-workflow-agenda--pane-role (window-buffer window))
-                     '(schedule combined candidates))
+               (or (memq (buffer-local-value 'org-workflow-agenda--pane-role (window-buffer window))
+                         '(schedule combined))
+                   (with-current-buffer (window-buffer window)
+                     (eq (org-workflow-agenda-selected-view) 'projects)))
                (or (not state)
                    (eq state (buffer-local-value 'org-workflow-agenda--workbench (window-buffer window)))))
       (with-selected-window window

@@ -91,18 +91,27 @@
    (org-workflow-projects-set-state (workflow-project-at "Compiler") "DIVE")
    (should (= 1 (length (org-workflow-store-due "2026-09-16"))))))
 
+(defmacro workflow-project-native-view-test (&rest body)
+  "Exercise the shared native Sprint tree and clean up its test-only panes."
+  `(let ((prior (buffer-list))
+         (org-agenda-buffer-name (generate-new-buffer-name "*Project native test*"))
+         (org-agenda-window-setup 'current-window))
+     (unwind-protect
+         (save-window-excursion
+           (org-agenda nil "d")
+           (org-workflow-agenda-select-view 'projects)
+           (with-current-buffer (org-workflow-agenda-workbench-candidates org-workflow-agenda--workbench)
+             ,@body))
+       (dolist (buffer (seq-difference (buffer-list) prior))
+         (when (and (buffer-live-p buffer) (not (buffer-file-name buffer))) (kill-buffer buffer))))))
+
 (ert-deftest workflow-project-view-is-read-only-and-shows-planning ()
   (workflow-project-fixture
    (let ((before (buffer-string)))
-     (unwind-protect
-         (with-current-buffer (get-buffer-create "*Workflow Projects*")
-           (org-workflow-project-view-mode)
-           (org-workflow-project-view-refresh)
-           (should buffer-read-only)
-           (should (string-match-p "Compiler" (buffer-string)))
-           (should (string-match-p "Tokens" (buffer-string)))
-           (should-not (string-match-p "◇\\|↳" (buffer-string))))
-       (when (get-buffer "*Workflow Projects*") (kill-buffer "*Workflow Projects*")))
+     (workflow-project-native-view-test
+      (should buffer-read-only)
+      (should (string-match-p "Compiler" (buffer-string)))
+      (should (string-match-p "Tokens" (buffer-string))))
      (should (equal before (buffer-string))))))
 
 (ert-deftest workflow-project-floor-is-global-and-completion-only ()
@@ -148,13 +157,7 @@
 (ert-deftest workflow-project-view-expand-never-edits-source ()
   (workflow-project-fixture
    (let ((before (buffer-string)))
-     (unwind-protect
-         (with-current-buffer (get-buffer-create "*Workflow Projects*" )
-           (org-workflow-project-view-mode)
-           (setq org-workflow-project-view--expanded '("compiler"))
-           (org-workflow-project-view-refresh)
-           (should (string-match-p "Parser" (buffer-string))))
-       (kill-buffer "*Workflow Projects*"))
+     (workflow-project-native-view-test (should (string-match-p "Parser" (buffer-string))))
      (should (equal before (buffer-string))))))
 
 (ert-deftest workflow-project-multiple-new-projects-sync-atomically ()
@@ -191,16 +194,12 @@
 
 (ert-deftest workflow-project-active-goal-can-fold ()
   (workflow-project-fixture
-   (unwind-protect
-       (with-current-buffer (get-buffer-create "*Workflow Projects*")
-         (org-workflow-project-view-mode)
-         (org-workflow-project-view-refresh)
-         (goto-char (point-min)) (search-forward "project")
-         (org-workflow-project-view-toggle)
-         (should-not (string-match-p "Compiler" (buffer-string)))
-         (org-workflow-project-view-toggle)
-         (should (string-match-p "Compiler" (buffer-string))))
-     (kill-buffer "*Workflow Projects*"))))
+   (workflow-project-native-view-test
+    (goto-char (point-min)) (search-forward "project")
+    (org-workflow-project-view-toggle)
+    (should-not (string-match-p "Compiler" (buffer-string)))
+    (org-workflow-project-view-toggle)
+    (should (string-match-p "Compiler" (buffer-string))))))
 
 (ert-deftest workflow-project-resume-does-not-start-waiting-projects ()
   (workflow-project-fixture
