@@ -98,7 +98,7 @@
   '(("E" "明日开工提示" org-workflow-guidance-edit-tomorrow)
     ("N" "下次从这里开始" org-workflow-guidance-edit-resume)
     ("W" "访问／编辑阶段目标" org-workflow-agenda-open-goals)
-    ("U" "撤销上次安排" org-workflow-agenda-undo-plan)
+    ("U" "撤销安排／归类" org-workflow-agenda-undo-last-operation)
     ("u" "上午" org-workflow-agenda-plan-morning)
     ("i" "下午" org-workflow-agenda-plan-afternoon)
     ("o" "晚上" org-workflow-agenda-plan-evening)

@@ -19,6 +19,8 @@
 (declare-function org-workflow-collection-inbox--review-files "org-workflow-agenda-inbox" ())
 ;;; org-workflow-agenda-plan-undo.el --- One-step planning correction -*- lexical-binding: t; -*-
 (require 'org-workflow-store)
+(require 'org-workflow-agenda-layout)
+(autoload 'org-workflow-project-classify-undo "org-workflow-project-classify")
 
 (defvar org-workflow-agenda-last-plan nil "Last successful planning operation in this session.")
 
@@ -67,9 +69,12 @@ Capture undo state only after the transaction succeeds."
                     :facts (mapcar (lambda (row)
                                      (list (assoc (car row) facts) row
                                            (org-workflow-agenda-plan-undo--events (car row)))) changed))))
+      (unless (and (equal before after) (null changed))
+        (org-workflow-agenda--set-setting 'org-workflow-agenda-last-operation
+                                         (list :kind 'plan :record org-workflow-agenda-last-plan)))
       result)))
 
-(defun org-workflow-agenda-undo-plan ()
+(defun org-workflow-agenda--undo-plan ()
   "Correct the last plan without erasing commitment events or clock history."
   (interactive)
   (let* ((record org-workflow-agenda-last-plan)
@@ -123,6 +128,40 @@ Capture undo state only after the transaction succeeds."
     (setq org-workflow-agenda-last-plan nil)
     (org-agenda-redo)
     (message "已撤销上次安排（%d 项）；计时与历史记录保留" (length markers))))
+
+(defun org-workflow-agenda-ensure-writeable ()
+  "Reject a new Sprint write while a prior classification awaits persistence."
+  (when (eq (plist-get (org-workflow-agenda--setting 'org-workflow-agenda-last-operation)
+                       :save-state) 'pending)
+    (user-error "请先重试保存归类，或 U 撤销")))
+
+(defun org-workflow-agenda-invalidate-last-operation (reason)
+  "End this Sprint's undo opportunity after another successful write, with REASON."
+  (org-workflow-agenda--set-setting 'org-workflow-agenda-last-operation nil)
+  (org-workflow-agenda--set-setting 'org-workflow-agenda-undo-reason reason)
+  (setq org-workflow-agenda-last-plan nil))
+
+(defun org-workflow-agenda-undo-last-operation ()
+  "Correct this Sprint's latest arrangement or classification only."
+  (interactive)
+  (let ((record (org-workflow-agenda--setting 'org-workflow-agenda-last-operation)))
+    (pcase (plist-get record :kind)
+      ('classify (org-workflow-project-classify-undo record))
+      ('plan (let ((org-workflow-agenda-last-plan (plist-get record :record)))
+               (org-workflow-agenda--undo-plan))
+             (org-workflow-agenda--set-setting 'org-workflow-agenda-last-operation nil)
+             (setq org-workflow-agenda-last-plan nil))
+      (_ (user-error "%s" (or (org-workflow-agenda--setting 'org-workflow-agenda-undo-reason)
+                                "本工作台没有可撤销的安排／归类")))))
+  (when (and (derived-mode-p 'org-agenda-mode) org-agenda-redo-command) (org-agenda-redo)))
+
+(defun org-workflow-agenda-undo-plan ()
+  "Compatibility entry for unified Sprint correction."
+  (interactive)
+  (if (org-workflow-agenda--setting 'org-workflow-agenda-last-operation)
+      (org-workflow-agenda-undo-last-operation)
+    (if org-workflow-agenda-last-plan (org-workflow-agenda--undo-plan)
+      (org-workflow-agenda-undo-last-operation))))
 
 (defun org-workflow-agenda-plan-undo--enable ()
   "Install this component while Workflow is being enabled."

@@ -109,7 +109,7 @@
     (with-current-buffer (org-workflow-project-classify--buffer (car image))
       (org-with-wide-buffer
        (unless (equal (buffer-substring-no-properties (point-min) (point-max)) (cadr image))
-         (erase-buffer) (insert (cadr image)))))))
+         (replace-region-contents (point-min) (point-max) (lambda () (cadr image))))))))
 
 (defun org-workflow-project-classify--register (record)
   "Remember an applied RECORD before any fallible post-commit action."
@@ -208,6 +208,48 @@
         (message "归类已应用，保存未完成：%s" (plist-get record :error))
       (org-workflow-project-classify-save record))
     record))
+
+(defun org-workflow-project-classify-undo (record)
+  "Reverse applied RECORD only while every participating source still matches."
+  (unless (and org-workflow-store-enabled
+               (equal org-workflow-store-file (plist-get record :database))
+               (equal (org-workflow-target--today-string) (plist-get record :date)))
+    (user-error "日期或数据库已变化，不能撤销归类"))
+  (org-workflow-project-classify--clean (plist-get record :files) t)
+  (unless (equal (plist-get record :after)
+                 (org-workflow-project-classify--snapshot (plist-get record :files)))
+    (user-error "参与文件有后续编辑，未执行撤销；请用 refile 手动归回"))
+  (if (plist-get record :undoing)
+      (org-workflow-project-classify-save record)
+    (let* ((files (plist-get record :files))
+           (identities (org-workflow-project-classify--identities files))
+           (order (plist-get record :save-order))
+           (owner (current-buffer))
+           (reverse (list :kind 'classify :undoing t :files files
+                          :before (plist-get record :after) :after (plist-get record :before)
+                          :date (plist-get record :date) :database (plist-get record :database)
+                          :save-order (append (cdr order) (list (car order)))
+                          :save-state 'pending :error nil))
+           (org-workflow-store--extra-source-files files)
+           (org-workflow-store--after-commit-function
+            (lambda () (with-current-buffer owner (org-workflow-project-classify--register reverse))))
+           committed)
+      (condition-case err
+          (org-workflow-store--operation
+           (lambda ()
+             (org-workflow-project-classify--restore (plist-get record :before))
+             (org-workflow-project-classify--index files identities)))
+        (error
+         (if (eq (org-workflow-agenda--setting 'org-workflow-agenda-last-operation) reverse)
+             (setf (plist-get reverse :error) (error-message-string err))
+           (signal (car err) (cdr err)))))
+      (setq committed (eq (org-workflow-agenda--setting 'org-workflow-agenda-last-operation) reverse))
+      (when committed (org-workflow-project-classify-save reverse))
+      (setq record reverse)))
+  (when (eq (plist-get record :save-state) 'saved)
+    (org-workflow-agenda--set-setting 'org-workflow-agenda-last-operation nil)
+    (message "已撤销归类，原位置和内容已恢复"))
+  record)
 
 (provide 'org-workflow-project-classify)
 ;;; org-workflow-project-classify.el ends here

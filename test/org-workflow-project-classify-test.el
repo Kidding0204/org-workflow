@@ -1,6 +1,7 @@
 ;;; -*- lexical-binding: t; -*-
 (require 'ert)
 (require 'org-workflow-agenda)
+(require 'org-workflow-agenda-projects)
 (load "org-workflow-store-test" nil t)
 (require 'org-workflow-project-classify nil t)
 
@@ -99,3 +100,59 @@
      (should (eq (plist-get record :save-state) 'pending))
      (should (eq record (org-workflow-agenda--setting 'org-workflow-agenda-last-operation)))
      (should (string-match-p "checkpoint" (plist-get record :error))))))
+
+(ert-deftest workflow-classify-undo-restores-order-and-created-heading ()
+  (workflow-classify-fixture
+   (let* ((before (org-workflow-project-classify--snapshot (list file target-file)))
+          (record (org-workflow-project-classify (list one two) (list :kind 'project :marker target))))
+     (org-workflow-project-classify-undo record)
+     (should (equal before (org-workflow-project-classify--snapshot (list file target-file)))))))
+
+(ert-deftest workflow-classify-undo-rejects-post-edit-or-date-change ()
+  (workflow-classify-fixture
+   (let ((record (org-workflow-project-classify (list one) (list :kind 'project :marker target))))
+     (with-current-buffer (marker-buffer target) (goto-char (point-max)) (insert "later note\n"))
+     (should-error (org-workflow-project-classify-undo record) :type 'user-error)
+     (should (with-current-buffer (marker-buffer target) (string-match-p "later note" (buffer-string)))))))
+
+(ert-deftest workflow-sprint-undo-dispatches-only-most-recent-success ()
+  (workflow-classify-fixture
+   (org-workflow-project-classify (list one two) (list :kind 'project :marker target))
+   (org-workflow-agenda-undo-last-operation)
+   (should-not (org-workflow-agenda--setting 'org-workflow-agenda-last-operation))
+   (should (with-current-buffer (marker-buffer one) (string-match-p "TODO First" (buffer-string))))))
+
+(ert-deftest workflow-project-mutations-invalidate-older-undo ()
+  (workflow-classify-fixture
+   (org-workflow-project-classify (list one) (list :kind 'project :marker target))
+   (org-workflow-agenda-project-state target "TODO")
+   (should-not (org-workflow-agenda--setting 'org-workflow-agenda-last-operation))
+   (should-error (org-workflow-agenda-undo-last-operation) :type 'user-error)))
+
+(ert-deftest workflow-classify-undo-pending-save-and-reverse-save-failure ()
+  (workflow-classify-fixture
+   (let* ((before (org-workflow-project-classify--snapshot (list file target-file)))
+          (record (cl-letf (((symbol-function 'save-buffer) (lambda (&rest _) (error "disk full"))))
+                    (org-workflow-project-classify (list one two) (list :kind 'project :marker target)))))
+     (cl-letf (((symbol-function 'save-buffer) (lambda (&rest _) (error "still full"))))
+       (org-workflow-project-classify-undo record))
+     (should (equal before (org-workflow-project-classify--snapshot (list file target-file))))
+     (let ((pending (org-workflow-agenda--setting 'org-workflow-agenda-last-operation)))
+       (should (plist-get pending :undoing))
+       (org-workflow-project-classify-undo pending))
+     (should-not (org-workflow-agenda--setting 'org-workflow-agenda-last-operation)))))
+
+(ert-deftest workflow-classify-preflight-active-clock-and-duplicate-heading ()
+  (workflow-classify-fixture
+   (let ((org-clock-marker (copy-marker one)))
+     (should-error (org-workflow-project-classify (list one) (list :kind 'project :marker target)) :type 'user-error))
+   (org-with-point-at target (goto-char (point-max)) (insert "** 未分组\n** 未分组\n") (save-buffer))
+   (should-error (org-workflow-project-classify (list one) (list :kind 'project :marker target)) :type 'user-error)))
+
+(ert-deftest workflow-classify-undo-preserves-unmoved-marker ()
+  (workflow-classify-fixture
+   (let* ((existing (org-with-point-at target (search-forward "*** TODO Existing")
+                                     (copy-marker (line-beginning-position))))
+          (record (org-workflow-project-classify (list one) (list :kind 'project :marker target))))
+     (org-workflow-project-classify-undo record)
+     (should (equal "Existing" (org-with-point-at existing (org-get-heading t t t t)))))))

@@ -54,12 +54,13 @@
 (defvar org-workflow-agenda-current-view nil)
 (defvar org-workflow-agenda-project-folds nil)
 (defvar org-workflow-agenda-last-operation nil)
+(defvar org-workflow-agenda-undo-reason nil)
 (defvar org-workflow-agenda--daily-columns nil)
 (defvar org-workflow-agenda-view-positions nil)
 
 (defconst org-workflow-agenda--shared-settings
   '(org-workflow-agenda-current-view org-workflow-agenda-project-folds
-    org-workflow-agenda-last-operation org-workflow-agenda--daily-columns
+    org-workflow-agenda-last-operation org-workflow-agenda-undo-reason org-workflow-agenda--daily-columns
     org-workflow-agenda-view-positions org-workflow-agenda-plan-tomorrow org-workflow-agenda-planning-all
 				org-workflow-agenda-selected-group
                                 org-workflow-agenda-completed-expanded org-workflow-agenda-columns-enabled

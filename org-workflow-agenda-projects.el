@@ -163,13 +163,35 @@ calendar gaps never count as verified continuity."
              'face face 'help-echo (plist-get item :title)))
     (org-workflow-agenda-projects--cookies start (point))))
 
+(defun org-workflow-agenda-project-state (&optional marker state)
+  "Set project or Heading MARKER to STATE through the shared project API."
+  (interactive)
+  (org-workflow-agenda-ensure-writeable)
+  (org-workflow-projects-set-state
+   (or marker (org-get-at-bol 'org-hd-marker) (user-error "请选择项目／分组"))
+   (or state (completing-read "状态：" '("TODO" "DIVE" "HOLD" "DONE") nil t)))
+  (org-workflow-agenda-invalidate-last-operation "最近操作为项目状态调整，请通过状态入口调整")
+  (when (derived-mode-p 'org-agenda-mode) (org-agenda-redo)))
+
+(defun org-workflow-agenda-project-start (&optional remove)
+  "Set the source project's start date, or REMOVE it with a prefix."
+  (interactive "P")
+  (org-workflow-agenda-ensure-writeable)
+  (org-workflow-projects-set-start
+   (or (org-get-at-bol 'org-hd-marker) (user-error "请选择项目"))
+   (unless remove (org-read-date)))
+  (org-workflow-agenda-invalidate-last-operation "最近操作为项目开始日期调整")
+  (org-agenda-redo))
+
 (defun org-workflow-agenda-project-goal-toggle ()
   "Pause or resume the file goal at point, then refresh the Agenda."
   (interactive)
+  (org-workflow-agenda-ensure-writeable)
   (let ((goal (get-text-property (line-beginning-position) 'workflow-goal)))
     (unless goal (user-error "请选择长期目标行"))
     (org-workflow-projects-goal-state (org-workflow-projects-marker goal)
                                      (not (plist-get goal :paused)))
+    (org-workflow-agenda-invalidate-last-operation "最近操作为 Area 暂停／恢复")
     (org-agenda-redo)))
 
 (defvar org-workflow-agenda-project-goal-map
