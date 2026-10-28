@@ -1,8 +1,26 @@
 # org-workflow：项目会话上下文
 
-核对日期：2026-10-11。面向需要研究、修改或排查本包的会话。
+核对日期：2026-10-28。面向需要研究、修改或排查本包的会话。
 本文是当前代码的阅读地图与维护边界；行为事实以对应源码为准。
 修改入口、数据规则、依赖或验证方法时同步本页，避免继续使用历史方案。
+
+## 2026-10-28 审查修复
+
+选择／执行保存原生标题范围与已有 ID，删除或替换后拒绝把动作施加到后继条目；
+重命名和原生 Org 子树移动保留选择。Org 原生只保存自己的移动 marker，没有扩展 hook，
+因此 core 通过生命周期拥有的 org-save-markers-in-region :after 集成，登记少量选择范围；
+停用移除 advice 并释放会话引用。只读扫描不创建 ID。
+项目／阶段 DONE 与 HOLD 共用 execution-blocked-p；失效执行解除并结束其匹配计时。
+新完成策略的阶段进度只计 DONE，旧日期沿原策略。无 ID 习惯的动作 key 绑定源 buffer 中的原始标题范围，位置被补位时不会复用旧 key。
+
+事务短提交区保护 COMMIT／内存接受不被 quit 分开；原生 before/after-save hook 仅在事务内
+记录实际保存的磁盘映像。错误回滚只恢复仍可验证为本次写入的文件；外部变化保留 prepared
+恢复记录并提示，不覆盖外部内容。正常回滚保留已经实际关闭或取消的 CLOCK，不回退计时运行状态。
+U 同时纠正受影响任务挂接、项目当日 meta 和 superseded 事件语义；补偿事件追加，不删除历史。
+归类入口校验视图中已有 ID，无 ID 时核对原始标题。
+
+历史菜单走公开 history-panel 的图形／终端路由；网页 schema-v1 接受并校验新增底线及 satisfied
+可选字段。修复与验证记录见 reviews/2026-10-28-org-workflow-repairs.md。
 
 ## 2026-10-28 Sprint 单栏项目摘要
 
@@ -89,15 +107,12 @@ Supertag 可选集成仍使用公开 capture 收尾，不在包内绑定个人�
 `org-workflow-projects.el` 以 Agenda 文件名作为目标，一级 TODO 标题作为项目，二级为
 阶段，三级及细分为任务；不需要文件标签、WORKFLOW_KIND 或 WORKFLOW_GOAL_ID 登记。
 普通组织标题、Inbox 和简单重复习惯不自动成为学习项目。旧属性不决定归属，ID 与
-历史保留。`org-workflow-project-view.el` 仍提供独立只读规划入口（菜单 p、Sprint P）。
+历史保留。`org-workflow-project-view.el` 为当前 Sprint 双栏的兼容入口（菜单 p、Sprint P）。
 完整使用与数据边界见 [项目规划](project-workbench.md)。
 
-今日主面板现在为安排 → 收集箱，时段继续占据安排区主分组。
-`org-workflow-agenda-projects.el` 提供完成任务原位排序、承诺后继预览、项目进度与周
-追踪。完成项简化淡显；后继预览按任务数显示 1–3 项，不生成日期／责任。项目、阶段
-均保留原生 Agenda marker；项目／阶段进度直接使用源 cookie，遵循 Org 原生统计规则。
-Agenda 禁用 visual-line-mode，目标块之间留一空行。源文件事实不在渲染中修改。收集箱移除待安排，取消今日
-已完成区域；简单重复习惯在时段内为一行。归属仅前两级大纲，随窗口宽度截断。
+今日单栏为安排 → 随时 → 项目 → 今日已完成；双栏右侧为项目树，左侧复用安排／随时／完成区。
+项目摘要统计普通叶任务，生成只读进度；阶段目标仍读取源 Org cookie。完成条目进入今日已完成，
+不再原位保留，不生成后继预览。任务行保留原生 marker；查看和编辑由原生命令处理。
 
 目标暂停使用 goal-paused:file:... meta 与 WORKFLOW_PAUSE_OWNER 保存批次；手动
 状态变更和 refile 清除旧批次资格。TODO 错过开始日期以 WORKFLOW_START_DEFERRED
@@ -126,7 +141,7 @@ project-superseded 以日期边界结束既有逾期责任的继续携带，不�
 
 - 当前宿主把仓库放在 `~/.config/emacs/user-lisp/org-workflow/`，独立 Git 仓库在本目录。
 - 父 Emacs 配置仓库负责个人路径、主题、Evil、系统服务与桌面快捷键。
-  宿主入口是 `modules/org-workflow-config.el` 的 `use-package org-workflow`，不是包源码。
+  宿主入口是 `config/org-workflow-config.el` 的 `use-package org-workflow`，不是包源码。
 - 父仓库 `.planning/` 的原项目是“内置 Workflow 历史面板”；其 ROADMAP 不代表独立包的新需求。
   本页也不是某个 GSD phase 的决策文件。新的规划按当前用户授权范围建立。
 - 公开仓库为 [Kidding0204/org-workflow](https://github.com/Kidding0204/org-workflow)。
@@ -158,7 +173,7 @@ rg --files -g 'org-workflow*.el' -g '*-test.el'
 | 结算与只读历史入口 | [历史后端](../org-workflow-history.el)、[视图模型](../org-workflow-history-view.el) |
 | 现有测试及验收范围 | [Makefile](../Makefile)、[验收记录](verification.md) |
 
-先读与问题对应的源文件和测试，再决定是否扩展阅读，不必每次扫描全部 33 个库。
+先读与问题对应的源文件和测试，再决定是否扩展阅读，不必每次扫描全部 40 个库。
 历史设计、旧个人模块名和旧日志语义只能作为迁移材料，不能直接作为当前实现方案。
 
 ## 3. 使用入口与初始化
@@ -176,8 +191,8 @@ Sprint 的任务编辑、完成、改期、优先级、排序、批量安排和�
 原行仍是任务时保留，非任务光标与窗口滚动锚点仅按行列截断。显式访问任务仍使用原生 marker 跳转。
 公共刷新定位由布局库负责，动作库不再在刷新后重新定位任务。
 
-收集箱只保留自由习惯及收集项。已完成任务保留原时段位置，淡色显示标题，省略标签；
-后继预览是较浅缩进任务行。所有任务行保留原生 Agenda marker 与源 TODO 状态。
+随时汇集自由习惯、Inbox／QA 和 DIVE 项目前四项未安排任务，按项目／阶段组织。
+完成项进入今日已完成。所有任务行保留原生 Agenda marker 与源 TODO 状态。
 
 Sprint 工作台用 `m` 标记／取消任务、`M` 清除选择，`d` 延至明天。
 不再占用 SPC，也不单独绑定 f/t/d 添加 @flow/@tiny/@deep；这些标签操作函数保留。
@@ -221,8 +236,9 @@ Sprint 右侧按目标文件循环，用 `org-workflow-agenda-previous-project` 
 ### 任务、范围与承诺
 
 - 状态模型为 `TODO / DIVE | DONE / HOLD`；DIVE 是活跃任务组，HOLD 排除对应子树。
-- `org-workflow-task-type-keywords` 默认提供独立 Org type 序列 `QA / LAB / HW`，
-  表示问题、实验、作业等附属内容。这些状态不参与任务叶子、队列和日期下放判定，
+- 新 QA 使用 TODO/DONE 加直接 :QA: 标签，自身安排后执行，始终不阻塞父任务。
+  `org-workflow-task-type-keywords` 保留 `QA / LAB / HW` 以兼容显式声明类型的旧文件，
+  不自动安装旧 Org type 序列。这些旧状态不参与任务叶子、队列和日期下放判定，
   也不计入执行任务统计；仅含这些节点的父 TODO 仍是执行叶子。类型节点下若有
   真正 TODO 后代，该后代仍按原规则计入。`[0/0]` 不触发父任务自动完成。
   有文件级 TODO 定义时须同时声明 `#+TYP_TODO: QA LAB HW |`，遵循 Org 的局部覆盖规则；
@@ -283,9 +299,9 @@ Sprint 右侧按目标文件循环，用 `org-workflow-agenda-previous-project` 
   t/p/L 标题捕获显式使用 `:empty-lines 0`，不沿用附近空行自动补分隔；正文列表模板不变。
   收集项日常查询只读 projects，不依赖 Vulpea 周日志索引。新周日志仅随记／周回顾。
   本次已授权迁移 52 个旧收集任务，备份与记录见 verification；程序不自动搬移其他文件。
-- Sprint 收集箱显示自由习惯、未安排收集项；待安排步骤改为承诺下的安静预览，独立
-  右侧栏改为项目区，以目标文件为 Tab 过滤单位，保留全部标签。项目区按文件显示进度、周追踪、streak 与阶段。周追踪只读
-  每日承诺，未知日期不伪造连续；任务推进优先于投入时间指标。
+- Sprint 随时包括自由习惯、待处理 Inbox／QA 及每个 DIVE 项目前四个未安排任务。
+  项目区按 Area／项目／阶段展示。双栏包含源任务以供安排／归类；单栏摘要仅状态和进度。
+  周追踪只读每日承诺，未知日期不伪造连续；任务推进优先于投入时间指标。
 - Inbox 自动清理接在 history-catch-up 的全部旧日结算之后（当前午夜日结／启动补结算）。
   仅原生 DONE 的直属任务，CLOSED 超出截止日则留待下次；缺少 CLOSED 的旧 DONE 可归档。
   沿用 Org ARCHIVE／org-archive-location，先保存档案再保存源，维护 ID 定位；有未保存编辑
@@ -371,7 +387,7 @@ Status 专用的 `org-workflow-focus-timer-notify-status` 和无人复用的 `--
   不增加包硬依赖。图标字体由 nerd-icons 的用户配置决定。
 - `org-workflow-install-default-bindings` 默认 nil，当前宿主设为 t。
   它仅控制可选共享 Org／Agenda／Embark 绑定，不是 Evil 总开关。包不安装任何全局键，
-  原有十个全局绑定已移至宿主 `modules/org-workflow-config.el`；包内私有界面键表保留。
+  原有十个全局绑定已移至宿主 `config/org-workflow-config.el`；包内私有界面键表保留。
 - 普通 Agenda 的 Normal 辅助绑定由生命周期工具管理；Sprint 复制局部 map，
   只在专用界面安装普通键及 Normal 键；历史面板适配 Normal/Motion，收集回顾适配 Normal。
 - 共享键停用时只恢复仍由包占用的值，保留用户后来改动。Evil 延迟加载也受模式状态保护。

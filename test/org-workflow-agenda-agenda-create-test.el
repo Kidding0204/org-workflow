@@ -168,7 +168,9 @@
   (org-workflow-store-test
    (let* ((new-file (expand-file-name "new.org" directory))
           (org-workflow-projects-file new-file)
-          (org-agenda-files (list new-file))
+          ;; The failure boundary is a newly visited target, not Org's
+          ;; separate missing-Agenda-file prompt.
+          (org-agenda-files (list file))
           (execute (symbol-function 'sqlite-execute)))
      (unwind-protect
          (progn

@@ -18,9 +18,9 @@
 (ert-deftest org-workflow-agenda-inbox-single-and-double-have-distinct-sections ()
   (org-workflow-agenda-inbox-test-with-files (list org-workflow-agenda-inbox-test-source)
 				       (org-workflow-workbench-test-open)
-				       (should (string-match-p "收集箱" (buffer-string)))
+				       (should (string-match-p "随时" (buffer-string)))
 				       (should-not (string-match-p "待安排\\|未来 7 天" (buffer-string)))
-				       (should (equal '("Already arranged" "Parent collection" "Old note" "Current idea")
+				       (should (equal '("Already arranged" "Future arranged" "Parent collection" "Old note" "Current idea")
 						      (org-workflow-workbench-test-titles)))
 				       (let ((marker (my/org-mouse-test-row "Old note")))
 					 (should (equal marker (org-workflow-inbox--classification-marker)))
@@ -46,19 +46,27 @@
 					 (unwind-protect
 					     (progn
 					       (org-workflow-workbench-test-open)
-					       (let* ((marker (copy-marker (my/org-mouse-test-row "Old note")))
-						      (source (with-current-buffer (marker-buffer marker) (buffer-string))))
+					       (let ((marker (copy-marker (my/org-mouse-test-row "Old note"))))
 						 (org-workflow-agenda-plan-morning)
 						 (should (member "Old note" (mapcar #'org-workflow-target-entry-title
 										    (org-workflow-target--ordered-entries))))
 						 (my/org-mouse-test-row "Old note")
-						 (should-not (get-text-property (point) 'org-workflow-agenda-inbox-entry))
+						 (should (get-text-property (point) 'org-workflow-agenda-inbox-entry))
+                                         (should (equal marker (org-workflow-inbox--classification-marker)))
+                                         (should (= 1 (cl-count "Old note" (org-workflow-workbench-test-titles) :test #'equal)))
 						 (should-not org-agenda-files)
 						 (org-workflow-agenda-undo-plan)
+                                         (org-with-point-at marker
+                                           (should (equal '("@tiny") (org-get-tags nil t)))
+                                           (should (equal "2020-01-07" (org-entry-get nil "CAPTURED_ON"))))
 						 (my/org-mouse-test-row "Old note")
 						 (should (get-text-property (point) 'org-workflow-agenda-inbox-entry))
 						 (org-workflow-agenda-plan-at "2026-08-18" ?A)
-						 (should-not (member "Old note" (org-workflow-workbench-test-titles)))
+						 (my/org-mouse-test-row "Old note")
+                                         (should (get-text-property (point) 'org-workflow-agenda-inbox-entry))
+                                         (should (= 1 (cl-count "Old note" (org-workflow-workbench-test-titles) :test #'equal)))
+                                         (should-not (member "Old note" (mapcar #'org-workflow-target-entry-title
+                                                                             (org-workflow-target--ordered-entries))))
 						 (let* ((images (org-workflow-store--decode
 								 (caar (sqlite-select (org-workflow-store--db)
 										      "SELECT after_text FROM operations ORDER BY rowid DESC LIMIT 1")))))
@@ -95,8 +103,14 @@
 							    (should (string-match-p "Keep the original body" (buffer-string))))
 					 (should-not org-agenda-bulk-marked-entries)
 					 (should-not org-workflow-agenda-mouse--anchor)
-					 (should-not (member "Old note" (org-workflow-workbench-test-titles)))
-					 (should-not (string-match-p "今日已完成" (buffer-string))))))
+					 (should (= 1 (cl-count "Old note" (org-workflow-workbench-test-titles) :test #'equal)))
+                                         (goto-char (point-min))
+                                         (search-forward "今日已完成")
+                                         (search-forward "Old note")
+                                         (should (equal marker (org-get-at-bol 'org-hd-marker)))
+                                         (should-not (org-get-at-bol 'org-workflow-agenda-inbox-entry))
+                                         (should-not (member "TODO Old note"
+                                                             (mapcar #'cadr (org-workflow-collection-inbox--pending files t)))))))
 
 (ert-deftest org-workflow-agenda-inbox-refile-refreshes-and-rejects-batch-classification ()
   (org-workflow-agenda-inbox-test-with-files

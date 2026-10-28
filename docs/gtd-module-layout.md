@@ -8,7 +8,7 @@
 | 文件 | 职责 |
 | --- | --- |
 | `org-workflow.el` / `org-workflow-lifecycle.el` | 全局模式、初始化顺序、hook/advice/key 的启用与撤销、可配置路径 |
-| `org-workflow-projects.el` / `org-workflow-project-view.el` / `org-workflow-agenda-projects.el` | 文件目标／大纲项目、每日责任及批量暂停恢复；独立与今日集成项目规划、后继预览及完成原位显示 |
+| `org-workflow-projects.el` / `org-workflow-project-view.el` / `org-workflow-agenda-projects.el` | 文件目标／大纲项目、每日责任及批量暂停恢复；单栏项目摘要与双栏项目树，兼容旧项目入口 |
 | `org-workflow-core.el` | 任务筛选、执行队列、选择、排序、DIVE 相邻组开放与推进 |
 | `org-workflow-items.el` | 任务／习惯共用条目、唯一当前项解析、执行／完成／导航／跳过接口与每日直接 CLOCK 读取 |
 | `org-workflow-sources.el` | 共用只读源访问：复用现场编辑或短命 Org 读取；子树入口定位 |
@@ -16,7 +16,7 @@
 | `org-workflow-agenda-view.el` / `org-workflow-agenda-layout.el` | 分组渲染、双栏工作台、窗口与同步刷新 |
 | `org-workflow-agenda-actions.el` / `org-workflow-agenda-plan-undo.el` | 日期、时段、排序、批量事务与安排撤销 |
 | `org-workflow-agenda-console.el` / `org-workflow-agenda-mouse.el` | Sprint 键盘、帮助与鼠标交互 |
-| `org-workflow-agenda-inbox.el` / `org-workflow-agenda-review.el` | 统一 Inbox 捕获／归类、积压与回顾 |
+| `org-workflow-agenda-inbox.el` / `org-workflow-agenda-review.el` | 统一 Inbox 捕获／归类、随时及今日已完成回顾 |
 | `org-workflow-commands.el` / `org-workflow-store.el` | 共用变更边界、SQLite 事实及 Org 恢复事务 |
 | `org-workflow-history.el` / `org-workflow-journal.el` | 兑现、结算、重算、历史兼容与 CLOCK 辅助 |
 | `org-workflow-migrate.el` / `org-workflow-cleanup.el` | 有备份的旧模型迁移与显式属性清理 |

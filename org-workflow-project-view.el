@@ -2,7 +2,7 @@
 ;; Copyright (C) 2026 Jinwang Dong
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;; Commentary:
-;; Project management belongs to Sprint. Keep public commands for existing
+;; Project management belongs to Sprint.  Keep public commands for existing
 ;; bindings, but no second renderer, mode or independent project window.
 ;;; Code:
 (require 'org-workflow-agenda)

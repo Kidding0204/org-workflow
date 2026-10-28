@@ -327,7 +327,7 @@
 
 (ert-deftest my/org-mouse-drop-no-op-keeps-source-and-undo-record ()
   (org-workflow-workbench-test-with-files
-      '("#+filetags: :project:\n* DIVE Project :CURR:\n** TODO [#B] Already\nSCHEDULED: <2026-08-17 Mon>\n")
+      '("#+filetags: :project:\n* DIVE Project :CURR:\n** DIVE Stage\n*** TODO [#B] Already\nSCHEDULED: <2026-08-17 Mon>\n")
     (let ((org-workflow-store-enabled nil)
           (org-workflow-agenda-last-plan '(previous-plan)))
       (org-workflow-workbench-test-open)
@@ -410,8 +410,9 @@
               (should-not org-workflow-agenda-last-plan)
               (should (member "First" (org-workflow-workbench-test-titles candidate)))
               (should (member "Second" (org-workflow-workbench-test-titles candidate)))
-              (should-not (member "First" (org-workflow-workbench-test-titles primary)))
-              (should-not (member "Second" (org-workflow-workbench-test-titles primary)))))
+              ;; Restored unscheduled project tasks return to 随时 as well.
+              (should (member "First" (org-workflow-workbench-test-titles primary)))
+              (should (member "Second" (org-workflow-workbench-test-titles primary)))))
         (when (and org-workflow-store--connection
                    (org-workflow-store--live-p org-workflow-store--connection))
           (sqlite-close org-workflow-store--connection))
@@ -499,11 +500,11 @@
         (let ((org-workflow-agenda--pane-role 'candidates))
           (org-workflow-agenda-mouse--scroll-target
            (list window (point) '(20 . 0) 0) state))
-        (should (= 2 (length scrolls)))))))
+        (should (= 3 (length scrolls)))))))
 
 (ert-deftest my/org-mouse-mixed-drop-skips-already-correct-task ()
   (org-workflow-workbench-test-with-files
-      '("#+filetags: :project:\n* DIVE Project :CURR:\n** TODO [#B] Already\nSCHEDULED: <2026-08-17 Mon>\n** TODO [#A] New\nSCHEDULED: <2026-08-17 Mon>\n")
+      '("#+filetags: :project:\n* DIVE Project :CURR:\n** DIVE Stage\n*** TODO [#B] Already\nSCHEDULED: <2026-08-17 Mon>\n*** TODO [#A] New\nSCHEDULED: <2026-08-17 Mon>\n")
     (let ((org-workflow-store-enabled nil))
       (org-workflow-workbench-test-open)
       (let ((already (copy-marker (my/org-mouse-test-row "Already")))
@@ -526,7 +527,7 @@
       (when (and (consp entry) (eq (cadr entry) 'menu-item))
         (should (commandp (nth 3 entry)))))))
 
-(ert-deftest my/org-mouse-batch-commitment-updates-all-and-rolls-back-bad-date ()
+(ert-deftest my/org-mouse-batch-commitment-updates-all-and-rolls-back-missing-date ()
   (dolist (bad-date '(nil t))
     (org-workflow-workbench-test-with-files (list org-workflow-workbench-test-source)
       (let* ((directory (make-temp-file "mouse-commitment-" t))
@@ -543,6 +544,11 @@
              (org-workflow-current-changed-hook nil))
         (unwind-protect
             (progn
+              (when bad-date
+                (with-current-buffer (find-file-noselect (car files))
+                  (goto-char (point-min)) (search-forward "TODO Today")
+                  (beginning-of-line)
+                  (let ((org-workflow-store-enabled nil)) (org-schedule '(4)))))
               (org-workflow-workbench-test-open)
               ;; Supply native rows for future dates without a retired UI renderer.
               (let ((inhibit-read-only t))
@@ -555,7 +561,7 @@
                      (second (copy-marker (my/org-mouse-test-row "Later")))
                      (source-buffer (marker-buffer first))
                      (source (with-current-buffer source-buffer (buffer-string))))
-                ;; Native bulk marks prepend; Later is processed before the bad Today date.
+                ;; Native bulk marks prepend; Later is processed before the unscheduled Today task.
                 (org-workflow-agenda-mouse--select first nil)
                 (org-workflow-agenda-mouse--select second 'control)
                 (if bad-date

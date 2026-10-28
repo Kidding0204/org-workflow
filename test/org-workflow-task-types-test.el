@@ -3,19 +3,26 @@
 (require 'org-workflow)
 (load "org-workflow-agenda-target-test" nil t)
 
-(ert-deftest org-workflow-task-types-use-a-separate-org-type-set ()
-  "Typed notes are recognized by Org without becoming execution tasks."
+(ert-deftest org-workflow-task-types-use-native-todo-and-direct-qa-tags ()
+  "Questions use native TODO; only an explicit date makes them executable."
   (with-temp-buffer
+    (insert "* TODO Question :QA:\n* TODO Scheduled question :QA:\nSCHEDULED: <2026-08-17 Mon>\n* Thought\n")
     (org-mode)
-    (insert "* QA Question\n* LAB Experiment\n* HW Exercise\n")
     (goto-char (point-min))
     (dolist (state '("QA" "LAB" "HW"))
-      (should (equal state (org-get-todo-state)))
-      (should (eq 'type (cadr (assoc state org-todo-kwd-alist))))
-      (should-not (org-entry-is-done-p))
-      (should-not (org-workflow-target--unfinished-p))
-      (should-not (org-workflow-target--task-leaf-p))
-      (outline-next-heading))))
+      (should-not (assoc state org-todo-kwd-alist)))
+    (should (equal "TODO" (org-get-todo-state)))
+    (should (org-workflow-qa-p))
+    (should-not (org-entry-is-done-p))
+    (should-not (org-workflow-target--unfinished-p))
+    (should-not (org-workflow-target--task-leaf-p))
+    (outline-next-heading)
+    (should (equal "TODO" (org-get-todo-state)))
+    (should (org-workflow-qa-p))
+    (should (org-workflow-target--unfinished-leaf-p))
+    (outline-next-heading)
+    (should-not (org-get-todo-state))
+    (should-not (org-workflow-target--task-p))))
 
 (ert-deftest org-workflow-task-types-keep-the-parent-in-the-queue ()
   "Editing and saving typed descendants leaves the scheduled parent actionable."

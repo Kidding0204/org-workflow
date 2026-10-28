@@ -96,7 +96,7 @@
 (defvar-local org-workflow-agenda-edit-position nil)
 
 (define-minor-mode org-workflow-agenda-edit-mode
-  "Edit a source subtree; C-c C-c saves and returns to Sprint."
+  "Edit a source subtree; finish with `org-workflow-agenda-edit-finish'."
   :lighter " 返回:C-c C-c"
   :keymap (let ((map (make-sparse-keymap)))
             (define-key map (kbd "C-c C-c") #'org-workflow-agenda-edit-finish)

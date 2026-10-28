@@ -124,7 +124,7 @@
       (if (org-workflow-agenda--setting 'org-workflow-agenda-plan-tomorrow) 'tomorrow 'today))))
 
 (defun org-workflow-agenda-select-view (view)
-  "Select today's or tomorrow's Sprint, retaining independent page positions.
+  "Select Sprint VIEW, retaining independent page positions.
 The former `projects' value opens the daily columns without changing the day."
   (interactive (list (intern (completing-read "视图：" '("today" "tomorrow") nil t))))
   (unless (memq view '(today tomorrow projects)) (user-error "未知 Sprint 视图"))
