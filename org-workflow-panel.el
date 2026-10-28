@@ -308,7 +308,9 @@
       (user-error "请先停止手动 Org 计时"))
     (when (org-workflow-clock--clock-active-p) (org-workflow-clock--clock-stop))
     (when ordinary
-      (setq org-workflow-target-selected-marker (copy-marker ordinary)
+      (setq org-workflow-target-selected-source (org-workflow-item-at-marker ordinary)
+            org-workflow-target-selected-marker
+            (org-workflow-target-entry-marker org-workflow-target-selected-source)
             org-workflow-target-selected-date today))
     (org-workflow--release-execution)
     (setq org-workflow-habit-selection (cons today (unless restore key)))

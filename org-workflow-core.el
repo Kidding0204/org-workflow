@@ -828,7 +828,8 @@ Completion-floor dates count only DONE; older dates retain their policy."
 (defun org-workflow-target--source-current-p (marker source)
   "Whether MARKER still refers to SOURCE, allowing legacy marker-only callers."
   (and (markerp marker) (marker-buffer marker)
-       (if (and source (eq marker (org-workflow-target-entry-marker source)))
+       (if (and source (org-workflow-target--same-marker-p
+                        marker (org-workflow-target-entry-marker source)))
            (org-workflow-item-source-live-p source)
          (org-with-point-at marker (org-at-heading-p)))))
 
@@ -878,7 +879,14 @@ Completion-floor dates count only DONE; older dates retain their policy."
                          (org-workflow--scheduled-on-or-before-p
                           (org-workflow-target--today-string))))
             (org-workflow-target--entry-at-point))))
-      (progn (setq org-workflow-target-selected-marker nil
+      (progn
+        (when (and org-workflow-target-selected-source
+                   (markerp org-workflow-target-selected-marker)
+                   (marker-buffer org-workflow-target-selected-marker)
+                   (not (org-workflow-item-source-live-p org-workflow-target-selected-source)))
+          (setq org-workflow-target-invalidated-selection
+                (copy-marker org-workflow-target-selected-marker)))
+        (setq org-workflow-target-selected-marker nil
                    org-workflow-target-selected-date nil
                    org-workflow-target-selected-source nil)
              nil)))
@@ -1118,10 +1126,12 @@ keeps the source identity while deletion alone still invalidates it."
                                 (org-workflow-target-entry-marker org-workflow-executing-source))
                             (not (org-workflow-item-source-live-p org-workflow-executing-source)))))
       (when (and (org-workflow-clock--clock-active-p)
-                 (or (org-workflow-clock--clock-matches-p org-workflow-executing-marker)
-                     (and source-gone org-workflow-executing-clock-start-time
-                          (org-clocking-p)
-                          (equal org-workflow-executing-clock-start-time org-clock-start-time))))
+                 (if source-gone
+                     ;; A collapsed source marker can now point at another
+                     ;; task's CLOCK. Only the captured interval proves ours.
+                     (and org-workflow-executing-clock-start-time (org-clocking-p)
+                          (equal org-workflow-executing-clock-start-time org-clock-start-time))
+                   (org-workflow-clock--clock-matches-p org-workflow-executing-marker)))
         ;; A deleted subtree also deleted its CLOCK start.  Native cancel can
         ;; retire that interval; clock-out cannot close a nonexistent line.
         (if source-gone (org-workflow-clock--clock-cancel)

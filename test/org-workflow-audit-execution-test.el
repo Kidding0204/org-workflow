@@ -23,7 +23,7 @@
      (when existing-id (workflow-project-at "Tokens") (org-entry-put nil "ID" "selected"))
      (org-workflow-target-select-marker (workflow-project-at "Tokens"))
      (org-with-point-at org-workflow-executing-marker
-       (delete-region (point) (save-excursion (org-end-of-subtree t t))))
+			(delete-region (point) (save-excursion (org-end-of-subtree t t))))
      (org-workflow-target-refresh t)
      (should-error (org-workflow-target-complete) :type 'user-error)
      (workflow-project-at "Parser")
@@ -33,8 +33,8 @@
   (workflow-audit-execution-fixture
    (org-workflow-target-select-marker (workflow-project-at "Tokens"))
    (org-with-point-at org-workflow-executing-marker
-     (delete-region (point) (save-excursion (org-end-of-subtree t t)))
-     (insert "*** TODO Replacement\nSCHEDULED: <2026-09-16 Wed>\n"))
+		      (delete-region (point) (save-excursion (org-end-of-subtree t t)))
+		      (insert "*** TODO Replacement\nSCHEDULED: <2026-09-16 Wed>\n"))
    (should-error (org-workflow-target-complete) :type 'user-error)
    (workflow-project-at "Replacement")
    (should (equal "TODO" (org-get-todo-state)))))
@@ -128,7 +128,7 @@
    (org-workflow-target-select-marker (workflow-project-at "Tokens"))
    (org-workflow-target-start)
    (org-with-point-at org-workflow-executing-marker
-     (delete-region (point) (save-excursion (org-end-of-subtree t t))))
+		      (delete-region (point) (save-excursion (org-end-of-subtree t t))))
    (org-workflow-target-refresh t)
    (should-not (org-clocking-p))
    (should-error (org-workflow-target-complete) :type 'user-error)
@@ -161,7 +161,73 @@
         (org-workflow-target-invalidated-selection (make-marker)))
     (org-workflow--cancel-background-work)
     (dolist (value (list org-workflow-target-selected-source org-workflow-executing-source
-                        org-workflow-target-selected-marker org-workflow-executing-marker
-                        org-workflow-target-selected-date org-workflow-executing-clock-start-time
-                        org-workflow-target-invalidated-selection))
+                         org-workflow-target-selected-marker org-workflow-executing-marker
+                         org-workflow-target-selected-date org-workflow-executing-clock-start-time
+                         org-workflow-target-invalidated-selection))
       (should-not value))))
+
+(ert-deftest review-habit-key-does-not-retarget-after-source-delete ()
+  (workflow-habit-test
+   (with-temp-file org-workflow-habit-file
+     (dolist (title '("Drink" "Stretch"))
+       (insert (format "* TODO %s\nSCHEDULED: <2026-09-16 Wed .+1d>\n:PROPERTIES:\n:STYLE: habit\n:WORKFLOW_HABIT_REMINDER: 08:00\n:END:\n" title))))
+   (let ((org-workflow-habit-selection nil)
+         (org-workflow-focus-timer-task-marker nil)
+         (org-clock-marker (make-marker)))
+     (cl-letf (((symbol-function 'org-workflow-target--today-string) (lambda () "2026-09-16")))
+       (let* ((item (car (org-workflow-habits-items "2026-09-16")))
+              (key (org-workflow-item-key item)))
+         (org-workflow-panel-toggle-habit key)
+         (org-with-point-at (org-workflow-target-entry-marker item)
+			    (delete-region (point) (save-excursion (org-end-of-subtree t t))))
+
+         (should-error (org-workflow-target-complete) :type 'user-error)
+         (should-not (org-workflow-current-item))
+         (should-not (org-workflow-current-item))))))
+  )
+
+(ert-deftest review-habit-switch-keeps-ordinary-selection-identity ()
+  (workflow-audit-execution-fixture
+   (let ((org-workflow-habit-file (expand-file-name "habits.org" directory)))
+     (with-temp-file org-workflow-habit-file
+       (insert "* TODO Drink\nSCHEDULED: <2026-09-16 Wed .+1d>\n:PROPERTIES:\n:STYLE: habit\n:END:\n"))
+     (org-workflow-target-select-marker (workflow-project-at "Tokens"))
+     (let* ((item (car (org-workflow-habits-items "2026-09-16")))
+            (key (org-workflow-item-key item)))
+       (org-workflow-panel-toggle-habit key)
+       (org-workflow-panel-toggle-habit key)
+       (workflow-project-at "Tokens")
+       (delete-region (point) (save-excursion (org-end-of-subtree t t)))
+       (should-error (org-workflow-target-complete) :type 'user-error)
+       (workflow-project-at "Parser")
+       (should (equal "TODO" (org-get-todo-state)))))))
+
+(ert-deftest review-deleted-selection-keeps-unrelated-clock ()
+  (workflow-audit-execution-fixture
+   (let ((org-clock-persist nil) (org-clock-auto-clock-resolution nil)
+         (org-clock-in-hook nil) (org-clock-in-switch-to-state nil)
+         (org-clock-out-hook nil) (org-clock-history nil))
+     (unwind-protect
+         (progn
+           (org-workflow-target-select-marker (workflow-project-at "Tokens"))
+           (workflow-project-at "Parser")
+           (org-clock-in nil (time-subtract (current-time) 600))
+           (workflow-project-at "Tokens")
+           (delete-region (point) (save-excursion (org-end-of-subtree t t)))
+           (org-workflow-target-refresh t)
+           (should (org-clocking-p)))
+       (when (org-clocking-p) (org-clock-cancel))))))
+
+(ert-deftest review-deleted-habit-cannot-complete-ordinary-task ()
+  (workflow-audit-execution-fixture
+   (let ((org-workflow-habit-file (expand-file-name "habits.org" directory)))
+     (with-temp-file org-workflow-habit-file
+       (insert "* TODO Drink\nSCHEDULED: <2026-09-16 Wed .+1d>\n:PROPERTIES:\n:STYLE: habit\n:END:\n"))
+     (org-workflow-target-select-marker (workflow-project-at "Tokens"))
+     (let ((item (car (org-workflow-habits-items "2026-09-16"))))
+       (org-workflow-panel-toggle-habit (org-workflow-item-key item))
+       (org-with-point-at (org-workflow-target-entry-marker item)
+			  (delete-region (point) (save-excursion (org-end-of-subtree t t))))
+       (should-error (org-workflow-target-complete) :type 'user-error)
+       (workflow-project-at "Tokens")
+       (should (equal "TODO" (org-get-todo-state)))))))

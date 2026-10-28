@@ -82,11 +82,25 @@ Titles may change freely, and reads never add persistent IDs."
                     (equal (org-workflow-target-entry-id item)
                            (org-entry-get nil "ID"))))))))
 
+(defvar-local org-workflow-item--source-keys nil
+  "Session keys attached to original heading ranges in this source buffer.")
+
 (defun org-workflow-item-key (item)
-  "Return ITEM's source ID or a read-only file/position key for this scan."
+  "Return ITEM's ID or an opaque key for its original heading range.
+Keys live only in the source buffer; reads never write Org ID properties."
   (or (org-workflow-target-entry-id item)
-      (secure-hash 'sha256 (format "%s:%s" (org-workflow-target-entry-file item)
-                                   (org-workflow-target-entry-outline-position item)))))
+      (org-with-point-at (org-workflow-target-entry-marker item)
+        (setq org-workflow-item--source-keys
+              (seq-filter (lambda (entry) (org-workflow-item-source-live-p (cdr entry)))
+                          org-workflow-item--source-keys))
+        (or (car (seq-find
+                  (lambda (entry)
+                    (= (marker-position (org-workflow-target-entry-marker (cdr entry))) (point)))
+                  org-workflow-item--source-keys))
+            (let ((key (org-id-new)))
+              (push (cons key (org-workflow-item-at-marker (point-marker)))
+                    org-workflow-item--source-keys)
+              key)))))
 
 (defun org-workflow-current-item ()
   "Return the one current item shared by UI, commands and source navigation."
@@ -104,16 +118,18 @@ Titles may change freely, and reads never add persistent IDs."
                (and ordinary (equal clock-marker ordinary))))
       (org-workflow-item-at-marker clock-marker))
      ((or active clock-marker) (and ordinary (org-workflow-item-at-marker ordinary)))
-     (t (or (if org-workflow-habit-selection
-                (let ((item (seq-find
-                             (lambda (candidate)
-                               (and (equal (org-workflow-item-key candidate)
-                                           (cdr org-workflow-habit-selection))
-                                    (not (org-workflow-target-entry-done candidate))))
-                             (org-workflow-habits-items (org-workflow-target--today-string)))))
-                  (unless item (setcdr org-workflow-habit-selection nil))
-                  item)
-              (org-workflow-habits-current-item))
+     ((cdr org-workflow-habit-selection)
+      (let ((item (seq-find
+                   (lambda (candidate)
+                     (equal (org-workflow-item-key candidate) (cdr org-workflow-habit-selection)))
+                   (org-workflow-habits-items (org-workflow-target--today-string)))))
+        ;; A missing source needs a new choice, rather than falling through to
+        ;; an unrelated reminder/task. A completed occurrence can return normally.
+        (if (and item (org-workflow-target-entry-done item))
+            (progn (setcdr org-workflow-habit-selection nil)
+                   (and ordinary (org-workflow-item-at-marker ordinary)))
+          item)))
+     (t (or (unless org-workflow-habit-selection (org-workflow-habits-current-item))
             (and ordinary (org-workflow-item-at-marker ordinary)))))))
 
 (defun org-workflow-item-supports-p (item action)
@@ -126,10 +142,11 @@ Titles may change freely, and reads never add persistent IDs."
 (defun org-workflow-item-require (&optional action)
   "Refresh and require the current item, checking optional ACTION support."
   (org-workflow-target-refresh t)
-  (when (and (markerp org-workflow-target-invalidated-selection)
-             (marker-buffer org-workflow-target-invalidated-selection))
-    (user-error "当前任务已变化，请重新选择"))
   (let ((item (or (org-workflow-current-item) (user-error "没有当前任务或习惯"))))
+    (when (and (eq (org-workflow-target-entry-kind item) 'task)
+               (markerp org-workflow-target-invalidated-selection)
+               (marker-buffer org-workflow-target-invalidated-selection))
+      (user-error "当前任务已变化，请重新选择"))
     (when (and action (not (org-workflow-item-supports-p item action)))
       (user-error "当前习惯不支持此任务规划操作"))
     item))
