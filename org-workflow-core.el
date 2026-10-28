@@ -308,13 +308,13 @@ A QA may outlive its completed ordinary task, but not a closed project/stage."
       (point))))
 
 (defun org-workflow-target--eligible-leaf-p (kind _date)
-  "Return non-nil when the current leaf belongs to KIND and is not held."
+  "Return non-nil when the current leaf belongs to an open KIND branch."
   (and kind
        (not (equal (org-entry-get nil "STYLE") "habit"))
        (not (and (fboundp 'org-workflow-projects-stage-p)
                  (org-workflow-projects-stage-p)))
        (>= (org-outline-level) 2)
-       (not (org-workflow--held-p))))
+       (not (org-workflow-target--execution-blocked-p))))
 
 (defun org-workflow--file-kind ()
   "Return the workflow kind declared by the current Org file."
@@ -610,7 +610,8 @@ REPLACEMENT is newly created by `org-workflow-target-step'."
     (org-workflow--set-local-tag "promise" t)))))
 
 (defun org-workflow--stage-progress (date &optional time)
-  "Return attempted-or-done and total leaf counts for DATE's stage at TIME."
+  "Return satisfied and total leaf counts for DATE's stage at TIME.
+Completion-floor dates count only DONE; older dates retain their policy."
   (let ((priorities
          (mapcar (lambda (priority)
                    (org-get-priority (format "[#%c]" priority)))
@@ -631,10 +632,13 @@ REPLACEMENT is newly created by `org-workflow-target-step'."
                                  priorities))
                   (when-let* ((outcome (org-workflow--outcome-on-date date)))
                     (cl-incf total)
-                    (when (or (memq outcome '(done attempted))
-                              (and (memq outcome '(ready held))
-                                   (not (and (fboundp 'org-workflow-history-attempt-enabled-p)
-                                             (org-workflow-history-attempt-enabled-p date)))))
+                    (when (if (and (fboundp 'org-workflow-history-completion-floor-p)
+                                   (org-workflow-history-completion-floor-p date))
+                              (eq outcome 'done)
+                            (or (memq outcome '(done attempted))
+                                (and (memq outcome '(ready held))
+                                     (not (and (fboundp 'org-workflow-history-attempt-enabled-p)
+                                               (org-workflow-history-attempt-enabled-p date))))))
                       (cl-incf satisfied)))))
               nil nil))))))
     (list :stageSatisfied satisfied :stageTotal total)))
@@ -815,6 +819,19 @@ REPLACEMENT is newly created by `org-workflow-target-step'."
 
 (defvar org-workflow-target-selected-date nil)
 
+(defvar org-workflow-target-selected-source nil
+  "Read-only source identity belonging to the manual selection marker.")
+
+(defvar org-workflow-target-invalidated-selection nil
+  "Invalidated source marker requiring the user to select a task again.")
+
+(defun org-workflow-target--source-current-p (marker source)
+  "Whether MARKER still refers to SOURCE, allowing legacy marker-only callers."
+  (and (markerp marker) (marker-buffer marker)
+       (if (and source (eq marker (org-workflow-target-entry-marker source)))
+           (org-workflow-item-source-live-p source)
+         (org-with-point-at marker (org-at-heading-p)))))
+
 (defvar org-workflow-target-selection-history nil)
 
 (defun org-workflow-target--entry-at-point ()
@@ -849,8 +866,8 @@ REPLACEMENT is newly created by `org-workflow-target-step'."
 
 (defun org-workflow-target--selected-entry ()
   "Return a fresh eligible manual target, clearing an expired selection."
-  (or (when (and (markerp org-workflow-target-selected-marker)
-                 (marker-buffer org-workflow-target-selected-marker)
+  (or (when (and (org-workflow-target--source-current-p
+                       org-workflow-target-selected-marker org-workflow-target-selected-source)
                  (equal org-workflow-target-selected-date (org-workflow-target--today-string)))
         (org-with-point-at org-workflow-target-selected-marker
           (when (and (org-at-heading-p)
@@ -862,7 +879,8 @@ REPLACEMENT is newly created by `org-workflow-target-step'."
                           (org-workflow-target--today-string))))
             (org-workflow-target--entry-at-point))))
       (progn (setq org-workflow-target-selected-marker nil
-                   org-workflow-target-selected-date nil)
+                   org-workflow-target-selected-date nil
+                   org-workflow-target-selected-source nil)
              nil)))
 
 (defun org-workflow-target-select ()
@@ -913,8 +931,11 @@ Stop the previous execution normally; never start a new clock."
     (user-error "任务已变化，请重新选择"))
   (let ((old-marker org-workflow-target-selected-marker)
         (old-date org-workflow-target-selected-date)
+        (old-source org-workflow-target-selected-source)
         (old-habit-selection org-workflow-habit-selection))
-    (setq org-workflow-target-selected-marker (copy-marker marker)
+    (setq org-workflow-target-selected-source (org-workflow-item-at-marker marker)
+          org-workflow-target-selected-marker
+          (org-workflow-target-entry-marker org-workflow-target-selected-source)
           org-workflow-target-selected-date (org-workflow-target--today-string))
     (condition-case err
         (progn
@@ -922,11 +943,15 @@ Stop the previous execution normally; never start a new clock."
             (user-error "任务已不在可选范围，请重新选择"))
           (org-workflow--release-execution)
           (setq org-workflow-habit-selection (cons (org-workflow-target--today-string) nil))
-          (setq org-workflow-executing-marker (copy-marker marker))
+          (setq org-workflow-executing-marker org-workflow-target-selected-marker
+                org-workflow-executing-source org-workflow-target-selected-source
+                org-workflow-executing-clock-start-time nil
+                org-workflow-target-invalidated-selection nil)
           (org-workflow-target-refresh t)
           (org-workflow--request-gnome-refresh))
       (error (setq org-workflow-target-selected-marker old-marker
                    org-workflow-target-selected-date old-date
+                   org-workflow-target-selected-source old-source
                    org-workflow-habit-selection old-habit-selection)
              (signal (car err) (cdr err))))
     (message "当前任务：%s" (org-with-point-at marker (org-workflow-target--entry-title)))))
@@ -1021,12 +1046,44 @@ Stop the previous execution normally; never start a new clock."
     (_ (org-workflow-clock--unsupported-clock))))
 
 (defun org-workflow-target--valid-entry-p (entry)
-  "Return non-nil when ENTRY has a live marker."
-  (let ((marker (org-workflow-target-entry-marker entry)))
-    (and (markerp marker) (marker-buffer marker))))
+  "Return non-nil when ENTRY still refers to its original source."
+  (org-workflow-item-source-live-p entry))
 
 (defvar org-workflow-executing-marker nil
   "Explicit execution target, independent of the recommendation queue.")
+
+(defvar org-workflow-executing-source nil
+  "Read-only source identity belonging to the explicit execution marker.")
+
+(defvar org-workflow-executing-clock-start-time nil
+  "Native clock start belonging to the captured execution source.")
+
+(defun org-workflow-target--save-execution-markers (beg end)
+  "Preserve explicit source identities between BEG and END during moves.
+Org's cut/paste support only registers its own clock and Agenda markers.
+Register these few session markers at the same boundary, so a real move
+keeps the source identity while deletion alone still invalidates it."
+  (dolist (source (list org-workflow-target-selected-source
+                        org-workflow-executing-source))
+    (when source
+      (dolist (marker (list (org-workflow-target-entry-marker source)
+                           (org-workflow-target-entry-source-end source)))
+        (when (markerp marker)
+          (org-check-and-save-marker marker beg end))))))
+
+(defun org-workflow-target--validate-execution ()
+  "Release execution when its source disappeared or its branch closed."
+  (when (and org-workflow-executing-source
+             (eq org-workflow-executing-marker
+                 (org-workflow-target-entry-marker org-workflow-executing-source))
+             (not (and (org-workflow-target--source-current-p
+                        org-workflow-executing-marker org-workflow-executing-source)
+                       (org-with-point-at org-workflow-executing-marker
+                         (and (org-workflow-target--unfinished-leaf-p)
+                              (not (org-workflow-target--execution-blocked-p)))))))
+    (setq org-workflow-target-invalidated-selection
+          (copy-marker org-workflow-executing-marker))
+    (org-workflow--release-execution)))
 
 (defun org-workflow-target--ordinary-marker ()
   "Return the execution target, or the first recommendation when idle."
@@ -1054,17 +1111,30 @@ Stop the previous execution normally; never start a new clock."
       (copy-marker (org-workflow-target-entry-marker entry)))))
 
 (defun org-workflow--release-execution (&rest _)
-  "End an explicit execution selection, stopping its clock if necessary."
+  "End explicit execution, stopping its matching clock if necessary."
   (when org-workflow-executing-marker
-    (when (and (org-workflow-clock--clock-active-p)
-               (org-workflow-clock--clock-matches-p org-workflow-executing-marker))
-      (org-workflow-clock--clock-stop))
-    (setq org-workflow-executing-marker nil)))
+    (let ((source-gone (and org-workflow-executing-source
+                            (eq org-workflow-executing-marker
+                                (org-workflow-target-entry-marker org-workflow-executing-source))
+                            (not (org-workflow-item-source-live-p org-workflow-executing-source)))))
+      (when (and (org-workflow-clock--clock-active-p)
+                 (or (org-workflow-clock--clock-matches-p org-workflow-executing-marker)
+                     (and source-gone org-workflow-executing-clock-start-time
+                          (org-clocking-p)
+                          (equal org-workflow-executing-clock-start-time org-clock-start-time))))
+        ;; A deleted subtree also deleted its CLOCK start.  Native cancel can
+        ;; retire that interval; clock-out cannot close a nonexistent line.
+        (if source-gone (org-workflow-clock--clock-cancel)
+          (org-workflow-clock--clock-stop))))
+    (setq org-workflow-executing-marker nil
+          org-workflow-executing-source nil
+          org-workflow-executing-clock-start-time nil)))
 
 (defun org-workflow-target-refresh (&optional signal-errors)
   "Refresh the target stack, propagating errors when SIGNAL-ERRORS is non-nil."
   ;; Only source scans bypass the parser cache.  File visits and notification
   ;; hooks must retain Org's change tracking when they modify source buffers.
+  (org-workflow-target--validate-execution)
   (let ((old-stack org-workflow-target-stack)
         (old-current (org-workflow-target-current-marker))
         (was-nonempty (seq-some #'org-workflow-target--valid-entry-p
@@ -1131,13 +1201,7 @@ Stop the previous execution normally; never start a new clock."
 
 (defun org-workflow-target--require-current (&optional action)
   "Refresh and require the current source, checking optional ACTION support."
-  (org-workflow-target-refresh t)
-  (let ((marker (or (org-workflow-target-current-marker)
-                    (user-error "没有当前任务或习惯"))))
-    (when (and action (not (org-workflow-item-supports-p
-                           (org-workflow-item-at-marker marker) action)))
-      (user-error "当前习惯不支持此任务规划操作"))
-    marker))
+  (org-workflow-target-entry-marker (org-workflow-item-require action)))
 
 (defun org-workflow-target--clock-matches-p (marker)
   "Return non-nil when the selected clock backend belongs to MARKER."
@@ -1166,7 +1230,11 @@ active Focus and break phases need no Workflow target."
     (org-workflow-focus-timer-toggle marker)
     (when (and marker (eq (org-workflow-target-entry-kind
                           (org-workflow-item-at-marker marker)) 'task))
-      (setq org-workflow-executing-marker (copy-marker marker)))
+      (setq org-workflow-executing-source (org-workflow-item-at-marker marker)
+            org-workflow-executing-marker
+            (org-workflow-target-entry-marker org-workflow-executing-source)
+            org-workflow-executing-clock-start-time (copy-tree org-clock-start-time)
+            org-workflow-target-invalidated-selection nil))
     (org-workflow-target-refresh t)))
 
 (defun org-workflow-target-complete ()
@@ -1588,6 +1656,8 @@ Leave the default buffer alone when there is no current target."
           #'org-workflow--after-todo-state-change)
   (org-workflow--add-hook 'org-workflow-current-changed-hook
           #'org-workflow--request-gnome-refresh)
+  (org-workflow--advice-add 'org-save-markers-in-region :after
+                            #'org-workflow-target--save-execution-markers)
   (org-workflow--advice-add 'org-priority :after #'org-workflow-target--refresh-after-change)
   (org-workflow--advice-add 'org-schedule :after #'org-workflow--after-schedule)
   (org-workflow--add-hook 'org-mode-hook #'org-workflow--org-buffer-setup)

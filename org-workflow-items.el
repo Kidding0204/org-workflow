@@ -34,11 +34,14 @@
 (declare-function org-workflow-journal-direct-clock-minutes "org-workflow-journal" (marker start end))
 (defvar org-workflow-focus-timer-task-marker)
 (defvar org-workflow-executing-marker)
+(defvar org-workflow-executing-source)
+(defvar org-workflow-executing-clock-start-time)
+(defvar org-workflow-target-invalidated-selection)
 
 (cl-defstruct (org-workflow-target-entry
                (:constructor org-workflow-target-entry-create))
   marker group-marker priority scheduled-date scheduled-minute title group-title
-  file outline-position (kind 'task) id occurrence-date habit-position reminder-time done)
+  file outline-position source-end (kind 'task) id occurrence-date habit-position reminder-time done)
 
 (defun org-workflow-item-at-marker (marker &optional date)
   "Read MARKER as a task or habit item, with habit occurrence DATE.
@@ -51,7 +54,8 @@ Reuse the native Org cache without changing text or creating IDs."
            (parent (org-workflow-target--direct-parent-marker))
            (scheduled (org-entry-get nil "SCHEDULED")))
       (org-workflow-target-entry-create
-       :marker (copy-marker (point)) :group-marker parent
+       :marker (copy-marker (point) t) :source-end (copy-marker (1+ (point)))
+       :group-marker parent
        :kind (if habit 'habit 'task) :id (org-entry-get nil "ID")
        :occurrence-date (and habit (or date (org-workflow-target--today-string)))
        :priority (org-workflow--effective-priority-at-point)
@@ -61,11 +65,28 @@ Reuse the native Org cache without changing text or creating IDs."
        :group-title (when parent (org-with-point-at parent (org-get-heading t t t t)))
        :file (buffer-file-name) :outline-position (point)))))
 
+(defun org-workflow-item-source-live-p (item)
+  "Whether ITEM still points at its original source heading.
+Two native markers surround the original first star.  Removing that star
+collapses the range; insertion at the same location cannot resurrect it.
+Titles may change freely, and reads never add persistent IDs."
+  (let ((start (org-workflow-target-entry-marker item))
+        (end (org-workflow-target-entry-source-end item)))
+    (and (markerp start) (marker-buffer start)
+         (or (null end)
+             (and (eq (marker-buffer start) (marker-buffer end))
+                  (= (1+ (marker-position start)) (marker-position end))))
+         (org-with-point-at start
+           (and (org-at-heading-p)
+                (or (null (org-workflow-target-entry-id item))
+                    (equal (org-workflow-target-entry-id item)
+                           (org-entry-get nil "ID"))))))))
+
 (defun org-workflow-item-key (item)
-  "Return ITEM's source ID or a stable presentation-only source key."
+  "Return ITEM's source ID or a read-only file/position key for this scan."
   (or (org-workflow-target-entry-id item)
       (secure-hash 'sha256 (format "%s:%s" (org-workflow-target-entry-file item)
-                                   (org-workflow-target-entry-title item)))))
+                                   (org-workflow-target-entry-outline-position item)))))
 
 (defun org-workflow-current-item ()
   "Return the one current item shared by UI, commands and source navigation."
@@ -105,6 +126,9 @@ Reuse the native Org cache without changing text or creating IDs."
 (defun org-workflow-item-require (&optional action)
   "Refresh and require the current item, checking optional ACTION support."
   (org-workflow-target-refresh t)
+  (when (and (markerp org-workflow-target-invalidated-selection)
+             (marker-buffer org-workflow-target-invalidated-selection))
+    (user-error "当前任务已变化，请重新选择"))
   (let ((item (or (org-workflow-current-item) (user-error "没有当前任务或习惯"))))
     (when (and action (not (org-workflow-item-supports-p item action)))
       (user-error "当前习惯不支持此任务规划操作"))
@@ -122,16 +146,23 @@ Reuse the native Org cache without changing text or creating IDs."
 
 (defun org-workflow-item-start (item)
   "Start the shared clock backend on ITEM without replacing an active clock."
+  (unless (org-workflow-item-source-live-p item)
+    (user-error "当前项源标题已变化，请重新选择"))
   (let ((marker (org-workflow-target-entry-marker item)))
     (when (or (org-clocking-p) (org-workflow-focus-timer-active-p))
       (user-error "请先结束当前计时"))
     (org-workflow-clock--clock-start marker)
     (when (eq (org-workflow-target-entry-kind item) 'task)
-      (setq org-workflow-executing-marker (copy-marker marker)))
+      (setq org-workflow-executing-marker marker
+            org-workflow-executing-source item
+            org-workflow-executing-clock-start-time (copy-tree org-clock-start-time)
+            org-workflow-target-invalidated-selection nil))
     (org-workflow-item-changed)))
 
 (defun org-workflow-item-complete (item)
   "Complete ITEM, recording only this occurrence for a repeated habit."
+  (unless (org-workflow-item-source-live-p item)
+    (user-error "当前项源标题已变化，请重新选择"))
   (let ((marker (org-workflow-target-entry-marker item))
         (habit (eq (org-workflow-target-entry-kind item) 'habit)))
     (when habit

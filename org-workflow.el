@@ -113,6 +113,15 @@
 (defun org-workflow--cancel-background-work ()
   "Cancel package timers without changing an existing Org clock record."
   (org-workflow-focus-timer--clear-state)
+  ;; Selection identities belong to this enabled session, not a future one.
+  ;; Standard Org Clock itself remains under native Org ownership.
+  (setq org-workflow-target-selected-source nil
+        org-workflow-target-selected-marker nil
+        org-workflow-target-selected-date nil
+        org-workflow-executing-source nil
+        org-workflow-executing-marker nil
+        org-workflow-executing-clock-start-time nil
+        org-workflow-target-invalidated-selection nil)
   (org-workflow-panel-invalidate)
   (setq org-workflow-panel--cache nil)
   (dolist (entry org-workflow-panel--habit-markers)
