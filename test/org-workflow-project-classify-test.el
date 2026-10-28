@@ -9,7 +9,8 @@
   `(org-workflow-store-test
     (let* ((org-workflow-projects-file file)
            (target-file (expand-file-name "area.org" directory))
-           (org-id-locations nil) (org-id-track-globally nil)
+           (org-id-locations (make-hash-table :test #'equal)) (org-id-track-globally t)
+           (org-id-files nil) (org-id-locations-file (expand-file-name "ids" directory))
            (org-workflow-agenda--workbench (org-workflow-agenda-workbench-create :settings (make-hash-table :test #'eq))))
       (with-temp-file file (insert "* Inbox\n** TODO First :QA:topic:\nSCHEDULED: <2026-09-18 Fri>\n:PROPERTIES:\n:ID: item-one\n:CAPTURED_ON: [2026-09-16 Wed 10:00]\n:END:\nBody [[id:reference]]\n:LOGBOOK:\nCLOCK: [2026-09-15 Tue 10:00]--[2026-09-15 Tue 10:20] => 0:20\n:END:\n*** Notes\nDetail\n** TODO Second\n:PROPERTIES:\n:ID: item-two\n:END:\n"))
       (with-current-buffer (get-file-buffer file) (revert-buffer t t))
@@ -186,3 +187,90 @@
          (org-workflow-focus-timer-phase 'short-break)
          (org-workflow-focus-timer-task-marker (copy-marker one)))
      (should-error (org-workflow-project-classify (list one) (list :kind 'project :marker target)) :type 'user-error))))
+
+(ert-deftest workflow-classify-review-undo-rollback-id-location ()
+  (workflow-classify-fixture
+   (let* ((org-id-track-globally t)
+          (org-id-locations (make-hash-table :test #'equal))
+          (record (org-workflow-project-classify (list one) (list :kind 'project :marker target)))
+          (execute (symbol-function 'sqlite-execute)))
+     (should (equal target-file (gethash "item-one" org-id-locations)))
+     (cl-letf (((symbol-function 'sqlite-execute)
+                (lambda (db sql &rest args)
+                  (if (equal sql "COMMIT") (error "review commit failure")
+                    (apply execute db sql args)))))
+       (should-error (org-workflow-project-classify-undo record)))
+     (should (equal (plist-get record :after) (org-workflow-project-classify--snapshot (list file target-file))))
+     (should (equal target-file (gethash "item-one" org-id-locations))))))
+
+(ert-deftest workflow-classify-review-forward-rollback-selected-marker ()
+  (workflow-classify-fixture
+   (let ((org-workflow-target-selected-marker (copy-marker two))
+         (execute (symbol-function 'sqlite-execute)))
+     (cl-letf (((symbol-function 'sqlite-execute)
+                (lambda (db sql &rest args)
+                  (if (equal sql "COMMIT") (error "review commit failure")
+                    (apply execute db sql args)))))
+       (should-error (org-workflow-project-classify (list two) (list :kind 'project :marker target))))
+     (should (equal "item-two" (org-with-point-at org-workflow-target-selected-marker (org-entry-get nil "ID"))))
+     (should (eq (marker-buffer org-workflow-target-selected-marker) (marker-buffer two))))))
+
+(ert-deftest workflow-classify-review-pending-native-refile ()
+  (workflow-classify-fixture
+   (let ((record (cl-letf (((symbol-function 'save-buffer) (lambda (&rest _) (error "disk full"))))
+                   (org-workflow-project-classify (list one) (list :kind 'project :marker target)))))
+     (with-temp-buffer
+       (org-agenda-mode)
+       (setq-local org-workflow-agenda--sprint-buffer-p t)
+       (setq-local org-workflow-agenda--workbench
+                   (org-workflow-agenda-workbench-create :settings (make-hash-table :test #'eq)))
+       (org-workflow-agenda--set-setting 'org-workflow-agenda-last-operation record)
+       (let ((inhibit-read-only t))
+         (insert (propertize "Second\n" 'org-hd-marker two 'org-marker two 'org-agenda-type 'todo)))
+       (goto-char (point-min))
+       (cl-letf (((symbol-function 'org-refile) (lambda (&rest _) (error "REACHED UNGUARDED SOURCE WRITE"))))
+         (should-error (org-agenda-refile nil (list "Group" target-file nil 1)) :type 'user-error))))))
+
+(ert-deftest workflow-classify-review-classify-ignores-source-active-region ()
+  (workflow-classify-fixture
+   (with-current-buffer (marker-buffer one)
+     (goto-char one) (push-mark (point-max) t t))
+   (let ((transient-mark-mode t))
+     (org-workflow-project-classify (list one) (list :kind 'project :marker target)))
+   (with-current-buffer (marker-buffer two)
+     (should (string-match-p "TODO Second" (buffer-string))))))
+
+(ert-deftest workflow-classify-review-classify-always-appends-in-order ()
+  (workflow-classify-fixture
+   (let ((org-reverse-note-order t))
+     (org-workflow-project-classify (list one two) (list :kind 'project :marker target)))
+   (with-current-buffer (marker-buffer target)
+     (should (< (string-match "First" (buffer-string)) (string-match "Second" (buffer-string)))))))
+
+(ert-deftest workflow-classify-review-pending-clock-and-legacy-inbox-writes ()
+  (workflow-classify-fixture
+   (let ((record (cl-letf (((symbol-function 'save-buffer) (lambda (&rest _) (error "disk full"))))
+                   (org-workflow-project-classify (list one) (list :kind 'project :marker target)))))
+     (with-temp-buffer
+       (org-agenda-mode)
+       (setq-local org-workflow-agenda--sprint-buffer-p t
+                   org-workflow-agenda--workbench
+                   (org-workflow-agenda-workbench-create :settings (make-hash-table :test #'eq)))
+       (org-workflow-agenda--set-setting 'org-workflow-agenda-last-operation record)
+       (let ((inhibit-read-only t))
+         (insert (propertize "Second\n" 'org-hd-marker two 'org-marker two
+                             'org-workflow-agenda-inbox-entry t 'org-agenda-type 'todo)))
+       (goto-char (point-min))
+       (should-error (org-agenda-clock-in nil) :type 'user-error)
+       (should-error (org-workflow-inbox-state-done) :type 'user-error)
+       (should-error (org-workflow-inbox-classify-project) :type 'user-error)))))
+
+(ert-deftest workflow-classify-review-undo-resolves-selected-identity ()
+  (workflow-classify-fixture
+   (let ((org-workflow-target-selected-marker (copy-marker two)))
+     (cl-letf (((symbol-function 'org-workflow-target-refresh) #'ignore))
+       (let ((record (org-workflow-project-classify (list two) (list :kind 'project :marker target))))
+         (should (equal target-file (buffer-file-name (marker-buffer org-workflow-target-selected-marker))))
+         (org-workflow-project-classify-undo record)
+         (should (equal file (buffer-file-name (marker-buffer org-workflow-target-selected-marker))))
+         (should (equal "item-two" (org-with-point-at org-workflow-target-selected-marker (org-entry-get nil "ID")))))))))

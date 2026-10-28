@@ -51,6 +51,8 @@
 
 (defun org-workflow-agenda--refile-to-agenda-files (original &rest args)
   "Call ORIGINAL with ARGS using unfinished Agenda headings as refile targets."
+  (when (bound-and-true-p org-workflow-agenda--sprint-buffer-p)
+    (org-workflow-agenda-ensure-writeable))
   (let* ((verify org-refile-target-verify-function)
          (org-refile-target-verify-function
           (lambda () (and (not (org-entry-is-done-p))
@@ -484,6 +486,7 @@ Inherited tags remain owned by their parent headings or file."
             #'org-workflow-agenda--refresh-failed-plan '((depth . -100)))
   (org-workflow--advice-add 'org-agenda-change-all-lines :around #'org-workflow-agenda--track-native-edit)
   (dolist (command '(org-agenda-todo org-agenda-priority org-agenda-set-tags
+                     org-agenda-clock-in org-agenda-clock-out org-agenda-clock-cancel
                      org-agenda-schedule org-agenda-deadline
                      org-agenda-set-effort org-agenda-set-property))
     (org-workflow--advice-add command :around #'org-workflow-agenda--track-native-command)))

@@ -121,6 +121,34 @@
        (unless (equal (buffer-substring-no-properties (point-min) (point-max)) (cadr image))
          (replace-region-contents (point-min) (point-max) (lambda () (cadr image))))))))
 
+(defun org-workflow-project-classify--selection ()
+  "Read a manual target location without assigning or changing its identity."
+  (when (and (markerp org-workflow-target-selected-marker)
+             (marker-buffer org-workflow-target-selected-marker))
+    (org-with-point-at org-workflow-target-selected-marker
+      (when (org-at-heading-p)
+        (list :file (file-truename buffer-file-name) :pos (point)
+              :id (org-entry-get nil "ID") :title (org-get-heading t t t t))))))
+
+(defun org-workflow-project-classify--select (selection files)
+  "Resolve SELECTION after relocation in FILES; never reuse a deleted marker."
+  (when selection
+    (let ((id (plist-get selection :id)) found)
+      (dolist (file (delete-dups (append files (list (plist-get selection :file)))))
+        (when (and (not found) (file-readable-p file))
+          (with-current-buffer (org-workflow-project-classify--buffer file)
+            (org-with-wide-buffer
+             (if id
+                 (org-map-entries (lambda ()
+                                    (when (equal id (org-entry-get nil "ID"))
+                                      (setq found (point-marker)))) nil 'file)
+               (when (equal file (plist-get selection :file))
+                 (goto-char (min (point-max) (plist-get selection :pos)))
+                 (when (and (org-at-heading-p)
+                            (equal (plist-get selection :title) (org-get-heading t t t t)))
+                   (setq found (point-marker)))))))))
+      (setq org-workflow-target-selected-marker found))))
+
 (defun org-workflow-project-classify--register (record)
   "Remember an applied RECORD before any fallible post-commit action."
   (org-workflow-agenda--set-setting 'org-workflow-agenda-last-operation record))
@@ -162,9 +190,8 @@
          (undo-lists (mapcar (lambda (f) (with-current-buffer (org-workflow-project-classify--buffer f)
                                          (cons f buffer-undo-list))) files))
          (owner (current-buffer))
-         (selected-id (when (and (markerp org-workflow-target-selected-marker)
-                                 (marker-buffer org-workflow-target-selected-marker))
-                        (org-with-point-at org-workflow-target-selected-marker (org-entry-get nil "ID"))))
+         (selection-before (org-workflow-project-classify--selection))
+         (selected-id (plist-get selection-before :id))
          inserted record applied allocated-ids)
     (org-workflow-project-classify--clean files)
     (mapc #'org-workflow-project-classify--source-p markers)
@@ -181,6 +208,8 @@
                                 :database org-workflow-store-file :files files :before before
                                 :after (org-workflow-project-classify--snapshot files)
                                 :identities identities :markers inserted :project project
+                                :selection-before selection-before
+                                :selection-after (org-workflow-project-classify--selection)
                                 :save-order (delete-dups (cons destination-file sources))
                                 :save-state 'pending :error nil))
              (with-current-buffer owner (org-workflow-project-classify--register record)))))
@@ -190,22 +219,33 @@
              (let* ((group (if (eq (plist-get target :kind) 'heading) destination
                              (org-workflow-project-classify--ungrouped project t)))
                     (org-refile-keep nil) (org-refile-use-cache nil)
+                    (org-reverse-note-order nil)
                     (org-log-refile nil)
                     (org-after-refile-insert-hook
                      (cons (lambda () (push (point-marker) inserted)) org-after-refile-insert-hook)))
+               ;; A retained source region must never broaden the validated batch.
+               (when (and selection-before (not selected-id)
+                          (seq-some (lambda (m)
+                                      (org-with-point-at m
+                                        (and (equal (file-truename buffer-file-name) (plist-get selection-before :file))
+                                             (<= (point) (plist-get selection-before :pos))
+                                             (< (plist-get selection-before :pos)
+                                                (save-excursion (org-end-of-subtree t t)))))) markers))
+                 (org-with-point-at org-workflow-target-selected-marker
+                   (setq selected-id (org-id-get-create)) (push selected-id allocated-ids)))
                (dolist (marker markers)
                  (org-with-point-at marker
-                   (unless (org-entry-get nil "ID")
-                     (push (org-id-get-create) allocated-ids))
-                   (org-refile nil nil
-                               (org-with-point-at group
-                                 (list (org-get-heading t t t t) buffer-file-name nil (point))))))
+                   (let ((mark-active nil))
+                     (unless (org-entry-get nil "ID")
+                       (push (org-id-get-create) allocated-ids))
+                     (org-refile nil nil
+                                 (org-with-point-at group
+                                   (list (org-get-heading t t t t) buffer-file-name nil (point)))))))
                (setq inserted (nreverse inserted))
                (org-workflow-project-classify--index files identities)
-               (when selected-id
-                 (when-let* ((new (seq-find (lambda (m) (org-with-point-at m
-                                                       (equal selected-id (org-entry-get nil "ID")))) inserted)))
-                   (setq org-workflow-target-selected-marker (copy-marker new)))))))
+               (when selection-before
+                 (org-workflow-project-classify--select
+                  (plist-put (copy-sequence selection-before) :id selected-id) files)))))
         ((error quit)
          (if applied
              (setf (plist-get record :error) (error-message-string err))
@@ -214,6 +254,7 @@
              (with-current-buffer (org-workflow-project-classify--buffer (car row))
                (setq buffer-undo-list (cdr row)) (set-buffer-modified-p nil)))
            (org-workflow-project-classify--index files identities)
+           (org-workflow-project-classify--select selection-before files)
            (when (hash-table-p org-id-locations)
              (dolist (id allocated-ids) (remhash id org-id-locations)))
            (signal (car err) (cdr err))))))
@@ -236,6 +277,11 @@
       (org-workflow-project-classify-save record)
     (let* ((files (plist-get record :files))
            (identities (org-workflow-project-classify--identities files))
+           (selection (org-workflow-project-classify--selection))
+           (restore-selection (if (and selection
+                                      (equal (plist-get selection :id)
+                                             (plist-get (plist-get record :selection-after) :id)))
+                                  (plist-get record :selection-before) selection))
            (order (plist-get record :save-order))
            (owner (current-buffer))
            (reverse (list :kind 'classify :undoing t :files files
@@ -251,10 +297,14 @@
           (org-workflow-store--operation
            (lambda ()
              (org-workflow-project-classify--restore (plist-get record :before))
-             (org-workflow-project-classify--index files identities)))
-        (error
+             (org-workflow-project-classify--index files identities)
+             (org-workflow-project-classify--select restore-selection files)))
+        ((error quit)
          (if (eq (org-workflow-agenda--setting 'org-workflow-agenda-last-operation) reverse)
              (setf (plist-get reverse :error) (error-message-string err))
+           (org-workflow-project-classify--restore (plist-get record :after))
+           (org-workflow-project-classify--index files identities)
+           (org-workflow-project-classify--select selection files)
            (signal (car err) (cdr err)))))
       (setq committed (eq (org-workflow-agenda--setting 'org-workflow-agenda-last-operation) reverse))
       (when committed (org-workflow-project-classify-save reverse))

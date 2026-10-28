@@ -1,6 +1,6 @@
 # Sprint 项目管理实施方案
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** 把已确认的项目管理 UI 整合进 Sprint，支持 Inbox 拖动归类、安全单步撤销和旧项目入口统一。
 
@@ -61,11 +61,11 @@
 - 项目行带原生 marker 与现有 `org-workflow-agenda-project-role`；新归类目标属性
   `org-workflow-agenda-classify-target` 为 `(:kind project|heading :marker MARKER)`。
 
-- [ ] 写 `workflow-project-view-tabs-share-workbench-not-date`：切页不换实例、不改变项目执行日，日期安排命令在项目行不可误用。
-- [ ] 写 `workflow-project-tree-includes-plain-headings-and-qa`：普通二级标题可见；QA 保留标签且进度排除；DONE/HOLD 可展开；0/0 隐藏。
-- [ ] 写 `workflow-project-inbox-includes-old-and-scheduled-items`：旧／已安排 TODO 与 QA 可归类，普通想法及 DONE 排除。
-- [ ] 运行新测试确认失败，再实现 view 状态、角色分派、统一采集和折叠；显示不写源文件／数据库。
-- [ ] 验证各视图光标／滚动独立、另一工作台不受影响、现有今日／明日渲染测试通过；提交本单元。
+- [x] 写 `workflow-project-view-tabs-share-workbench-not-date`：切页不换实例、不改变项目执行日，日期安排命令在项目行不可误用。
+- [x] 写 `workflow-project-tree-includes-plain-headings-and-qa`：普通二级标题可见；QA 保留标签且进度排除；DONE/HOLD 可展开；0/0 隐藏。
+- [x] 写 `workflow-project-inbox-includes-old-and-scheduled-items`：旧／已安排 TODO 与 QA 可归类，普通想法及 DONE 排除。
+- [x] 运行新测试确认失败，再实现 view 状态、角色分派、统一采集和折叠；显示不写源文件／数据库。
+- [x] 验证各视图光标／滚动独立、另一工作台不受影响、现有今日／明日渲染测试通过；提交本单元。
 
 ### Task 2：可恢复的批量归类
 
@@ -77,12 +77,12 @@
 - store 提供动态局部 `org-workflow-store--after-commit-function`（无参函数，默认 nil），仅在 SQLite 提交并接受源变更后、checkpoint／刷新之前调用；归类在此登记 pending record，不新增全局启用的 hook/advice。
 - record 包含 `:kind classify :date :database :before :after :created-heading :identities :save-state`；before/after 是参与文件的源文本和必要文件版本信息。
 
-- [ ] 写 `workflow-classify-project-creates-or-reuses-only-direct-ungrouped`：首次建立 `** 未分组`，再次复用；其他项目同名不干扰；直属重名拒绝。
-- [ ] 写 `workflow-classify-batch-preserves-subtrees-and-source-order`：两项含 QA、主题、ID、显式安排、LOGBOOK 和后代，同文件／跨文件均成为三级根、相对层级保留、无重复。
-- [ ] 写 `workflow-classify-preflight-rejects-entire-invalid-batch`：过期来源、只读、原有未保存编辑、外部文件修改、DONE 目标、活动 clock、外部拖入都零修改；HOLD 可接收但不启动。
-- [ ] 写 `workflow-classify-failure-rolls-back-batch` 和 `workflow-classify-save-failure-keeps-recovery`：第二项失败不留下首项／分组；提交后目标保存失败不能先持久化源删除；U 指向本次归类而不是较早安排，待保存可重试保存或撤销，重复拖入不再移动；重读恢复事实无丢失、不重放；注入提交后 checkpoint 异常也必须保留本次 pending record。
-- [ ] 运行确认缺失功能的失败，再用原生 refile + 既有 operation 实现；批次内抑制原 refile 自动保存，提交后仅保存参与文件；必要时以源文本快照补足 native undo-list 调整下的异常回滚。
-- [ ] 验证 ID 查找落在新文件、计时／当日固定承诺／历史记录不因归类变更；跑相关 store/refile 回归并提交。
+- [x] 写 `workflow-classify-project-creates-or-reuses-only-direct-ungrouped`：首次建立 `** 未分组`，再次复用；其他项目同名不干扰；直属重名拒绝。
+- [x] 写 `workflow-classify-batch-preserves-subtrees-and-source-order`：两项含 QA、主题、ID、显式安排、LOGBOOK 和后代，同文件／跨文件均成为三级根、相对层级保留、无重复。
+- [x] 写 `workflow-classify-preflight-rejects-entire-invalid-batch`：过期来源、只读、原有未保存编辑、外部文件修改、DONE 目标、活动 clock、外部拖入都零修改；HOLD 可接收但不启动。
+- [x] 写 `workflow-classify-failure-rolls-back-batch` 和 `workflow-classify-save-failure-keeps-recovery`：第二项失败不留下首项／分组；提交后目标保存失败不能先持久化源删除；U 指向本次归类而不是较早安排，待保存可重试保存或撤销，重复拖入不再移动；重读恢复事实无丢失、不重放；注入提交后 checkpoint 异常也必须保留本次 pending record。
+- [x] 运行确认缺失功能的失败，再用原生 refile + 既有 operation 实现；批次内抑制原 refile 自动保存，提交后仅保存参与文件；必要时以源文本快照补足 native undo-list 调整下的异常回滚。
+- [x] 验证 ID 查找落在新文件、计时／当日固定承诺／历史记录不因归类变更；跑相关 store/refile 回归并提交。
 
 ### Task 3：共享的单步撤销
 
@@ -93,12 +93,12 @@
 - `org-workflow-agenda-undo-last-operation ()` 为 U 的唯一分派；旧 undo-plan 命令作为兼容入口。
 - 现有安排 before/after/facts/events 校验继续使用；新增 `org-workflow-agenda-invalidate-last-operation (reason)` 清除记录并保留提示原因，供状态／开始日期／Area 操作在提交后调用。
 
-- [ ] 写 `workflow-classify-undo-restores-order-and-created-heading`：同／跨文件批次完整还原；只删除本次新建分组；旧分组保留；ID 定位正确。
-- [ ] 写 `workflow-classify-undo-rejects-post-edit-or-date-change`：参与文件后续编辑／clock／数据库或日期改变拒绝；另一个文件编辑和相同文本的保存不受影响。
-- [ ] 写 `workflow-sprint-undo-dispatches-only-most-recent-success`：归类后安排，U 只撤销安排；提交前失败、取消、刷新与折叠不覆盖记录；已提交待保存归类则替换记录；另一个工作台独立。
-- [ ] 写 `workflow-project-mutations-invalidate-older-undo`：归类后分别改项目状态、改开始日期、暂停／恢复 Area，U 都提示失效而不撤早前归类；失败状态变更不清除旧记录；原暂停所有权与责任处理行为不被新撤销代码改写。
-- [ ] 运行失败测试，再实现统一记录入口、分派和失效提示，不做状态补偿或通用多级撤销框架，不整体还原数据库。
-- [ ] 跑现有安排撤销、项目暂停／恢复和新增测试，通过后提交。
+- [x] 写 `workflow-classify-undo-restores-order-and-created-heading`：同／跨文件批次完整还原；只删除本次新建分组；旧分组保留；ID 定位正确。
+- [x] 写 `workflow-classify-undo-rejects-post-edit-or-date-change`：参与文件后续编辑／clock／数据库或日期改变拒绝；另一个文件编辑和相同文本的保存不受影响。
+- [x] 写 `workflow-sprint-undo-dispatches-only-most-recent-success`：归类后安排，U 只撤销安排；提交前失败、取消、刷新与折叠不覆盖记录；已提交待保存归类则替换记录；另一个工作台独立。
+- [x] 写 `workflow-project-mutations-invalidate-older-undo`：归类后分别改项目状态、改开始日期、暂停／恢复 Area，U 都提示失效而不撤早前归类；失败状态变更不清除旧记录；原暂停所有权与责任处理行为不被新撤销代码改写。
+- [x] 运行失败测试，再实现统一记录入口、分派和失效提示，不做状态补偿或通用多级撤销框架，不整体还原数据库。
+- [x] 跑现有安排撤销、项目暂停／恢复和新增测试，通过后提交。
 
 ### Task 4：鼠标与键盘接入
 
@@ -108,11 +108,11 @@
 - 复用现有 `mouse--target`／`mouse--drop`，按 period 与 classify 目标分派，不复制拖动循环。
 - `org-workflow-agenda-classify-selected ()` 为键盘与菜单的同一归类命令，选项包含 Area／Project／Heading 完整路径。
 
-- [ ] 写 `workflow-mouse-classify-drops-on-project-and-heading`：跨 pane 项目目标、具体 Heading、折叠项目落点、两栏滚动与高亮使用正确 record。
-- [ ] 写 `workflow-mouse-classify-cancel-is-read-only`：阈值内单击、Esc、任务／Area／空白落点、其他工作台、批量父子重叠均不误移；选择保持既有含义。
-- [ ] 写 `workflow-project-keyboard-and-mouse-use-same-classifier`：批量行顺序、目标名称相同但位置不同不串目标，显式归类命令与拖动结果一致。
-- [ ] 先运行失败，再接入 Task 2 和 Task 3；接入“选择后点击目标名称”与箭头独立折叠，成功后展开目标并刷新两个 pane，保留其他视图位置。
-- [ ] 跑原拖到上午／下午／晚上和鼠标选择回归，检查 Evil 覆盖图实际绑定，提交。
+- [x] 写 `workflow-mouse-classify-drops-on-project-and-heading`：跨 pane 项目目标、具体 Heading、折叠项目落点、两栏滚动与高亮使用正确 record。
+- [x] 写 `workflow-mouse-classify-cancel-is-read-only`：阈值内单击、Esc、任务／Area／空白落点、其他工作台、批量父子重叠均不误移；选择保持既有含义。
+- [x] 写 `workflow-project-keyboard-and-mouse-use-same-classifier`：批量行顺序、目标名称相同但位置不同不串目标，显式归类命令与拖动结果一致。
+- [x] 先运行失败，再接入 Task 2 和 Task 3；接入“选择后点击目标名称”与箭头独立折叠，成功后展开目标并刷新两个 pane，保留其他视图位置。
+- [x] 跑原拖到上午／下午／晚上和鼠标选择回归，检查 Evil 覆盖图实际绑定，提交。
 
 ### Task 5：替换旧项目视图并验收
 
@@ -122,12 +122,12 @@
 - `org-workflow-project-view ()` 委托 `org-workflow-agenda-select-view 'projects`；没有 Sprint 时创建同一工作台。
 - 保留公开入口与原状态／开始日期／Area 暂停等能力，但仅有一套树与操作分派。
 
-- [ ] 写 `workflow-old-project-entry-reuses-sprint`：M-x／菜单 p／Sprint P 进入同一项目页，不新建旧特殊 buffer；关闭／返回沿用工作台生命周期。
-- [ ] 写 `workflow-daily-candidates-share-project-tree`：每日候选栏继续受自己的筛选控制，不影响完整项目页；普通 Heading 可见，日期命令与树角色不冲突。
-- [ ] 跑失败后替换旧入口／删除重复渲染和键图，保留 API 所需兼容包装；同步按键帮助及右键菜单。
-- [ ] 更新 project-workbench 和 CONTEXT：三级规则、未分组、U 单步及冲突限制、入口与维护文件。
-- [ ] 跑相关 ERT、修改模块编译、diff-check。临时图形示例验证拖动手感；真实会话只局部重载、读视图，不用真实任务演练写入。
-- [ ] 提交最后整合，报告各提交、验证与实际会话限制；不自行合并／推送。
+- [x] 写 `workflow-old-project-entry-reuses-sprint`：M-x／菜单 p／Sprint P 进入同一项目页，不新建旧特殊 buffer；关闭／返回沿用工作台生命周期。
+- [x] 写 `workflow-daily-candidates-share-project-tree`：每日候选栏继续受自己的筛选控制，不影响完整项目页；普通 Heading 可见，日期命令与树角色不冲突。
+- [x] 跑失败后替换旧入口／删除重复渲染和键图，保留 API 所需兼容包装；同步按键帮助及右键菜单。
+- [x] 更新 project-workbench 和 CONTEXT：三级规则、未分组、U 单步及冲突限制、入口与维护文件。
+- [x] 跑相关 ERT、修改模块编译、diff-check。临时图形示例验证拖动手感；真实会话只局部重载、读视图，不用真实任务演练写入。
+- [x] 提交最后整合，报告各提交、验证与实际会话限制；不自行合并／推送。
 
 ## 验证方式
 

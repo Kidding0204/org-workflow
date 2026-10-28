@@ -14,6 +14,8 @@
 ;;; Commentary:
 ;; A component of org-workflow.  Activation is coordinated by its global mode.
 ;;; Code:
+(declare-function org-workflow-agenda-ensure-writeable "org-workflow-agenda-plan-undo" ())
+
 (require 'org-workflow-lifecycle)
 
 (declare-function org-workflow-agenda--clear-selection "org-workflow-agenda-layout" ())
@@ -212,6 +214,8 @@ archive locations; save destinations before removing source entries on disk."
 
 (defun org-workflow-inbox--classification-marker ()
   "Resolve and validate the collection item in Org or its review."
+  (when (bound-and-true-p org-workflow-agenda--sprint-buffer-p)
+    (org-workflow-agenda-ensure-writeable))
   (if (or (derived-mode-p 'org-workflow-collection-review-mode)
           (and (derived-mode-p 'org-agenda-mode)
                (get-text-property (line-beginning-position) 'org-workflow-agenda-inbox-entry)))
@@ -487,6 +491,8 @@ before visiting any source."
 (defun org-workflow-collection-review-refile ()
   "Refile the original collection item, then refresh the review."
   (interactive)
+  (when (bound-and-true-p org-workflow-agenda--sprint-buffer-p)
+    (org-workflow-agenda-ensure-writeable))
   (let ((review (current-buffer))
         (marker (org-workflow-collection-review--marker)))
     (org-with-point-at marker
