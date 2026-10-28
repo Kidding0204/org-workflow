@@ -211,18 +211,21 @@ calendar gaps never count as verified continuity."
             ;; Pausing removes earlier arranged/anytime rows. Keep the edited
             ;; summary's source identity rather than its former line number.
             (when summary
-              (when-let* ((position
-                           (save-excursion
-                             (goto-char (point-min))
-                             (catch 'found
-                               (while (< (point) (point-max))
-                                 (when (and (org-get-at-bol 'org-workflow-agenda-project-summary)
-                                            (equal summary (org-get-at-bol 'org-hd-marker)))
-                                   (throw 'found (point)))
-                                 (forward-line 1))
-                               nil))))
-                (goto-char position)
-                (move-to-column column)))))
+              (let ((position
+                     (save-excursion
+                       (goto-char (point-min))
+                       (catch 'found
+                         (while (< (point) (point-max))
+                           (when (and (org-get-at-bol 'org-workflow-agenda-project-summary)
+                                      (equal summary (org-get-at-bol 'org-hd-marker)))
+                             (throw 'found (point)))
+                           (forward-line 1))
+                         nil))))
+                (if position
+                    (progn (goto-char position) (move-to-column column))
+                  (goto-char (or (text-property-any (point-min) (point-max)
+                                                    'org-workflow-agenda-project-summary-header t)
+                                 (point-min))))))))
       (when summary (set-marker summary nil)))))
 
 (defun org-workflow-agenda-project-start (&optional remove)
@@ -266,9 +269,30 @@ calendar gaps never count as verified continuity."
   (interactive)
   (org-agenda-show-1 3))
 
+(defun org-workflow-agenda-project-summary-expanded-p (project)
+  "Read PROJECT's summary-only fold choice, defaulting to collapsed."
+  (cdr (assoc (cons 'summary (org-workflow-agenda-project-key project))
+              (org-workflow-agenda--setting 'org-workflow-agenda-project-folds))))
+
+(defun org-workflow-agenda-project-summary-toggle ()
+  "Show or hide eligible stages under this summary project."
+  (interactive)
+  (unless (and (org-get-at-bol 'org-workflow-agenda-project-summary)
+               (eq (org-get-at-bol 'org-workflow-agenda-project-role) 'project))
+    (user-error "请选择项目摘要行"))
+  (let* ((project (org-get-at-bol 'workflow-project))
+         ;; Namespace the choice so the daily planning tree remains independent.
+         (key (cons 'summary (org-workflow-agenda-project-key project)))
+         (folds (org-workflow-agenda--setting 'org-workflow-agenda-project-folds)))
+    (setf (alist-get key folds nil nil #'equal)
+          (not (org-workflow-agenda-project-summary-expanded-p project)))
+    (org-workflow-agenda--set-setting 'org-workflow-agenda-project-folds folds)
+    (org-agenda-redo)))
+
 (defvar org-workflow-agenda-project-summary-map
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "t") #'org-workflow-agenda-project-state)
+    (define-key map (kbd "<backtab>") #'org-workflow-agenda-project-summary-toggle)
     (define-key map (kbd "TAB") #'org-workflow-agenda-project-summary-show)
     (define-key map (kbd "RET") #'org-agenda-switch-to)
     map)
@@ -280,7 +304,8 @@ calendar gaps never count as verified continuity."
          (state (plist-get item :state))
          (title (string-trim (replace-regexp-in-string
                              "\\[[0-9]*\\(?:/[0-9]*\\|%\\)\\]" "" (plist-get item :title))))
-         (name (concat (if (eq role 'stage) "  " "") title))
+         (expanded (and (eq role 'project) (org-workflow-agenda-project-summary-expanded-p item)))
+         (name (concat (if (eq role 'stage) "  " (if expanded "▾ " "▸ ")) title))
          (total (plist-get progress :total))
          (cookie (if (zerop total) "—" (format "[%d/%d]" (plist-get progress :done) total)))
          (width (max 10 (- (window-body-width) 10
@@ -306,14 +331,22 @@ calendar gaps never count as verified continuity."
                         'keymap org-workflow-agenda-project-summary-map
                         'face 'default 'mouse-face 'highlight 'follow-link t
                         'action (lambda (_) (org-workflow-agenda-project-state))))
+    (when (eq role 'project)
+      (make-text-button (+ start 7) (+ start 7 (length (truncate-string-to-width name width nil nil "…")))
+                        'keymap org-workflow-agenda-project-summary-map
+                        'face '(:inherit org-workflow-agenda-project-goal :underline nil)
+                        'mouse-face 'highlight 'follow-link t
+                        'action (lambda (_) (org-workflow-agenda-project-summary-toggle))))
     (org-workflow-agenda-projects--cookies start (point))))
 
 (defun org-workflow-agenda-project-summary ()
-  "Render all project and stage states/progress, without task details or writes."
+  "Render TODO/DIVE projects and manually expanded eligible stages."
   (let* ((items (org-workflow-projects-collect))
-         (projects (seq-filter (lambda (p) (equal (plist-get p :kind) "project")) items)))
+         (projects (seq-filter (lambda (p) (and (equal (plist-get p :kind) "project")
+                                                (member (plist-get p :state) '("DIVE" "TODO")))) items)))
     (when projects
-      (insert "\n" (org-workflow-agenda--section-header "项目"))
+      (insert "\n" (propertize (org-workflow-agenda--section-header "项目")
+                               'org-workflow-agenda-project-summary-header t))
       (dolist (area (seq-filter (lambda (p) (equal (plist-get p :kind) "goal")) items))
         (let ((children (seq-filter (lambda (p) (equal (plist-get p :goal-id) (plist-get area :id))) projects)))
           (when children
@@ -322,8 +355,10 @@ calendar gaps never count as verified continuity."
             (dolist (project children)
               (let ((progress (org-workflow-projects-progress project)))
                 (org-workflow-agenda-project-summary--line project 'project progress)
-                (dolist (stage (plist-get progress :stages))
-                  (org-workflow-agenda-project-summary--line stage 'stage stage))))))))))
+                (when (org-workflow-agenda-project-summary-expanded-p project)
+                  (dolist (stage (plist-get progress :stages))
+                    (when (member (plist-get stage :state) '("DIVE" "TODO"))
+                      (org-workflow-agenda-project-summary--line stage 'stage stage))))))))))))
 
 (autoload 'org-workflow-project-classify "org-workflow-project-classify")
 (autoload 'org-workflow-project-classify-save "org-workflow-project-classify")
